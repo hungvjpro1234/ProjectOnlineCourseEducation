@@ -1,6 +1,7 @@
 // app/src/main/java/com/example/projectonlinecourseeducation/feature/student/fragment/StudentHomeFragment.java
 package com.example.projectonlinecourseeducation.feature.student.fragment;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,6 +25,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.widget.ImageView.ScaleType;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseDetailActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.CourseAdapter;
 import com.example.projectonlinecourseeducation.data.CourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.CourseFakeApiService.Sort;
@@ -91,12 +93,22 @@ public class StudentHomeFragment extends Fragment {
         }
         handler.postDelayed(flipRunnable, 4000);
 
-        // Recycler grid 2 cột (tự co 1 cột nếu màn hẹp)
+        // ✅ THÊM ĐOẠN NÀY NGAY SAU PHẦN SETUP FLIPPER
         int span = getResources().getDisplayMetrics().widthPixels > 700 ? 2 : 1;
         rv.setLayoutManager(new GridLayoutManager(requireContext(), span));
         adapter = new CourseAdapter();
         rv.setAdapter(adapter);
-        applyQuery(); // load initial
+
+        // Khi click 1 course -> mở trang chi tiết
+        adapter.setOnCourseClickListener(course -> {
+            Intent i = new Intent(requireContext(), StudentCourseDetailActivity.class);
+            i.putExtra("course_id", course.getId());
+            i.putExtra("course_title", course.getTitle());
+            startActivity(i);
+        });
+
+        // Gọi dữ liệu ban đầu
+        applyQuery();
 
         // Search realtime
         edtSearch.addTextChangedListener(new TextWatcher() {
