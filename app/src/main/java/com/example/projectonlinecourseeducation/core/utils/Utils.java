@@ -1,5 +1,5 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/Utils.java
-package com.example.projectonlinecourseeducation.utils;
+// app/src/main/java/com/example/projectonlinecourseeducation/core/utils/Utils.java
+package com.example.projectonlinecourseeducation.core.utils;
 
 import android.util.Patterns;
 
@@ -16,5 +16,11 @@ public class Utils {
             if (Character.isDigit(c)) hasDigit = true;
         }
         return hasLetter && hasDigit;
+    }
+
+    // username: 3-20 ký tự, chữ/số/._, bắt đầu bằng chữ
+    public static boolean isValidUsername(String username) {
+        if (username == null) return false;
+        return username.matches("^[A-Za-z][A-Za-z0-9._]{2,19}$");
     }
 }

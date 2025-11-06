@@ -8,4 +8,6 @@
     <color name="colorError">#E53935</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="gray">#436868F2</color>
+    <color name="bgnav">#E0E0E0</color>
 </resources>

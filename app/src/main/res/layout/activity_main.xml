@@ -9,7 +9,7 @@
 
     <TextView
         android:id="@+id/tvTitle"
-        android:text="Project Online Course\nEducation"
+        android:text="TechEdu"
         android:textStyle="bold"
         android:textSize="24sp"
         android:textColor="@color/colorPrimary"

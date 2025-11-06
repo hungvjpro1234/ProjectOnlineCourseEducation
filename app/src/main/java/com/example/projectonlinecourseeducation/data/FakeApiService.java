@@ -1,13 +1,16 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/FakeApiService.java
+// app/src/main/java/com/example/projectonlinecourseeducation/data/FakeApiService.java
 package com.example.projectonlinecourseeducation.data;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import com.example.projectonlinecourseeducation.model.User;
+
+import com.example.projectonlinecourseeducation.core.model.User;
+import com.example.projectonlinecourseeducation.core.model.User.Role;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public class FakeApiService {
@@ -31,22 +34,34 @@ public class FakeApiService {
 
     private final List<User> users = new ArrayList<>();
 
-    // JSON seed mô phỏng data từ backend
-    // Có thể chuyển sang đọc từ assets/users.json nếu muốn.
+    // Seed JSON mới: có username + role
     private static final String SEED_JSON = "[\n" +
             "  {\n" +
             "    \"id\": \"u1\",\n" +
             "    \"name\": \"Student One\",\n" +
+            "    \"username\": \"student1\",\n" +
             "    \"email\": \"student1@example.com\",\n" +
             "    \"password\": \"Pass123\",\n" +
-            "    \"verified\": true\n" +
+            "    \"verified\": true,\n" +
+            "    \"role\": \"STUDENT\"\n" +
             "  },\n" +
             "  {\n" +
             "    \"id\": \"u2\",\n" +
             "    \"name\": \"Teacher Demo\",\n" +
+            "    \"username\": \"teacher\",\n" +
             "    \"email\": \"teacher@example.com\",\n" +
             "    \"password\": \"Teach123\",\n" +
-            "    \"verified\": true\n" +
+            "    \"verified\": true,\n" +
+            "    \"role\": \"TEACHER\"\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"id\": \"u3\",\n" +
+            "    \"name\": \"Admin Boss\",\n" +
+            "    \"username\": \"admin\",\n" +
+            "    \"email\": \"admin@example.com\",\n" +
+            "    \"password\": \"Admin123\",\n" +
+            "    \"verified\": true,\n" +
+            "    \"role\": \"ADMIN\"\n" +
             "  }\n" +
             "]";
 
@@ -58,10 +73,12 @@ public class FakeApiService {
                 users.add(new User(
                         o.optString("id"),
                         o.optString("name"),
+                        o.optString("username"),
                         o.optString("email"),
                         o.optString("password"),
                         o.optBoolean("verified", false),
-                        null
+                        null,
+                        Role.valueOf(o.optString("role", "STUDENT").toUpperCase(Locale.US))
                 ));
             }
         } catch (JSONException e) {
@@ -69,13 +86,13 @@ public class FakeApiService {
         }
     }
 
-    // Đăng nhập
-    public ApiResult<User> login(String email, String password) {
+    // ========== Auth ==========
+
+    // Đăng nhập bằng USERNAME (không dùng email)
+    public ApiResult<User> loginByUsername(String username, String password) {
         for (User u : users) {
-            if (u.getEmail().equalsIgnoreCase(email)) {
-                if (!u.isVerified()) {
-                    return ApiResult.fail("Tài khoản chưa xác minh.");
-                }
+            if (u.getUsername().equalsIgnoreCase(username)) {
+                if (!u.isVerified()) return ApiResult.fail("Tài khoản chưa xác minh email.");
                 if (u.getPassword().equals(password)) {
                     return ApiResult.ok("Đăng nhập thành công", u);
                 } else {
@@ -83,45 +100,60 @@ public class FakeApiService {
                 }
             }
         }
-        return ApiResult.fail("Không tìm thấy tài khoản với email này.");
+        return ApiResult.fail("Không tìm thấy tài khoản với username này.");
     }
 
-    // Đăng ký
-    public ApiResult<User> register(String name, String email, String password) {
-        for (User u : users) {
-            if (u.getEmail().equalsIgnoreCase(email)) {
-                return ApiResult.fail("Email đã tồn tại.");
-            }
+    // Đăng ký: chỉ cho STUDENT hoặc TEACHER
+    public ApiResult<User> register(String name, String username, String email, String password, Role role) {
+        if (role == Role.ADMIN) {
+            return ApiResult.fail("Không thể tự đăng ký ADMIN.");
         }
-        User nu = new User(UUID.randomUUID().toString(), name, email, password, true, null);
+        // Unique email + username
+        for (User u : users) {
+            if (u.getEmail().equalsIgnoreCase(email)) return ApiResult.fail("Email đã tồn tại.");
+            if (u.getUsername().equalsIgnoreCase(username)) return ApiResult.fail("Username đã tồn tại.");
+        }
+
+        // Demo: verified=true để đỡ bước xác minh email
+        User nu = new User(
+                UUID.randomUUID().toString(),
+                name,
+                username,
+                email,
+                password,
+                true,
+                null,
+                role
+        );
         users.add(nu);
         return ApiResult.ok("Đăng ký thành công. Bạn có thể đăng nhập.", nu);
     }
 
-    // Gửi mã reset (mock gửi mail): trả về mã để dev dễ test
-    public ApiResult<String> requestPasswordReset(String email) {
+    // Forgot password (luồng LINK): tạo resetToken + trả về "link" demo
+    public ApiResult<String> requestPasswordResetLink(String email) {
         for (User u : users) {
             if (u.getEmail().equalsIgnoreCase(email)) {
-                String code = String.valueOf((int)(Math.random() * 900000 + 100000)); // 6 số
-                u.setResetCode(code);
-                return ApiResult.ok("Mã đặt lại đã được gửi (demo).", code);
+                String token = UUID.randomUUID().toString();
+                u.setResetToken(token);
+                // Link demo để dev test (prod sẽ gửi mail thực)
+                String fakeLink = "https://example.com/reset?token=" + token;
+                return ApiResult.ok("Đã gửi link đặt lại mật khẩu (demo).", fakeLink);
             }
         }
         return ApiResult.fail("Email không tồn tại trong hệ thống.");
     }
 
-    // Đặt lại mật khẩu
-    public ApiResult<Boolean> resetPassword(String email, String code, String newPassword) {
+    // API mô phỏng thao tác đổi mật khẩu sau khi người dùng bấm vào link trong email
+    // (Không dùng trong UI hiện tại, nhưng hữu ích khi test unit)
+    public ApiResult<Boolean> finalizeResetViaLink(String token, String newPassword) {
+        if (token == null || token.isEmpty()) return ApiResult.fail("Token không hợp lệ.");
         for (User u : users) {
-            if (u.getEmail().equalsIgnoreCase(email)) {
-                String expected = u.getResetCode();
-                if (expected == null) return ApiResult.fail("Vui lòng yêu cầu mã trước.");
-                if (!expected.equals(code)) return ApiResult.fail("Mã xác nhận không đúng.");
+            if (token.equals(u.getResetToken())) {
                 u.setPassword(newPassword);
-                u.setResetCode(null);
-                return ApiResult.ok("Đặt lại mật khẩu thành công.", true);
+                u.setResetToken(null);
+                return ApiResult.ok("Đổi mật khẩu thành công qua link.", true);
             }
         }
-        return ApiResult.fail("Email không tồn tại.");
+        return ApiResult.fail("Token không hợp lệ hoặc đã hết hạn.");
     }
 }

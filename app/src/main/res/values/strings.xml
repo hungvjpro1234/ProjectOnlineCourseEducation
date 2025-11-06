@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">ProjectOnlineCourseEducation</string>
+    <string name="category">Language</string>
+    <string name="filter">Filter</string>
+    <string name="load_more">Xem thêm</string>
+    <string name="search_hint">Tìm theo tiêu đề hoặc GV...</string>
 </resources>

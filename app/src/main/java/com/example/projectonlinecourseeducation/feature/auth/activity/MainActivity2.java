@@ -1,5 +1,5 @@
 // app/src/main/java/com/example/projectonlinecourseeducation/MainActivity2.java
-package com.example.projectonlinecourseeducation;
+package com.example.projectonlinecourseeducation.feature.auth.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -7,6 +7,8 @@ import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.projectonlinecourseeducation.R;
 
 public class MainActivity2 extends AppCompatActivity {
 
