@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Đang chọn -->
-    <item android:state_checked="true" android:color="@color/colorPrimaryVariant"/>
+    <item android:state_checked="true" android:color="@color/colorSecondary"/>
     <!-- Không chọn -->
     <item android:color="@color/bgnav"/>
 </selector>

@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.VH> {
+public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH> {
 
     public interface OnCourseClickListener {
         void onCourseClick(Course course);
@@ -40,7 +40,7 @@ public class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.VH> {
     @NonNull @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_course_card, parent, false);
+                .inflate(R.layout.item_student_home_course_card, parent, false);
         return new VH(v);
     }
 

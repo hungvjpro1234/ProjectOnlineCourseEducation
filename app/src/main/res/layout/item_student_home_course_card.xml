@@ -54,7 +54,7 @@
             android:layout_marginStart="6dp"
             android:text="4.5"
             android:textStyle="bold"
-            android:textColor="@color/colorPrimary"
+            android:textColor="@color/colorSecondary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
     </LinearLayout>
@@ -77,5 +77,5 @@
         android:layout_height="wrap_content"
         android:text="0 đ"
         android:textStyle="bold"
-        android:textColor="@color/colorPrimary" />
+        android:textColor="@color/colorSecondary" />
 </LinearLayout>

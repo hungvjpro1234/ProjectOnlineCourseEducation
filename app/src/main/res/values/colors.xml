@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!-- ===== Core Colors (Keep Original) ===== -->
     <color name="colorPrimary">#4A148C</color>
     <color name="colorPrimaryVariant">#6A1B9A</color>
     <color name="colorSecondary">#1565C0</color>
@@ -10,4 +12,51 @@
     <color name="white">#FFFFFFFF</color>
     <color name="gray">#436868F2</color>
     <color name="bgnav">#E0E0E0</color>
+    <color name="yellow_star">#FFC107</color>
+
+    <!-- ========================================================= -->
+    <!-- ========== Extended Palette for Text & UI ================ -->
+    <!-- ========================================================= -->
+
+    <!-- Purple Shades (Primary Family) -->
+    <color name="purple_50">#F3E5F5</color>
+    <color name="purple_100">#E1BEE7</color>
+    <color name="purple_200">#CE93D8</color>
+    <color name="purple_300">#BA68C8</color>
+    <color name="purple_400">#AB47BC</color>
+    <color name="purple_500">#9C27B0</color>
+    <color name="purple_600">#8E24AA</color>
+    <color name="purple_700">#7B1FA2</color>
+    <color name="purple_800">#6A1B9A</color> <!-- gần colorPrimaryVariant -->
+    <color name="purple_900">#4A148C</color> <!-- chính là colorPrimary -->
+
+    <!-- Text Purples -->
+    <color name="purple_text_primary">#4A148C</color>
+    <color name="purple_text_secondary">#7B1FA2</color>
+
+    <!-- Blue Shades (Secondary Family) -->
+    <color name="blue_50">#E3F2FD</color>
+    <color name="blue_100">#BBDEFB</color>
+    <color name="blue_200">#90CAF9</color>
+    <color name="blue_300">#64B5F6</color>
+    <color name="blue_400">#42A5F5</color>
+    <color name="blue_500">#2196F3</color>
+    <color name="blue_600">#1E88E5</color>
+    <color name="blue_700">#1976D2</color>
+    <color name="blue_800">#1565C0</color> <!-- chính là colorSecondary -->
+    <color name="blue_900">#0D47A1</color>
+
+    <!-- Text Blues -->
+    <color name="blue_text_primary">#0D47A1</color>
+    <color name="blue_text_secondary">#1976D2</color>
+
+    <!-- Yellow Star Shades -->
+    <color name="yellow_star_light">#FFD54F</color>
+    <color name="yellow_star_dark">#FFA000</color>
+
+    <!-- Neutral Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="divider">#BDBDBD</color>
+
 </resources>

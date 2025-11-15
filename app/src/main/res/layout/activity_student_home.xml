@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:padding="12dp"
-        android:background="@color/colorPrimaryVariant"
+        android:background="@color/colorPrimary"
         android:elevation="8dp"
         android:clickable="true"
         android:focusable="true">

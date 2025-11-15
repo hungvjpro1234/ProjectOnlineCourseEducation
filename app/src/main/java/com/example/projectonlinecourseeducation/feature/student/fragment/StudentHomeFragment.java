@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/feature/student/fragment/StudentHomeFragment.java
 package com.example.projectonlinecourseeducation.feature.student.fragment;
 
 import android.content.Intent;
@@ -18,19 +17,20 @@ import android.widget.ViewFlipper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.widget.ImageView.ScaleType;
-import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
+
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseDetailActivity;
-import com.example.projectonlinecourseeducation.feature.student.adapter.CourseAdapter;
+import com.example.projectonlinecourseeducation.core.model.Course;
+import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.CourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.CourseFakeApiService.Sort;
-import com.example.projectonlinecourseeducation.core.model.Course;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseDetailActivity;
+import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 
 import java.util.Arrays;
 import java.util.List;
@@ -49,13 +49,16 @@ public class StudentHomeFragment extends Fragment {
     private Button btnCategory, btnFilter, btnLoadMore;
     private EditText edtSearch;
     private RecyclerView rv;
-    private CourseAdapter adapter;
+    private HomeCourseAdapter adapter;
     private CourseFakeApiService api;
 
     private String currentCategory = "All";
     private Sort currentSort = Sort.AZ;
     private String currentQuery = "";
     private int currentLimit = 4; // hiển thị một số khóa học, bấm "Xem thêm" để tăng
+
+    // tổng số khóa học sau khi filter + search
+    private int totalMatched = 0;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable flipRunnable = new Runnable() {
@@ -87,19 +90,17 @@ public class StudentHomeFragment extends Fragment {
         for (String url : SLIDES) {
             ImageView iv = new ImageView(requireContext());
             iv.setScaleType(ScaleType.CENTER_CROP);
-            // dùng ImageLoader để nạp ảnh từ URL
             ImageLoader.getInstance().display(url, iv, R.drawable.ic_image_placeholder);
             flipper.addView(iv);
         }
         handler.postDelayed(flipRunnable, 4000);
 
-        // ✅ THÊM ĐOẠN NÀY NGAY SAU PHẦN SETUP FLIPPER
         int span = getResources().getDisplayMetrics().widthPixels > 700 ? 2 : 1;
         rv.setLayoutManager(new GridLayoutManager(requireContext(), span));
-        adapter = new CourseAdapter();
+        adapter = new HomeCourseAdapter();
         rv.setAdapter(adapter);
 
-        // Khi click 1 course -> mở trang chi tiết
+        // Khi click 1 course -> mở trang chi tiết đúng ID
         adapter.setOnCourseClickListener(course -> {
             Intent i = new Intent(requireContext(), StudentCourseDetailActivity.class);
             i.putExtra("course_id", course.getId());
@@ -107,7 +108,7 @@ public class StudentHomeFragment extends Fragment {
             startActivity(i);
         });
 
-        // Gọi dữ liệu ban đầu
+        // Dữ liệu ban đầu
         applyQuery();
 
         // Search realtime
@@ -125,10 +126,38 @@ public class StudentHomeFragment extends Fragment {
         btnCategory.setOnClickListener(v1 -> {
             PopupMenu pm = new PopupMenu(requireContext(), btnCategory);
             pm.getMenu().add("All");
+            // danh sách ngôn ngữ / nhãn bạn đã liệt kê
             pm.getMenu().add("Java");
+            pm.getMenu().add("JavaScript");
+            pm.getMenu().add("Python");
             pm.getMenu().add("C");
             pm.getMenu().add("C++");
-            pm.getMenu().add("Python");
+            pm.getMenu().add("C#");
+            pm.getMenu().add("PHP");
+            pm.getMenu().add("SQL");
+            pm.getMenu().add("HTML");
+            pm.getMenu().add("CSS");
+            pm.getMenu().add("TypeScript");
+            pm.getMenu().add("Go");
+            pm.getMenu().add("Kotlin");
+            pm.getMenu().add("Backend");
+            pm.getMenu().add("Frontend");
+            pm.getMenu().add("Data / AI");
+            pm.getMenu().add("Mobile");
+            pm.getMenu().add("System");
+            pm.getMenu().add("DevOps");
+            pm.getMenu().add("Swift");
+            pm.getMenu().add("Dart");
+            pm.getMenu().add("Rust");
+            pm.getMenu().add("Ruby");
+            pm.getMenu().add("R");
+            pm.getMenu().add("Lua");
+            pm.getMenu().add("MATLAB");
+            pm.getMenu().add("Scala");
+            pm.getMenu().add("Shell / Bash");
+            pm.getMenu().add("Haskell");
+            pm.getMenu().add("Elixir");
+            pm.getMenu().add("Perl");
             pm.setOnMenuItemClickListener(item -> {
                 currentCategory = item.getTitle().toString();
                 btnCategory.setText("Category: " + currentCategory);
@@ -139,13 +168,13 @@ public class StudentHomeFragment extends Fragment {
             pm.show();
         });
 
-        // Popup Filter (SỬA)
+        // Popup Filter
         btnFilter.setOnClickListener(v12 -> {
             PopupMenu pm = new PopupMenu(requireContext(), btnFilter);
             pm.getMenu().add("A-Z");
             pm.getMenu().add("Z-A");
-            pm.getMenu().add("Rating ↓"); // giảm dần
-            pm.getMenu().add("Rating ↑"); // tăng dần
+            pm.getMenu().add("Rating ↓");
+            pm.getMenu().add("Rating ↑");
             pm.setOnMenuItemClickListener(item -> {
                 String t = item.getTitle().toString();
                 if (t.equals("A-Z")) {
@@ -153,11 +182,11 @@ public class StudentHomeFragment extends Fragment {
                 } else if (t.equals("Z-A")) {
                     currentSort = Sort.ZA;
                 } else if (t.contains("↑")) {
-                    currentSort = Sort.RATING_UP;      // ✅ tăng dần
+                    currentSort = Sort.RATING_UP;
                 } else if (t.contains("↓")) {
-                    currentSort = Sort.RATING_DOWN;    // ✅ giảm dần
+                    currentSort = Sort.RATING_DOWN;
                 } else {
-                    currentSort = Sort.AZ; // fallback
+                    currentSort = Sort.AZ;
                 }
                 btnFilter.setText("Filter: " + t);
                 currentLimit = 4;
@@ -167,17 +196,71 @@ public class StudentHomeFragment extends Fragment {
             pm.show();
         });
 
-
-        // Load more
+        // Load more: Xem thêm / Rút gọn
         btnLoadMore.setOnClickListener(v13 -> {
-            currentLimit += 4;
+            if (totalMatched <= 4) return;
+
+            if (currentLimit >= totalMatched) {
+                // đang xem hết -> rút gọn về 4
+                currentLimit = 4;
+            } else {
+                // xem thêm 4
+                currentLimit += 4;
+                if (currentLimit > totalMatched) currentLimit = totalMatched;
+            }
             applyQuery();
         });
     }
 
     private void applyQuery() {
-        List<Course> out = api.filterSearchSort(currentCategory, currentQuery, currentSort, currentLimit);
+        // Lấy full list theo filter + search, không giới hạn
+        List<Course> all = api.filterSearchSort(currentCategory, currentQuery, currentSort, 0);
+        totalMatched = all.size();
+
+        if (currentLimit <= 0) currentLimit = 4;
+        if (totalMatched == 0) {
+            adapter.submitList(all);
+            updateLoadMoreButton();
+            return;
+        }
+
+        if (currentLimit > totalMatched) currentLimit = totalMatched;
+
+        List<Course> out;
+        if (currentLimit < totalMatched) {
+            out = all.subList(0, currentLimit);
+        } else {
+            out = all;
+        }
+
         adapter.submitList(out);
+        updateLoadMoreButton();
+    }
+
+    private void updateLoadMoreButton() {
+        if (btnLoadMore == null) return;
+
+        if (totalMatched <= 4) {
+            // ít hoặc bằng 4 khóa -> ẩn nút
+            btnLoadMore.setVisibility(View.GONE);
+            return;
+        }
+
+        btnLoadMore.setVisibility(View.VISIBLE);
+
+        if (currentLimit >= totalMatched) {
+            // đang xem hết -> cho phép Rút gọn
+            btnLoadMore.setText("Rút gọn");
+            btnLoadMore.setBackgroundTintList(
+                    ContextCompat.getColorStateList(requireContext(), R.color.purple_400)
+            );
+        } else {
+            // còn có thể xem thêm
+            btnLoadMore.setText("Xem thêm");
+            btnLoadMore.setBackgroundTintList(
+                    ContextCompat.getColorStateList(requireContext(), R.color.colorSecondary)
+            );
+        }
     }
 
     @Override public void onDestroyView() {
