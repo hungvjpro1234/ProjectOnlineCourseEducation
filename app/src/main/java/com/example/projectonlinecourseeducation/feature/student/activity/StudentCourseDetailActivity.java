@@ -10,11 +10,11 @@ import android.widget.LinearLayout;
 import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.core.content.ContextCompat; // nhớ import
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -23,7 +23,8 @@ import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.model.CourseLesson;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
-import com.example.projectonlinecourseeducation.data.CourseFakeApiService;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
+import com.example.projectonlinecourseeducation.data.CourseApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductLessonInfoAdapter;
@@ -46,7 +47,8 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     private LinearLayout layoutSkills, layoutRequirements;
     private RecyclerView rvLessons, rvRelatedCourses, rvReviews;
 
-    private final CourseFakeApiService api = CourseFakeApiService.getInstance();
+    // Dùng interface CourseApi, không phụ thuộc fake/real
+    private CourseApi api;
 
     private ProductLessonInfoAdapter lessonAdapter;
     private HomeCourseAdapter relatedAdapter;
@@ -64,6 +66,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
         bindViews();
         setupRecyclerViews();
+
+        // lấy implementation hiện tại từ ApiProvider (Fake hoặc Remote)
+        api = ApiProvider.getCourseApi();
 
         String courseId = getIntent().getStringExtra("course_id");
         if (courseId == null) courseId = "c1";
@@ -105,9 +110,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         rvLessons.setAdapter(lessonAdapter);
         rvLessons.setNestedScrollingEnabled(false);
 
-        // Khóa học liên quan  (ĐÃ ĐỔI SANG DỌC)
+        // Khóa học liên quan (dọc)
         relatedAdapter = new HomeCourseAdapter();
-        rvRelatedCourses.setLayoutManager(new LinearLayoutManager(this)); // vertical
+        rvRelatedCourses.setLayoutManager(new LinearLayoutManager(this));
         rvRelatedCourses.setAdapter(relatedAdapter);
         rvRelatedCourses.setNestedScrollingEnabled(false);
 
@@ -119,7 +124,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     }
 
     private void loadCourseDetail(String courseId) {
-        // Fake local, không async
+        // Fake local hoặc gọi API thật, tùy implementation trong ApiProvider
         Course course = api.getCourseDetail(courseId);
         if (course == null) {
             Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();

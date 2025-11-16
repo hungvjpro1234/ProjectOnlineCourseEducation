@@ -7,24 +7,30 @@ import java.util.List;
 public class Course {
 
     // --- Thông tin dùng chung ---
-    private final String id;
-    private final String title;
-    private final String teacher;
-    private final String imageUrl;
-    private final String category; // Java / C / C++ / Python ...
-    private final int lectures;    // số bài giảng
-    private final int students;    // số học viên
-    private final double rating;   // 0..5
-    private final double price;    // giá (VND)
+    private String id;
+    private String title;
+    private String teacher;
+    private String imageUrl;
+    private String category; // Java / C / C++ / Python ...
+    private int lectures;    // số bài giảng
+    private int students;    // số học viên
+    private double rating;   // 0..5
+    private double price;    // giá (VND)
 
     // --- Thông tin chi tiết cho màn Course Detail ---
-    private final String description;       // mô tả tổng quát khóa học
-    private final String createdAt;         // thời gian tạo
-    private final int ratingCount;          // số lượt đánh giá
-    private final int totalDurationMinutes; // tổng thời lượng khóa (phút)
+    private String description;       // mô tả tổng quát khóa học
+    private String createdAt;         // thời gian tạo
+    private int ratingCount;          // số lượt đánh giá
+    private int totalDurationMinutes; // tổng thời lượng khóa (phút)
 
-    private final List<String> skills;       // các skill / insight "Bạn sẽ học được gì"
-    private final List<String> requirements; // yêu cầu học viên
+    private List<String> skills;       // các skill / insight "Bạn sẽ học được gì"
+    private List<String> requirements; // yêu cầu học viên
+
+    // ====== Constructor rỗng (bắt buộc nên có để dùng với Gson/Retrofit/Room) ======
+    public Course() {
+        this.skills = new ArrayList<>();
+        this.requirements = new ArrayList<>();
+    }
 
     // Constructor cũ – để code cũ vẫn chạy (ví dụ màn Home, Fake API cũ...)
     public Course(String id, String title, String teacher, String imageUrl,
@@ -44,6 +50,8 @@ public class Course {
                   int ratingCount, int totalDurationMinutes,
                   List<String> skills, List<String> requirements) {
 
+        this(); // khởi tạo list rỗng trước
+
         this.id = id;
         this.title = title;
         this.teacher = teacher;
@@ -59,8 +67,8 @@ public class Course {
         this.ratingCount = ratingCount;
         this.totalDurationMinutes = totalDurationMinutes;
 
-        this.skills = skills != null ? new ArrayList<>(skills) : new ArrayList<>();
-        this.requirements = requirements != null ? new ArrayList<>(requirements) : new ArrayList<>();
+        setSkills(skills);
+        setRequirements(requirements);
     }
 
     // --- Getter cũ ---
@@ -82,4 +90,38 @@ public class Course {
 
     public List<String> getSkills() { return Collections.unmodifiableList(skills); }
     public List<String> getRequirements() { return Collections.unmodifiableList(requirements); }
+
+    // ====== Setter – thêm mới để fake CRUD & cho Gson/Retrofit dễ map ======
+
+    public void setId(String id) { this.id = id; }
+    public void setTitle(String title) { this.title = title; }
+    public void setTeacher(String teacher) { this.teacher = teacher; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public void setCategory(String category) { this.category = category; }
+    public void setLectures(int lectures) { this.lectures = lectures; }
+    public void setStudents(int students) { this.students = students; }
+    public void setRating(double rating) { this.rating = rating; }
+    public void setPrice(double price) { this.price = price; }
+
+    public void setDescription(String description) {
+        this.description = (description != null) ? description : "";
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = (createdAt != null) ? createdAt : "";
+    }
+
+    public void setRatingCount(int ratingCount) { this.ratingCount = ratingCount; }
+
+    public void setTotalDurationMinutes(int totalDurationMinutes) {
+        this.totalDurationMinutes = totalDurationMinutes;
+    }
+
+    public void setSkills(List<String> skills) {
+        this.skills = (skills != null) ? new ArrayList<>(skills) : new ArrayList<>();
+    }
+
+    public void setRequirements(List<String> requirements) {
+        this.requirements = (requirements != null) ? new ArrayList<>(requirements) : new ArrayList<>();
+    }
 }
