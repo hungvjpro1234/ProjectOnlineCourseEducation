@@ -1,5 +1,4 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/data/FakeApiService.java
-package com.example.projectonlinecourseeducation.data;
+package com.example.projectonlinecourseeducation.data.auth;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -13,28 +12,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-public class FakeApiService {
+public class AuthFakeApiService implements AuthApi {
 
-    public static class ApiResult<T> {
-        public final boolean success;
-        public final String message;
-        public final T data;
-        public ApiResult(boolean success, String message, T data) {
-            this.success = success; this.message = message; this.data = data;
-        }
-        public static <T> ApiResult<T> ok(String msg, T data) { return new ApiResult<>(true, msg, data); }
-        public static <T> ApiResult<T> fail(String msg) { return new ApiResult<>(false, msg, null); }
-    }
+    private static AuthFakeApiService instance;
 
-    private static FakeApiService instance;
-    public static FakeApiService getInstance() {
-        if (instance == null) instance = new FakeApiService();
+    public static AuthFakeApiService getInstance() {
+        if (instance == null) instance = new AuthFakeApiService();
         return instance;
     }
 
     private final List<User> users = new ArrayList<>();
 
-    // Seed JSON mới: có username + role
+    // Seed JSON: có username + role
     private static final String SEED_JSON = "[\n" +
             "  {\n" +
             "    \"id\": \"u1\",\n" +
@@ -65,7 +54,7 @@ public class FakeApiService {
             "  }\n" +
             "]";
 
-    private FakeApiService() {
+    private AuthFakeApiService() {
         try {
             JSONArray arr = new JSONArray(SEED_JSON);
             for (int i = 0; i < arr.length(); i++) {
@@ -86,9 +75,9 @@ public class FakeApiService {
         }
     }
 
-    // ========== Auth ==========
+    // ========== IMPLEMENT AuthApi ==========
 
-    // Đăng nhập bằng USERNAME (không dùng email)
+    @Override
     public ApiResult<User> loginByUsername(String username, String password) {
         for (User u : users) {
             if (u.getUsername().equalsIgnoreCase(username)) {
@@ -103,18 +92,27 @@ public class FakeApiService {
         return ApiResult.fail("Không tìm thấy tài khoản với username này.");
     }
 
-    // Đăng ký: chỉ cho STUDENT hoặc TEACHER
-    public ApiResult<User> register(String name, String username, String email, String password, Role role) {
+    @Override
+    public ApiResult<User> register(String name,
+                                    String username,
+                                    String email,
+                                    String password,
+                                    Role role) {
         if (role == Role.ADMIN) {
             return ApiResult.fail("Không thể tự đăng ký ADMIN.");
         }
+
         // Unique email + username
         for (User u : users) {
-            if (u.getEmail().equalsIgnoreCase(email)) return ApiResult.fail("Email đã tồn tại.");
-            if (u.getUsername().equalsIgnoreCase(username)) return ApiResult.fail("Username đã tồn tại.");
+            if (u.getEmail().equalsIgnoreCase(email)) {
+                return ApiResult.fail("Email đã tồn tại.");
+            }
+            if (u.getUsername().equalsIgnoreCase(username)) {
+                return ApiResult.fail("Username đã tồn tại.");
+            }
         }
 
-        // Demo: verified=true để đỡ bước xác minh email
+        // Demo: verified = true để bỏ qua bước xác minh email
         User nu = new User(
                 UUID.randomUUID().toString(),
                 name,
@@ -129,12 +127,13 @@ public class FakeApiService {
         return ApiResult.ok("Đăng ký thành công. Bạn có thể đăng nhập.", nu);
     }
 
-    // Forgot password (luồng LINK): tạo resetToken + trả về "link" demo
+    @Override
     public ApiResult<String> requestPasswordResetLink(String email) {
         for (User u : users) {
             if (u.getEmail().equalsIgnoreCase(email)) {
                 String token = UUID.randomUUID().toString();
                 u.setResetToken(token);
+
                 // Link demo để dev test (prod sẽ gửi mail thực)
                 String fakeLink = "https://example.com/reset?token=" + token;
                 return ApiResult.ok("Đã gửi link đặt lại mật khẩu (demo).", fakeLink);
@@ -143,8 +142,7 @@ public class FakeApiService {
         return ApiResult.fail("Email không tồn tại trong hệ thống.");
     }
 
-    // API mô phỏng thao tác đổi mật khẩu sau khi người dùng bấm vào link trong email
-    // (Không dùng trong UI hiện tại, nhưng hữu ích khi test unit)
+    @Override
     public ApiResult<Boolean> finalizeResetViaLink(String token, String newPassword) {
         if (token == null || token.isEmpty()) return ApiResult.fail("Token không hợp lệ.");
         for (User u : users) {

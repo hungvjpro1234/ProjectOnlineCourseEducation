@@ -27,8 +27,9 @@ import android.widget.ImageView.ScaleType;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
-import com.example.projectonlinecourseeducation.data.CourseFakeApiService;
-import com.example.projectonlinecourseeducation.data.CourseFakeApiService.Sort;
+import com.example.projectonlinecourseeducation.data.CourseApi;
+import com.example.projectonlinecourseeducation.data.CourseApi.Sort;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseDetailActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 
@@ -50,7 +51,9 @@ public class StudentHomeFragment extends Fragment {
     private EditText edtSearch;
     private RecyclerView rv;
     private HomeCourseAdapter adapter;
-    private CourseFakeApiService api;
+
+    // DÙNG interface CourseApi, không phụ thuộc fake hay real
+    private CourseApi api;
 
     private String currentCategory = "All";
     private Sort currentSort = Sort.AZ;
@@ -84,7 +87,8 @@ public class StudentHomeFragment extends Fragment {
         edtSearch = v.findViewById(R.id.edtSearch);
         rv = v.findViewById(R.id.rvCourses);
 
-        api = CourseFakeApiService.getInstance();
+        // Lấy implementation từ ApiProvider (hiện tại là FakeApi, sau này là RemoteApi)
+        api = ApiProvider.getCourseApi();
 
         // setup flipper
         for (String url : SLIDES) {

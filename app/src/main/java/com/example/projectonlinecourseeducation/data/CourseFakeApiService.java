@@ -14,7 +14,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-public class CourseFakeApiService {
+// DÙNG Sort từ CourseApi
+import com.example.projectonlinecourseeducation.data.CourseApi.Sort;
+
+// IMPLEMENTS CourseApi
+public class CourseFakeApiService implements CourseApi {
 
     // --------------------------------------------------------------------
     // Singleton
@@ -25,10 +29,14 @@ public class CourseFakeApiService {
         return instance;
     }
 
-    // Sort cho màn Home
-    public enum Sort { AZ, ZA, RATING_UP, RATING_DOWN }
-
     private final List<Course> allCourses = new ArrayList<>();
+
+    // dùng cho create khóa học mới (vì đã có c1..c10)
+    private int nextId = 100;
+
+    private String generateNewId() {
+        return "c" + (nextId++);
+    }
 
     // --------------------------------------------------------------------
     // 1) JSON SEED CHO TẤT CẢ KHÓA HỌC
@@ -309,13 +317,17 @@ public class CourseFakeApiService {
         return null;
     }
 
+    // --------------------------------------------------------------------
+    // IMPLEMENT CourseApi
+    // --------------------------------------------------------------------
+
+    @Override
     public List<Course> listAll() {
         return new ArrayList<>(allCourses);
     }
 
-    // --------------------------------------------------------------------
     // API CHO HOME – filter + sort + limit
-    // --------------------------------------------------------------------
+    @Override
     public List<Course> filterSearchSort(String categoryOrAll, String query, Sort sort, int limit) {
         String cat = categoryOrAll == null ? "All" : categoryOrAll;
         String q = query == null ? "" : query.trim().toLowerCase(Locale.US);
@@ -340,6 +352,7 @@ public class CourseFakeApiService {
             case RATING_DOWN:
                 cmp = (a, b) -> Double.compare(b.getRating(), a.getRating());
                 break;
+            case AZ:
             default:
                 cmp = (a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle());
         }
@@ -351,15 +364,15 @@ public class CourseFakeApiService {
         return res;
     }
 
-    // --------------------------------------------------------------------
     // API CHO MÀN CHI TIẾT
-    // --------------------------------------------------------------------
+    @Override
     public Course getCourseDetail(String courseId) {
         Course c = findById(courseId);
         if (c != null) return c;
         return allCourses.isEmpty() ? null : allCourses.get(0);
     }
 
+    @Override
     public List<CourseLesson> getLessonsForCourse(String courseId) {
         List<CourseLesson> result = new ArrayList<>();
         try {
@@ -379,6 +392,7 @@ public class CourseFakeApiService {
         return result;
     }
 
+    @Override
     public List<Course> getRelatedCourses(String courseId) {
         List<Course> related = new ArrayList<>();
         Course base = findById(courseId);
@@ -400,6 +414,7 @@ public class CourseFakeApiService {
         return related;
     }
 
+    @Override
     public List<CourseReview> getReviewsForCourse(String courseId) {
         // Tạm dùng chung một bộ review – sau này có thể đổi sang JSON riêng từng course
         return Arrays.asList(
@@ -410,5 +425,51 @@ public class CourseFakeApiService {
                 new CourseReview("Lê Văn D", 4.0f,
                         "Ổn, mình chỉ mong có thêm phần bài tập nâng cao.")
         );
+    }
+
+    // ------------------ CRUD (fake) ------------------
+
+    @Override
+    public Course createCourse(Course newCourse) {
+        if (newCourse.getId() == null || newCourse.getId().trim().isEmpty()) {
+            newCourse.setId(generateNewId());
+        } else {
+            Course old = findById(newCourse.getId());
+            if (old != null) {
+                allCourses.remove(old);
+            }
+        }
+        allCourses.add(newCourse);
+        return newCourse;
+    }
+
+    @Override
+    public Course updateCourse(String id, Course updatedCourse) {
+        Course existing = findById(id);
+        if (existing == null) return null;
+
+        existing.setTitle(updatedCourse.getTitle());
+        existing.setTeacher(updatedCourse.getTeacher());
+        existing.setImageUrl(updatedCourse.getImageUrl());
+        existing.setCategory(updatedCourse.getCategory());
+        existing.setLectures(updatedCourse.getLectures());
+        existing.setStudents(updatedCourse.getStudents());
+        existing.setRating(updatedCourse.getRating());
+        existing.setPrice(updatedCourse.getPrice());
+        existing.setDescription(updatedCourse.getDescription());
+        existing.setCreatedAt(updatedCourse.getCreatedAt());
+        existing.setRatingCount(updatedCourse.getRatingCount());
+        existing.setTotalDurationMinutes(updatedCourse.getTotalDurationMinutes());
+        existing.setSkills(updatedCourse.getSkills());
+        existing.setRequirements(updatedCourse.getRequirements());
+
+        return existing;
+    }
+
+    @Override
+    public boolean deleteCourse(String id) {
+        Course existing = findById(id);
+        if (existing == null) return false;
+        return allCourses.remove(existing);
     }
 }
