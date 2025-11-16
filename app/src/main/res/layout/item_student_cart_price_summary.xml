@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:background="#F5F5F5"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:elevation="4dp">
+
+    <TextView
+        android:id="@+id/tvSummary"
+        android:text="Tổng cộng: 0 khóa học"
+        android:textStyle="bold"
+        android:textSize="15sp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/tvTotalPrice"
+        android:text="0 đ"
+        android:textStyle="bold"
+        android:textColor="@color/colorPrimary"
+        android:textSize="20sp"
+        android:layout_marginTop="4dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/btnCheckout"
+        android:text="Thanh toán"
+        android:textAllCaps="false"
+        android:backgroundTint="@color/colorSecondary"
+        android:textColor="@android:color/white"
+        android:layout_marginTop="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"/>
+</LinearLayout>

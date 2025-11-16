@@ -1,11 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:background="@color/colorBackground">
-    <TextView
-        android:layout_gravity="center"
-        android:text="Đây là trang GIỎ HÀNG"
-        android:textStyle="bold"
-        android:textSize="20sp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Toolbar / Title -->
+        <TextView
+            android:id="@+id/tvCartTitle"
+            android:text="Giỏ hàng của bạn"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <!-- RecyclerView hiển thị các khóa học -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCartCourses"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingTop="12dp"/>
+
+        <!-- Summary box -->
+        <include
+            layout="@layout/item_student_cart_price_summary"
+            android:id="@+id/layoutSummary"/>
+
+    </LinearLayout>
+
 </FrameLayout>

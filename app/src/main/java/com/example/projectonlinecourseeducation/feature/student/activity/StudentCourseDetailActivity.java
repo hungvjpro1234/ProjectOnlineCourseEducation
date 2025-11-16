@@ -253,7 +253,11 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
     private void setupActions() {
         btnAddToCart.setOnClickListener(v -> {
-            Toast.makeText(this, "Đã thêm vào giỏ hàng (fake)", Toast.LENGTH_SHORT).show();
+            Course currentCourse = api.getCourseDetail(getIntent().getStringExtra("course_id"));
+            if (currentCourse != null) { // currentCourse là Course đang hiển thị
+                StudentCartActivity.getInstance().addCourse(currentCourse);
+                Toast.makeText(this, "Đã thêm vào giỏ hàng!", Toast.LENGTH_SHORT).show();
+            }
         });
 
         btnBuyNow.setOnClickListener(v -> {
