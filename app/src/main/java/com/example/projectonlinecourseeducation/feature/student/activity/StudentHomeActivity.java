@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/feature/student/activity/StudentHomeActivity.java
 package com.example.projectonlinecourseeducation.feature.student.activity;
 
 import android.content.Intent;
@@ -11,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.feature.auth.activity.LoginActivity;
 import com.example.projectonlinecourseeducation.feature.auth.activity.MainActivity2;
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentCartFragment;
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentHomeFragment;
@@ -67,6 +65,8 @@ public class StudentHomeActivity extends AppCompatActivity {
         });
 
         // mặc định mở Home
-        bottomNav.setSelectedItemId(R.id.nav_home);
+        // Nếu được truyền flag open_cart từ StudentCourseDetailActivity thì mở tab Giỏ hàng
+        boolean openCart = getIntent().getBooleanExtra("open_cart", false);
+        bottomNav.setSelectedItemId(openCart ? R.id.nav_cart : R.id.nav_home);
     }
 }

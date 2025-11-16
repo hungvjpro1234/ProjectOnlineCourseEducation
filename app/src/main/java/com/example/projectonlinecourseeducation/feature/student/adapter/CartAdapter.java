@@ -3,6 +3,7 @@ package com.example.projectonlinecourseeducation.feature.student.adapter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -15,11 +16,19 @@ import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 
 import java.util.List;
 
-public class StudentCartAdapter extends RecyclerView.Adapter<StudentCartAdapter.CartViewHolder> {
-    private List<Course> courseList;
+public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder> {
 
-    public StudentCartAdapter(List<Course> courses) {
+    public interface CartActionListener {
+        void onRemoveClicked(Course course, int position);
+        void onPayItemClicked(Course course);
+    }
+
+    private final List<Course> courseList;
+    private final CartActionListener listener;
+
+    public CartAdapter(List<Course> courses, CartActionListener listener) {
         this.courseList = courses;
+        this.listener = listener;
     }
 
     @NonNull
@@ -33,22 +42,45 @@ public class StudentCartAdapter extends RecyclerView.Adapter<StudentCartAdapter.
     @Override
     public void onBindViewHolder(@NonNull CartViewHolder holder, int position) {
         Course course = courseList.get(position);
+
         holder.tvTitle.setText(course.getTitle());
         holder.tvTeacher.setText(course.getTeacher());
         holder.tvPrice.setText(String.valueOf(course.getPrice()));
-        holder.tvInfo.setText(String.valueOf(course.getRating()) +" ★  •  "+ String.valueOf(course.getLectures()) + " bài học");
-        // Thêm set hình ảnh:
-        //ImageLoader.getInstance().display(course.getImageUrl(), holder.imgBanner, R.drawable.ic_image_placeholder);
+        holder.tvInfo.setText(course.getRating() + " ★  •  " + course.getLectures() + " bài học");
+
+        ImageLoader.getInstance().display(
+                course.getImageUrl(),
+                holder.imgCourse,
+                R.drawable.ic_image_placeholder
+        );
+
+        // Sự kiện nút xóa
+        holder.btnRemove.setOnClickListener(v -> {
+            if (listener != null) {
+                int pos = holder.getBindingAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION) {
+                    listener.onRemoveClicked(courseList.get(pos), pos);
+                }
+            }
+        });
+
+        // Sự kiện thanh toán từng item
+        holder.btnPayItem.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onPayItemClicked(course);
+            }
+        });
     }
 
     @Override
     public int getItemCount() {
-        return courseList.size();
+        return courseList != null ? courseList.size() : 0;
     }
 
     public static class CartViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvTeacher, tvPrice, tvInfo;
-        //ImageView imgBanner; // ảnh
+        ImageView imgCourse, btnRemove;
+        Button btnPayItem;
 
         public CartViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -56,7 +88,9 @@ public class StudentCartAdapter extends RecyclerView.Adapter<StudentCartAdapter.
             tvTeacher = itemView.findViewById(R.id.tvTeacher);
             tvPrice = itemView.findViewById(R.id.tvPrice);
             tvInfo = itemView.findViewById(R.id.tvInfo);
-            //imgBanner = itemView.findViewById(R.id.imgBanner);
+            imgCourse = itemView.findViewById(R.id.imgCourse);
+            btnRemove = itemView.findViewById(R.id.btnRemove);
+            btnPayItem = itemView.findViewById(R.id.btnPayItem);
         }
     }
 }

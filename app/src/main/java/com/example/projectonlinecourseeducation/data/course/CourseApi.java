@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.data;
+package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.model.CourseLesson;

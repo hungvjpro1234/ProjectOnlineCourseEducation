@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.data;
+package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.model.CourseLesson;
@@ -9,13 +9,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
 // DÙNG Sort từ CourseApi
-import com.example.projectonlinecourseeducation.data.CourseApi.Sort;
+
 
 // IMPLEMENTS CourseApi
 public class CourseFakeApiService implements CourseApi {
@@ -31,7 +30,7 @@ public class CourseFakeApiService implements CourseApi {
 
     private final List<Course> allCourses = new ArrayList<>();
 
-    // dùng cho create khóa học mới (vì đã có c1..c10)
+    // dùng cho create khóa học mới (vì đã có c1..c3)
     private int nextId = 100;
 
     private String generateNewId() {
@@ -41,6 +40,7 @@ public class CourseFakeApiService implements CourseApi {
     // --------------------------------------------------------------------
     // 1) JSON SEED CHO TẤT CẢ KHÓA HỌC
     //    (giống như response /courses từ backend)
+    //    -> ĐÃ RÚT GỌN CÒN 3 KHÓA
     // --------------------------------------------------------------------
     private static final String COURSES_JSON = "[\n" +
             "  {\n" +
@@ -62,23 +62,6 @@ public class CourseFakeApiService implements CourseApi {
             "  },\n" +
             "  {\n" +
             "    \"id\":\"c2\",\n" +
-            "    \"title\":\"Java Nâng Cao\",\n" +
-            "    \"teacher\":\"Nguyễn A\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/j2/640/360\",\n" +
-            "    \"category\":\"Java, OOP, Backend\",\n" +
-            "    \"lectures\":60,\n" +
-            "    \"students\":950,\n" +
-            "    \"rating\":4.7,\n" +
-            "    \"price\":249000,\n" +
-            "    \"description\":\"Đào sâu vào Generics, Stream API, đa luồng và best practice trong Java.\",\n" +
-            "    \"createdAt\":\"04/2024\",\n" +
-            "    \"ratingCount\":180,\n" +
-            "    \"totalDurationMinutes\":840,\n" +
-            "    \"skills\":[\"Generics\", \"Stream API\", \"Đa luồng\", \"Clean code với Java\"],\n" +
-            "    \"requirements\":[\"Nắm Java cơ bản\", \"Hiểu OOP\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c3\",\n" +
             "    \"title\":\"Java Web với Spring Boot\",\n" +
             "    \"teacher\":\"Nguyễn A\",\n" +
             "    \"imageUrl\":\"https://picsum.photos/seed/j3/640/360\",\n" +
@@ -95,41 +78,7 @@ public class CourseFakeApiService implements CourseApi {
             "    \"requirements\":[\"Nắm Java cơ bản\", \"Kiến thức OOP\", \"Biết SQL cơ bản\"]\n" +
             "  },\n" +
             "  {\n" +
-            "    \"id\":\"c4\",\n" +
-            "    \"title\":\"Lập Trình Java Cho Người Đi Làm\",\n" +
-            "    \"teacher\":\"Nguyễn A\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/j4/640/360\",\n" +
-            "    \"category\":\"Java, Backend\",\n" +
-            "    \"lectures\":40,\n" +
-            "    \"students\":800,\n" +
-            "    \"rating\":4.5,\n" +
-            "    \"price\":189000,\n" +
-            "    \"description\":\"Tổng hợp các kiến thức Java, exception, file, JDBC để áp dụng thực tế.\",\n" +
-            "    \"createdAt\":\"02/2024\",\n" +
-            "    \"ratingCount\":90,\n" +
-            "    \"totalDurationMinutes\":600,\n" +
-            "    \"skills\":[\"Exception handling\", \"Làm việc với file\", \"JDBC cơ bản\", \"Debug ứng dụng Java\"],\n" +
-            "    \"requirements\":[\"Nắm Java cơ bản\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c5\",\n" +
-            "    \"title\":\"Luyện Thi Chứng Chỉ Java OCP\",\n" +
-            "    \"teacher\":\"Nguyễn A\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/j5/640/360\",\n" +
-            "    \"category\":\"Java, OOP\",\n" +
-            "    \"lectures\":70,\n" +
-            "    \"students\":430,\n" +
-            "    \"rating\":4.9,\n" +
-            "    \"price\":349000,\n" +
-            "    \"description\":\"Ôn tập toàn diện Java Core, câu hỏi trắc nghiệm và tips vượt qua kỳ thi OCP.\",\n" +
-            "    \"createdAt\":\"06/2024\",\n" +
-            "    \"ratingCount\":300,\n" +
-            "    \"totalDurationMinutes\":1020,\n" +
-            "    \"skills\":[\"Ôn tập Java Core\", \"Làm đề OCP\", \"Phân tích câu hỏi khó\"],\n" +
-            "    \"requirements\":[\"Đã học Java nâng cao\", \"Đọc hiểu tiếng Anh cơ bản\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c6\",\n" +
+            "    \"id\":\"c3\",\n" +
             "    \"title\":\"JavaScript Cơ Bản Đến Nâng Cao\",\n" +
             "    \"teacher\":\"Trần B\",\n" +
             "    \"imageUrl\":\"https://picsum.photos/seed/js1/640/360\",\n" +
@@ -144,85 +93,57 @@ public class CourseFakeApiService implements CourseApi {
             "    \"totalDurationMinutes\":780,\n" +
             "    \"skills\":[\"Cú pháp JS cơ bản\", \"DOM manipulation\", \"Async/await\", \"Build web mini project\"],\n" +
             "    \"requirements\":[\"Biết HTML/CSS cơ bản\", \"Biết sử dụng trình duyệt\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c7\",\n" +
-            "    \"title\":\"React + TypeScript Từ A-Z\",\n" +
-            "    \"teacher\":\"Trần B\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/js2/640/360\",\n" +
-            "    \"category\":\"JavaScript, TypeScript, Frontend\",\n" +
-            "    \"lectures\":65,\n" +
-            "    \"students\":1300,\n" +
-            "    \"rating\":4.7,\n" +
-            "    \"price\":279000,\n" +
-            "    \"description\":\"Xây dựng SPA với React, hook, router và quản lý state với TypeScript.\",\n" +
-            "    \"createdAt\":\"03/2024\",\n" +
-            "    \"ratingCount\":160,\n" +
-            "    \"totalDurationMinutes\":840,\n" +
-            "    \"skills\":[\"React hook\", \"React Router\", \"TypeScript cơ bản\", \"Tổ chức project React\"],\n" +
-            "    \"requirements\":[\"Nắm JavaScript ES6\", \"Hiểu HTML/CSS\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c8\",\n" +
-            "    \"title\":\"Python Cho Phân Tích Dữ Liệu\",\n" +
-            "    \"teacher\":\"Lê C\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/py1/640/360\",\n" +
-            "    \"category\":\"Python, Data, SQL\",\n" +
-            "    \"lectures\":48,\n" +
-            "    \"students\":1750,\n" +
-            "    \"rating\":4.8,\n" +
-            "    \"price\":259000,\n" +
-            "    \"description\":\"Dùng Python, Pandas, Matplotlib để phân tích dữ liệu thực tế.\",\n" +
-            "    \"createdAt\":\"02/2024\",\n" +
-            "    \"ratingCount\":190,\n" +
-            "    \"totalDurationMinutes\":720,\n" +
-            "    \"skills\":[\"Python cơ bản\", \"Pandas\", \"Data cleaning\", \"Visualization với Matplotlib\"],\n" +
-            "    \"requirements\":[\"Biết Excel cơ bản\", \"Tư duy logic tốt\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c9\",\n" +
-            "    \"title\":\"Python Web Với Django\",\n" +
-            "    \"teacher\":\"Lê C\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/py2/640/360\",\n" +
-            "    \"category\":\"Python, Django, Backend\",\n" +
-            "    \"lectures\":52,\n" +
-            "    \"students\":980,\n" +
-            "    \"rating\":4.6,\n" +
-            "    \"price\":229000,\n" +
-            "    \"description\":\"Xây dựng website hoàn chỉnh với Django, ORM, template và auth.\",\n" +
-            "    \"createdAt\":\"04/2024\",\n" +
-            "    \"ratingCount\":140,\n" +
-            "    \"totalDurationMinutes\":780,\n" +
-            "    \"skills\":[\"Django cơ bản\", \"Django ORM\", \"Template & form\", \"Auth & middleware\"],\n" +
-            "    \"requirements\":[\"Nắm Python cơ bản\", \"Biết HTML cơ bản\"]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":\"c10\",\n" +
-            "    \"title\":\"Fullstack Web: HTML/CSS/JavaScript\",\n" +
-            "    \"teacher\":\"Trần B\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/fs1/640/360\",\n" +
-            "    \"category\":\"HTML, CSS, JavaScript, Frontend\",\n" +
-            "    \"lectures\":58,\n" +
-            "    \"students\":2200,\n" +
-            "    \"rating\":4.7,\n" +
-            "    \"price\":239000,\n" +
-            "    \"description\":\"Xây dựng từ landing page đến web nhiều trang với HTML, CSS và JS thuần.\",\n" +
-            "    \"createdAt\":\"05/2024\",\n" +
-            "    \"ratingCount\":260,\n" +
-            "    \"totalDurationMinutes\":840,\n" +
-            "    \"skills\":[\"Layout với Flexbox/Grid\", \"Responsive design\", \"Vanilla JS\", \"Deploy project đơn giản\"],\n" +
-            "    \"requirements\":[\"Không yêu cầu kiến thức trước\", \"Máy tính kết nối Internet\"]\n" +
             "  }\n" +
             "]";
 
-    // JSON lesson dùng chung (demo) – sau này có thể tách theo courseId
-    private static final String LESSONS_JSON = "{ \"lessons\":[" +
-            "{\"id\":\"l1\",\"title\":\"Giới thiệu khoá học & cài đặt môi trường\",\"duration\":\"10:30\"}," +
-            "{\"id\":\"l2\",\"title\":\"Biến, kiểu dữ liệu, toán tử\",\"duration\":\"18:20\"}," +
-            "{\"id\":\"l3\",\"title\":\"Cấu trúc điều khiển\",\"duration\":\"22:15\"}," +
-            "{\"id\":\"l4\",\"title\":\"Array / Collection cơ bản\",\"duration\":\"25:00\"}," +
-            "{\"id\":\"l5\",\"title\":\"Lập trình hướng đối tượng\",\"duration\":\"30:45\"}" +
-            "]}";
+    // JSON SEED CHO NỘI DUNG KHÓA HỌC (LESSON)
+    // Mỗi object tương đương 1 record trong bảng lessons: id, courseId, title, duration
+    // Mô phỏng cho endpoint: GET /courses/{id}/lessons
+    private static final String LESSONS_JSON = "[\n" +
+            "  {\"id\":\"c1_l1\",\"courseId\":\"c1\",\"title\":\"Giới thiệu Java & cài đặt môi trường\",\"duration\":\"09:30\"},\n" +
+            "  {\"id\":\"c1_l2\",\"courseId\":\"c1\",\"title\":\"Biến, kiểu dữ liệu & toán tử\",\"duration\":\"18:20\"},\n" +
+            "  {\"id\":\"c1_l3\",\"courseId\":\"c1\",\"title\":\"Cấu trúc điều khiển (if, switch, loop)\",\"duration\":\"22:15\"},\n" +
+            "  {\"id\":\"c1_l4\",\"courseId\":\"c1\",\"title\":\"Mảng & Collection cơ bản\",\"duration\":\"25:00\"},\n" +
+            "  {\"id\":\"c1_l5\",\"courseId\":\"c1\",\"title\":\"Giới thiệu lập trình hướng đối tượng\",\"duration\":\"30:45\"},\n" +
+            "\n" +
+            "  {\"id\":\"c2_l1\",\"courseId\":\"c2\",\"title\":\"Giới thiệu Spring Boot & tạo project\",\"duration\":\"12:10\"},\n" +
+            "  {\"id\":\"c2_l2\",\"courseId\":\"c2\",\"title\":\"Cấu hình REST Controller\",\"duration\":\"20:05\"},\n" +
+            "  {\"id\":\"c2_l3\",\"courseId\":\"c2\",\"title\":\"Làm việc với JPA & Entity\",\"duration\":\"24:40\"},\n" +
+            "  {\"id\":\"c2_l4\",\"courseId\":\"c2\",\"title\":\"Repository & Service Layer\",\"duration\":\"26:15\"},\n" +
+            "  {\"id\":\"c2_l5\",\"courseId\":\"c2\",\"title\":\"Authentication cơ bản với Spring Security\",\"duration\":\"28:30\"},\n" +
+            "\n" +
+            "  {\"id\":\"c3_l1\",\"courseId\":\"c3\",\"title\":\"Giới thiệu JavaScript & môi trường chạy\",\"duration\":\"08:45\"},\n" +
+            "  {\"id\":\"c3_l2\",\"courseId\":\"c3\",\"title\":\"Biến, kiểu dữ liệu & toán tử trong JS\",\"duration\":\"17:30\"},\n" +
+            "  {\"id\":\"c3_l3\",\"courseId\":\"c3\",\"title\":\"DOM cơ bản & thao tác thực tế\",\"duration\":\"23:10\"},\n" +
+            "  {\"id\":\"c3_l4\",\"courseId\":\"c3\",\"title\":\"Async, callback, promise, async/await\",\"duration\":\"27:20\"},\n" +
+            "  {\"id\":\"c3_l5\",\"courseId\":\"c3\",\"title\":\"Mini project: To-do list\",\"duration\":\"32:00\"}\n" +
+            "]";
+
+    // JSON SEED CHO REVIEW KHÓA HỌC
+    // Mỗi object tương đương 1 record trong bảng reviews: id, courseId, userName, rating, comment
+    // Mô phỏng cho endpoint: GET /courses/{id}/reviews
+    private static final String REVIEWS_JSON = "[\n" +
+            "  {\"id\":\"r1\",\"courseId\":\"c1\",\"userName\":\"Nguyễn Văn B\",\"rating\":4.5,\n" +
+            "   \"comment\":\"Mình mới học Java nên khoá này rất hợp, giảng dễ hiểu.\"},\n" +
+            "  {\"id\":\"r2\",\"courseId\":\"c1\",\"userName\":\"Trần Thị C\",\"rating\":4.0,\n" +
+            "   \"comment\":\"Nội dung ổn, nếu có thêm bài tập thực hành nữa thì tuyệt.\"},\n" +
+            "  {\"id\":\"r3\",\"courseId\":\"c1\",\"userName\":\"Lê Văn D\",\"rating\":5.0,\n" +
+            "   \"comment\":\"Sau khoá này mình đã nắm được OOP và làm project console đơn giản.\"},\n" +
+            "\n" +
+            "  {\"id\":\"r4\",\"courseId\":\"c2\",\"userName\":\"Phạm Minh K\",\"rating\":5.0,\n" +
+            "   \"comment\":\"Giải thích Spring Boot rõ ràng, phần REST API rất chi tiết.\"},\n" +
+            "  {\"id\":\"r5\",\"courseId\":\"c2\",\"userName\":\"Hoàng Thu H\",\"rating\":4.5,\n" +
+            "   \"comment\":\"Hướng dẫn JPA, entity khá thực tế, áp dụng được ngay vào dự án.\"},\n" +
+            "  {\"id\":\"r6\",\"courseId\":\"c2\",\"userName\":\"Đỗ Quốc L\",\"rating\":4.0,\n" +
+            "   \"comment\":\"Phần Security cơ bản, hi vọng có thêm phần JWT nâng cao.\"},\n" +
+            "\n" +
+            "  {\"id\":\"r7\",\"courseId\":\"c3\",\"userName\":\"Nguyễn Thị M\",\"rating\":4.6,\n" +
+            "   \"comment\":\"Mình chuyển từ HTML/CSS sang nên học rất trôi chảy.\"},\n" +
+            "  {\"id\":\"r8\",\"courseId\":\"c3\",\"userName\":\"Vũ Anh T\",\"rating\":4.8,\n" +
+            "   \"comment\":\"Phần DOM + mini project giúp mình hiểu JS hơn nhiều.\"},\n" +
+            "  {\"id\":\"r9\",\"courseId\":\"c3\",\"userName\":\"Lương Gia P\",\"rating\":4.2,\n" +
+            "   \"comment\":\"Khoá học tốt, nếu có thêm phần ES6 nâng cao sẽ tuyệt hơn.\"}\n" +
+            "]";
 
     private CourseFakeApiService() {
         seedFromJson();
@@ -372,26 +293,36 @@ public class CourseFakeApiService implements CourseApi {
         return allCourses.isEmpty() ? null : allCourses.get(0);
     }
 
+    // --------------------------------------------------------------------
+    // MỖI KHÓA HỌC CÓ BÀI HỌC RIÊNG (LẤY TỪ JSON, LỌC THEO courseId)
+    // --------------------------------------------------------------------
     @Override
     public List<CourseLesson> getLessonsForCourse(String courseId) {
         List<CourseLesson> result = new ArrayList<>();
+        if (courseId == null) return result;
+
         try {
-            JSONObject root = new JSONObject(LESSONS_JSON);
-            JSONArray arr = root.getJSONArray("lessons");
+            JSONArray arr = new JSONArray(LESSONS_JSON);
             for (int i = 0; i < arr.length(); i++) {
-                JSONObject l = arr.getJSONObject(i);
+                JSONObject o = arr.getJSONObject(i);
+                if (!courseId.equals(o.optString("courseId"))) continue;
+
                 result.add(new CourseLesson(
-                        courseId + "_" + l.getString("id"), // gắn courseId cho unique
-                        l.getString("title"),
-                        l.getString("duration")
+                        o.getString("id"),
+                        o.getString("title"),
+                        o.optString("duration", "")
                 ));
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
         return result;
     }
 
+    // --------------------------------------------------------------------
+    // KHÓA HỌC LIÊN QUAN (vẫn logic cũ)
+    // --------------------------------------------------------------------
     @Override
     public List<Course> getRelatedCourses(String courseId) {
         List<Course> related = new ArrayList<>();
@@ -414,17 +345,32 @@ public class CourseFakeApiService implements CourseApi {
         return related;
     }
 
+    // --------------------------------------------------------------------
+    // MỖI KHÓA HỌC CÓ REVIEW RIÊNG (LẤY TỪ JSON, LỌC THEO courseId)
+    // --------------------------------------------------------------------
     @Override
     public List<CourseReview> getReviewsForCourse(String courseId) {
-        // Tạm dùng chung một bộ review – sau này có thể đổi sang JSON riêng từng course
-        return Arrays.asList(
-                new CourseReview("Nguyễn Văn B", 4.5f,
-                        "Nội dung dễ hiểu, giảng viên giải thích cặn kẽ. Hợp cho người mới."),
-                new CourseReview("Trần Thị C", 5.0f,
-                        "Khóa học rất chất lượng, có nhiều ví dụ thực tế."),
-                new CourseReview("Lê Văn D", 4.0f,
-                        "Ổn, mình chỉ mong có thêm phần bài tập nâng cao.")
-        );
+        List<CourseReview> result = new ArrayList<>();
+        if (courseId == null) return result;
+
+        try {
+            JSONArray arr = new JSONArray(REVIEWS_JSON);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                if (!courseId.equals(o.optString("courseId"))) continue;
+
+                float rating = (float) o.optDouble("rating", 0.0);
+                result.add(new CourseReview(
+                        o.optString("userName", "Ẩn danh"),
+                        rating,
+                        o.optString("comment", "")
+                ));
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        return result;
     }
 
     // ------------------ CRUD (fake) ------------------

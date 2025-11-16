@@ -24,7 +24,8 @@ import com.example.projectonlinecourseeducation.core.model.CourseLesson;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
-import com.example.projectonlinecourseeducation.data.CourseApi;
+import com.example.projectonlinecourseeducation.data.course.CourseApi;
+import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductLessonInfoAdapter;
@@ -47,8 +48,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     private LinearLayout layoutSkills, layoutRequirements;
     private RecyclerView rvLessons, rvRelatedCourses, rvReviews;
 
-    // Dùng interface CourseApi, không phụ thuộc fake/real
-    private CourseApi api;
+    // Dùng interface
+    private CourseApi courseApi;
+    private CartApi cartApi;
 
     private ProductLessonInfoAdapter lessonAdapter;
     private HomeCourseAdapter relatedAdapter;
@@ -57,6 +59,10 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     // state cho khối khóa học liên quan
     private final List<Course> relatedAll = new ArrayList<>();
     private int relatedVisibleCount = 0;
+
+    // id khóa học hiện tại (dùng cho logic giỏ hàng)
+    private String courseId;
+    private Course currentCourse; // cache course hiện tại
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -67,14 +73,23 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         bindViews();
         setupRecyclerViews();
 
-        // lấy implementation hiện tại từ ApiProvider (Fake hoặc Remote)
-        api = ApiProvider.getCourseApi();
+        courseApi = ApiProvider.getCourseApi();
+        cartApi = ApiProvider.getCartApi();
 
-        String courseId = getIntent().getStringExtra("course_id");
+        courseId = getIntent().getStringExtra("course_id");
         if (courseId == null) courseId = "c1";
 
         loadCourseDetail(courseId);
         setupActions();
+
+        updateAddToCartButtonState();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Khi quay lại từ màn Giỏ hàng
+        updateAddToCartButtonState();
     }
 
     private void bindViews() {
@@ -123,62 +138,61 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         rvReviews.setNestedScrollingEnabled(false);
     }
 
-    private void loadCourseDetail(String courseId) {
-        // Fake local hoặc gọi API thật, tùy implementation trong ApiProvider
-        Course course = api.getCourseDetail(courseId);
-        if (course == null) {
+    private void loadCourseDetail(String id) {
+        currentCourse = courseApi.getCourseDetail(id);
+        if (currentCourse == null) {
             Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        List<CourseLesson> lessons = api.getLessonsForCourse(courseId);
-        List<Course> related = api.getRelatedCourses(courseId);
-        List<CourseReview> reviews = api.getReviewsForCourse(courseId);
+        List<CourseLesson> lessons = courseApi.getLessonsForCourse(id);
+        List<Course> related = courseApi.getRelatedCourses(id);
+        List<CourseReview> reviews = courseApi.getReviewsForCourse(id);
 
         // --- Bind dữ liệu khóa học ---
         ImageLoader.getInstance().display(
-                course.getImageUrl(),
+                currentCourse.getImageUrl(),
                 imgBanner,
                 R.drawable.ic_image_placeholder
         );
 
-        tvTitle.setText(course.getTitle());
-        tvDescription.setText(course.getDescription());
+        tvTitle.setText(currentCourse.getTitle());
+        tvDescription.setText(currentCourse.getDescription());
 
-        float rating = (float) course.getRating();
+        float rating = (float) currentCourse.getRating();
         ratingBar.setRating(rating);
         tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
-        tvRatingCount.setText("(" + course.getRatingCount() + " đánh giá)");
-        tvStudents.setText(course.getStudents() + " học viên");
-        tvTeacher.setText("GV: " + course.getTeacher());
-        tvCreatedAt.setText("Cập nhật: " + course.getCreatedAt());
+        tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
+        tvStudents.setText(currentCourse.getStudents() + " học viên");
+        tvTeacher.setText("GV: " + currentCourse.getTeacher());
+        tvCreatedAt.setText("Cập nhật: " + currentCourse.getCreatedAt());
 
         NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-        tvPrice.setText(nf.format(course.getPrice()));
+        tvPrice.setText(nf.format(currentCourse.getPrice()));
 
         // Summary bài giảng + thời lượng
         String time;
-        if (course.getTotalDurationMinutes() >= 60) {
-            int h = course.getTotalDurationMinutes() / 60;
-            int m = course.getTotalDurationMinutes() % 60;
+        if (currentCourse.getTotalDurationMinutes() >= 60) {
+            int h = currentCourse.getTotalDurationMinutes() / 60;
+            int m = currentCourse.getTotalDurationMinutes() % 60;
             time = h + " giờ " + (m > 0 ? m + " phút" : "");
         } else {
-            time = course.getTotalDurationMinutes() + " phút";
+            time = currentCourse.getTotalDurationMinutes() + " phút";
         }
-        tvLectureSummary.setText(course.getLectures() + " bài • " + time);
+        tvLectureSummary.setText(currentCourse.getLectures() + " bài • " + time);
 
         tvRatingSummary.setText(
                 String.format(Locale.US,
                         "%.1f / 5.0 • %d lượt đánh giá",
-                        rating, course.getRatingCount())
+                        rating, currentCourse.getRatingCount())
         );
 
         // --- Skill / insight ---
-        inflateChecklist(layoutSkills, course.getSkills());
+        inflateChecklist(layoutSkills, currentCourse.getSkills());
 
         // --- Requirements ---
-        inflateChecklist(layoutRequirements, course.getRequirements());
+        inflateChecklist(layoutRequirements, currentCourse.getRequirements());
 
         // --- Nội dung khóa học ---
         lessonAdapter.submitList(lessons);
@@ -186,11 +200,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         // --- Khóa học liên quan ---
         relatedAll.clear();
         if (related != null) relatedAll.addAll(related);
-        // mỗi lần load khóa học mới: reset số lượng hiển thị
         relatedVisibleCount = Math.min(RELATED_PAGE_SIZE, relatedAll.size());
         updateRelatedSection();
 
-        // Click vào khóa học liên quan -> mở lại activity với id mới
         relatedAdapter.setOnCourseClickListener(c -> {
             Intent i = new Intent(this, StudentCourseDetailActivity.class);
             i.putExtra("course_id", c.getId());
@@ -202,10 +214,6 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         reviewAdapter.submitList(reviews);
     }
 
-    /**
-     * Cập nhật list + text nút Xem thêm / Rút gọn cho khối khóa học liên quan
-     * Hiển thị theo kiểu phân trang: 4 khóa / lần.
-     */
     private void updateRelatedSection() {
         if (relatedAll.isEmpty()) {
             btnMoreRelated.setVisibility(View.GONE);
@@ -216,13 +224,11 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         int total = relatedAll.size();
 
         if (total <= RELATED_PAGE_SIZE) {
-            // Ít hơn hoặc bằng page size: show hết, ẩn nút
             relatedVisibleCount = total;
             btnMoreRelated.setVisibility(View.GONE);
         } else {
             btnMoreRelated.setVisibility(View.VISIBLE);
             if (relatedVisibleCount >= total) {
-                // đang hiển thị hết -> cho phép Rút gọn
                 btnMoreRelated.setText("Rút gọn");
                 btnMoreRelated.setBackgroundTintList(
                         ContextCompat.getColorStateList(this, R.color.purple_400));
@@ -256,29 +262,59 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         }
     }
 
+    // ========= GIỎ HÀNG =========
+
+    private boolean isInCart(String cid) {
+        return cartApi.isInCart(cid);
+    }
+
+    private void updateAddToCartButtonState() {
+        boolean inCart = isInCart(courseId);
+        if (inCart) {
+            btnAddToCart.setText("Đi tới giỏ hàng");
+            btnAddToCart.setBackgroundTintList(
+                    ContextCompat.getColorStateList(this, R.color.blue_900)
+            );
+        } else {
+            btnAddToCart.setText("Thêm vào giỏ hàng");
+            btnAddToCart.setBackgroundTintList(
+                    ContextCompat.getColorStateList(this, R.color.purple_600)
+            );
+        }
+    }
+
     private void setupActions() {
         btnAddToCart.setOnClickListener(v -> {
-            Course currentCourse = api.getCourseDetail(getIntent().getStringExtra("course_id"));
-            if (currentCourse != null) { // currentCourse là Course đang hiển thị
-                StudentCartActivity.getInstance().addCourse(currentCourse);
-                Toast.makeText(this, "Đã thêm vào giỏ hàng!", Toast.LENGTH_SHORT).show();
+            boolean inCart = isInCart(courseId);
+            if (!inCart) {
+                // Thêm vào giỏ hàng qua CartApi
+                if (currentCourse != null) {
+                    cartApi.addToCart(currentCourse);
+                    updateAddToCartButtonState();
+                }
+            } else {
+                // Đã ở trong giỏ -> chuyển sang màn Home + mở tab Giỏ hàng
+                Intent intent = new Intent(this, StudentHomeActivity.class);
+                intent.putExtra("open_cart", true);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                finish();
             }
         });
 
-        btnBuyNow.setOnClickListener(v -> {
-            Toast.makeText(this, "Mua ngay (fake) – sau này chuyển sang màn thanh toán", Toast.LENGTH_SHORT).show();
-        });
+        btnBuyNow.setOnClickListener(v ->
+                Toast.makeText(this,
+                        "Mua ngay (fake) – sau này chuyển sang màn thanh toán",
+                        Toast.LENGTH_SHORT).show()
+        );
 
-        // Toggle Xem thêm (+4) / Rút gọn (về 4)
         btnMoreRelated.setOnClickListener(v -> {
             int total = relatedAll.size();
             if (total <= RELATED_PAGE_SIZE) return;
 
             if (relatedVisibleCount >= total) {
-                // đang show hết -> rút gọn về 4
                 relatedVisibleCount = RELATED_PAGE_SIZE;
             } else {
-                // show thêm 4
                 relatedVisibleCount += RELATED_PAGE_SIZE;
                 if (relatedVisibleCount > total) {
                     relatedVisibleCount = total;
