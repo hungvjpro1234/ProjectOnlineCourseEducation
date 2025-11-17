@@ -9,16 +9,16 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.CourseLesson;
+import com.example.projectonlinecourseeducation.core.model.Lesson;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ProductLessonInfoAdapter extends RecyclerView.Adapter<ProductLessonInfoAdapter.VH> {
 
-    private final List<CourseLesson> data = new ArrayList<>();
+    private final List<Lesson> data = new ArrayList<>();
 
-    public void submitList(List<CourseLesson> list) {
+    public void submitList(List<Lesson> list) {
         data.clear();
         if (list != null) data.addAll(list);
         notifyDataSetChanged();
@@ -34,7 +34,7 @@ public class ProductLessonInfoAdapter extends RecyclerView.Adapter<ProductLesson
 
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
-        CourseLesson l = data.get(position);
+        Lesson l = data.get(position);
         holder.tvLessonIndex.setText(String.valueOf(position + 1));
         holder.tvLessonTitle.setText(l.getTitle());
         holder.tvLessonDuration.setText(l.getDuration());

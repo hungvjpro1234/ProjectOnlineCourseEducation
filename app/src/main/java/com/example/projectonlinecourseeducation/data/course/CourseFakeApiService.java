@@ -1,7 +1,7 @@
 package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.CourseLesson;
+import com.example.projectonlinecourseeducation.core.model.Lesson;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 
 import org.json.JSONArray;
@@ -297,8 +297,8 @@ public class CourseFakeApiService implements CourseApi {
     // MỖI KHÓA HỌC CÓ BÀI HỌC RIÊNG (LẤY TỪ JSON, LỌC THEO courseId)
     // --------------------------------------------------------------------
     @Override
-    public List<CourseLesson> getLessonsForCourse(String courseId) {
-        List<CourseLesson> result = new ArrayList<>();
+    public List<Lesson> getLessonsForCourse(String courseId) {
+        List<Lesson> result = new ArrayList<>();
         if (courseId == null) return result;
 
         try {
@@ -307,7 +307,7 @@ public class CourseFakeApiService implements CourseApi {
                 JSONObject o = arr.getJSONObject(i);
                 if (!courseId.equals(o.optString("courseId"))) continue;
 
-                result.add(new CourseLesson(
+                result.add(new Lesson(
                         o.getString("id"),
                         o.getString("title"),
                         o.optString("duration", "")

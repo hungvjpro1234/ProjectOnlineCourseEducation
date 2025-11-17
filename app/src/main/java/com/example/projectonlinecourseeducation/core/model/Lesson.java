@@ -1,11 +1,11 @@
 package com.example.projectonlinecourseeducation.core.model;
 
-public class CourseLesson {
+public class Lesson {
     private final String id;
     private final String title;
     private final String duration; // ví dụ: "12:30" hoặc "15 phút"
 
-    public CourseLesson(String id, String title, String duration) {
+    public Lesson(String id, String title, String duration) {
         this.id = id;
         this.title = title;
         this.duration = duration;

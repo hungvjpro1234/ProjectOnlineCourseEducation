@@ -20,7 +20,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.CourseLesson;
+import com.example.projectonlinecourseeducation.core.model.Lesson;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
@@ -146,7 +146,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
             return;
         }
 
-        List<CourseLesson> lessons = courseApi.getLessonsForCourse(id);
+        List<Lesson> lessons = courseApi.getLessonsForCourse(id);
         List<Course> related = courseApi.getRelatedCourses(id);
         List<CourseReview> reviews = courseApi.getReviewsForCourse(id);
 

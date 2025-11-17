@@ -179,7 +179,7 @@
                 android:text="Bạn sẽ học được gì?"
                 android:textStyle="bold"
                 android:textSize="16sp"
-                android:textColor="@color/colorPrimary" />
+                android:textColor="@color/blue_500" />
 
             <LinearLayout
                 android:id="@+id/layoutSkills"
@@ -208,7 +208,7 @@
                 android:text="Yêu cầu học viên"
                 android:textStyle="bold"
                 android:textSize="16sp"
-                android:textColor="@color/colorPrimary" />
+                android:textColor="@color/blue_500" />
 
             <LinearLayout
                 android:id="@+id/layoutRequirements"
@@ -241,7 +241,7 @@
                     android:text="Nội dung khóa học"
                     android:textStyle="bold"
                     android:textSize="16sp"
-                    android:textColor="@color/colorPrimary" />
+                    android:textColor="@color/blue_500" />
 
                 <TextView
                     android:id="@+id/tvLectureSummary"
@@ -274,7 +274,7 @@
                 android:layout_height="wrap_content"
                 android:text="Khóa học liên quan"
                 android:textStyle="bold"
-                android:textSize="16sp"
+                android:textSize="25sp"
                 android:textColor="@color/colorPrimary" />
 
             <androidx.recyclerview.widget.RecyclerView
@@ -317,8 +317,8 @@
                     android:layout_height="wrap_content"
                     android:text="Đánh giá của học viên"
                     android:textStyle="bold"
-                    android:textSize="16sp"
-                    android:textColor="@color/colorPrimary" />
+                    android:textSize="20sp"
+                    android:textColor="@color/blue_700" />
 
                 <TextView
                     android:id="@+id/tvRatingSummary"

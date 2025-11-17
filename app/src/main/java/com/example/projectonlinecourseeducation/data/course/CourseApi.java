@@ -1,7 +1,7 @@
 package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.CourseLesson;
+import com.example.projectonlinecourseeducation.core.model.Lesson;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 
 import java.util.List;
@@ -24,7 +24,7 @@ public interface CourseApi {
     // ------------------ DETAIL ------------------
     Course getCourseDetail(String courseId);
 
-    List<CourseLesson> getLessonsForCourse(String courseId);
+    List<Lesson> getLessonsForCourse(String courseId);
 
     List<Course> getRelatedCourses(String courseId);
 
