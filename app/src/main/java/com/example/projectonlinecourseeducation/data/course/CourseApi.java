@@ -1,8 +1,6 @@
 package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.Lesson;
-import com.example.projectonlinecourseeducation.core.model.CourseReview;
 
 import java.util.List;
 
@@ -24,11 +22,7 @@ public interface CourseApi {
     // ------------------ DETAIL ------------------
     Course getCourseDetail(String courseId);
 
-    List<Lesson> getLessonsForCourse(String courseId);
-
     List<Course> getRelatedCourses(String courseId);
-
-    List<CourseReview> getReviewsForCourse(String courseId);
 
     // ------------------ CRUD (fake DB trong RAM) ------------------
     Course createCourse(Course newCourse);

@@ -20,12 +20,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.Lesson;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
+import com.example.projectonlinecourseeducation.core.model.Lesson;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
-import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
+import com.example.projectonlinecourseeducation.data.course.CourseApi;
+import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
+import com.example.projectonlinecourseeducation.data.review.ReviewApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductLessonInfoAdapter;
@@ -50,6 +52,8 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
     // Dùng interface
     private CourseApi courseApi;
+    private LessonApi lessonApi;
+    private ReviewApi reviewApi;
     private CartApi cartApi;
 
     private ProductLessonInfoAdapter lessonAdapter;
@@ -74,6 +78,8 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         setupRecyclerViews();
 
         courseApi = ApiProvider.getCourseApi();
+        lessonApi = ApiProvider.getLessonApi();
+        reviewApi = ApiProvider.getReviewApi();
         cartApi = ApiProvider.getCartApi();
 
         courseId = getIntent().getStringExtra("course_id");
@@ -146,9 +152,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
             return;
         }
 
-        List<Lesson> lessons = courseApi.getLessonsForCourse(id);
+        List<Lesson> lessons = lessonApi.getLessonsForCourse(id);
         List<Course> related = courseApi.getRelatedCourses(id);
-        List<CourseReview> reviews = courseApi.getReviewsForCourse(id);
+        List<CourseReview> reviews = reviewApi.getReviewsForCourse(id);
 
         // --- Bind dữ liệu khóa học ---
         ImageLoader.getInstance().display(

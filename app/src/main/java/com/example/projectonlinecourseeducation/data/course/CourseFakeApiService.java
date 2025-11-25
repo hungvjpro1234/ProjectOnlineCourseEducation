@@ -1,8 +1,6 @@
 package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.Lesson;
-import com.example.projectonlinecourseeducation.core.model.CourseReview;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -13,10 +11,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-// DÙNG Sort từ CourseApi
-
-
-// IMPLEMENTS CourseApi
 public class CourseFakeApiService implements CourseApi {
 
     // --------------------------------------------------------------------
@@ -38,9 +32,8 @@ public class CourseFakeApiService implements CourseApi {
     }
 
     // --------------------------------------------------------------------
-    // 1) JSON SEED CHO TẤT CẢ KHÓA HỌC
-    //    (giống như response /courses từ backend)
-    //    -> ĐÃ RÚT GỌN CÒN 3 KHÓA
+    // JSON SEED CHO TẤT CẢ KHÓA HỌC
+    // (giống như response /courses từ backend)
     // --------------------------------------------------------------------
     private static final String COURSES_JSON = "[\n" +
             "  {\n" +
@@ -94,55 +87,6 @@ public class CourseFakeApiService implements CourseApi {
             "    \"skills\":[\"Cú pháp JS cơ bản\", \"DOM manipulation\", \"Async/await\", \"Build web mini project\"],\n" +
             "    \"requirements\":[\"Biết HTML/CSS cơ bản\", \"Biết sử dụng trình duyệt\"]\n" +
             "  }\n" +
-            "]";
-
-    // JSON SEED CHO NỘI DUNG KHÓA HỌC (LESSON)
-    // Mỗi object tương đương 1 record trong bảng lessons: id, courseId, title, duration
-    // Mô phỏng cho endpoint: GET /courses/{id}/lessons
-    private static final String LESSONS_JSON = "[\n" +
-            "  {\"id\":\"c1_l1\",\"courseId\":\"c1\",\"title\":\"Giới thiệu Java & cài đặt môi trường\",\"duration\":\"09:30\"},\n" +
-            "  {\"id\":\"c1_l2\",\"courseId\":\"c1\",\"title\":\"Biến, kiểu dữ liệu & toán tử\",\"duration\":\"18:20\"},\n" +
-            "  {\"id\":\"c1_l3\",\"courseId\":\"c1\",\"title\":\"Cấu trúc điều khiển (if, switch, loop)\",\"duration\":\"22:15\"},\n" +
-            "  {\"id\":\"c1_l4\",\"courseId\":\"c1\",\"title\":\"Mảng & Collection cơ bản\",\"duration\":\"25:00\"},\n" +
-            "  {\"id\":\"c1_l5\",\"courseId\":\"c1\",\"title\":\"Giới thiệu lập trình hướng đối tượng\",\"duration\":\"30:45\"},\n" +
-            "\n" +
-            "  {\"id\":\"c2_l1\",\"courseId\":\"c2\",\"title\":\"Giới thiệu Spring Boot & tạo project\",\"duration\":\"12:10\"},\n" +
-            "  {\"id\":\"c2_l2\",\"courseId\":\"c2\",\"title\":\"Cấu hình REST Controller\",\"duration\":\"20:05\"},\n" +
-            "  {\"id\":\"c2_l3\",\"courseId\":\"c2\",\"title\":\"Làm việc với JPA & Entity\",\"duration\":\"24:40\"},\n" +
-            "  {\"id\":\"c2_l4\",\"courseId\":\"c2\",\"title\":\"Repository & Service Layer\",\"duration\":\"26:15\"},\n" +
-            "  {\"id\":\"c2_l5\",\"courseId\":\"c2\",\"title\":\"Authentication cơ bản với Spring Security\",\"duration\":\"28:30\"},\n" +
-            "\n" +
-            "  {\"id\":\"c3_l1\",\"courseId\":\"c3\",\"title\":\"Giới thiệu JavaScript & môi trường chạy\",\"duration\":\"08:45\"},\n" +
-            "  {\"id\":\"c3_l2\",\"courseId\":\"c3\",\"title\":\"Biến, kiểu dữ liệu & toán tử trong JS\",\"duration\":\"17:30\"},\n" +
-            "  {\"id\":\"c3_l3\",\"courseId\":\"c3\",\"title\":\"DOM cơ bản & thao tác thực tế\",\"duration\":\"23:10\"},\n" +
-            "  {\"id\":\"c3_l4\",\"courseId\":\"c3\",\"title\":\"Async, callback, promise, async/await\",\"duration\":\"27:20\"},\n" +
-            "  {\"id\":\"c3_l5\",\"courseId\":\"c3\",\"title\":\"Mini project: To-do list\",\"duration\":\"32:00\"}\n" +
-            "]";
-
-    // JSON SEED CHO REVIEW KHÓA HỌC
-    // Mỗi object tương đương 1 record trong bảng reviews: id, courseId, userName, rating, comment
-    // Mô phỏng cho endpoint: GET /courses/{id}/reviews
-    private static final String REVIEWS_JSON = "[\n" +
-            "  {\"id\":\"r1\",\"courseId\":\"c1\",\"userName\":\"Nguyễn Văn B\",\"rating\":4.5,\n" +
-            "   \"comment\":\"Mình mới học Java nên khoá này rất hợp, giảng dễ hiểu.\"},\n" +
-            "  {\"id\":\"r2\",\"courseId\":\"c1\",\"userName\":\"Trần Thị C\",\"rating\":4.0,\n" +
-            "   \"comment\":\"Nội dung ổn, nếu có thêm bài tập thực hành nữa thì tuyệt.\"},\n" +
-            "  {\"id\":\"r3\",\"courseId\":\"c1\",\"userName\":\"Lê Văn D\",\"rating\":5.0,\n" +
-            "   \"comment\":\"Sau khoá này mình đã nắm được OOP và làm project console đơn giản.\"},\n" +
-            "\n" +
-            "  {\"id\":\"r4\",\"courseId\":\"c2\",\"userName\":\"Phạm Minh K\",\"rating\":5.0,\n" +
-            "   \"comment\":\"Giải thích Spring Boot rõ ràng, phần REST API rất chi tiết.\"},\n" +
-            "  {\"id\":\"r5\",\"courseId\":\"c2\",\"userName\":\"Hoàng Thu H\",\"rating\":4.5,\n" +
-            "   \"comment\":\"Hướng dẫn JPA, entity khá thực tế, áp dụng được ngay vào dự án.\"},\n" +
-            "  {\"id\":\"r6\",\"courseId\":\"c2\",\"userName\":\"Đỗ Quốc L\",\"rating\":4.0,\n" +
-            "   \"comment\":\"Phần Security cơ bản, hi vọng có thêm phần JWT nâng cao.\"},\n" +
-            "\n" +
-            "  {\"id\":\"r7\",\"courseId\":\"c3\",\"userName\":\"Nguyễn Thị M\",\"rating\":4.6,\n" +
-            "   \"comment\":\"Mình chuyển từ HTML/CSS sang nên học rất trôi chảy.\"},\n" +
-            "  {\"id\":\"r8\",\"courseId\":\"c3\",\"userName\":\"Vũ Anh T\",\"rating\":4.8,\n" +
-            "   \"comment\":\"Phần DOM + mini project giúp mình hiểu JS hơn nhiều.\"},\n" +
-            "  {\"id\":\"r9\",\"courseId\":\"c3\",\"userName\":\"Lương Gia P\",\"rating\":4.2,\n" +
-            "   \"comment\":\"Khoá học tốt, nếu có thêm phần ES6 nâng cao sẽ tuyệt hơn.\"}\n" +
             "]";
 
     private CourseFakeApiService() {
@@ -293,36 +237,7 @@ public class CourseFakeApiService implements CourseApi {
         return allCourses.isEmpty() ? null : allCourses.get(0);
     }
 
-    // --------------------------------------------------------------------
-    // MỖI KHÓA HỌC CÓ BÀI HỌC RIÊNG (LẤY TỪ JSON, LỌC THEO courseId)
-    // --------------------------------------------------------------------
-    @Override
-    public List<Lesson> getLessonsForCourse(String courseId) {
-        List<Lesson> result = new ArrayList<>();
-        if (courseId == null) return result;
-
-        try {
-            JSONArray arr = new JSONArray(LESSONS_JSON);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                if (!courseId.equals(o.optString("courseId"))) continue;
-
-                result.add(new Lesson(
-                        o.getString("id"),
-                        o.getString("title"),
-                        o.optString("duration", "")
-                ));
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        return result;
-    }
-
-    // --------------------------------------------------------------------
-    // KHÓA HỌC LIÊN QUAN (vẫn logic cũ)
-    // --------------------------------------------------------------------
+    // KHÓA HỌC LIÊN QUAN
     @Override
     public List<Course> getRelatedCourses(String courseId) {
         List<Course> related = new ArrayList<>();
@@ -343,34 +258,6 @@ public class CourseFakeApiService implements CourseApi {
             }
         }
         return related;
-    }
-
-    // --------------------------------------------------------------------
-    // MỖI KHÓA HỌC CÓ REVIEW RIÊNG (LẤY TỪ JSON, LỌC THEO courseId)
-    // --------------------------------------------------------------------
-    @Override
-    public List<CourseReview> getReviewsForCourse(String courseId) {
-        List<CourseReview> result = new ArrayList<>();
-        if (courseId == null) return result;
-
-        try {
-            JSONArray arr = new JSONArray(REVIEWS_JSON);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                if (!courseId.equals(o.optString("courseId"))) continue;
-
-                float rating = (float) o.optDouble("rating", 0.0);
-                result.add(new CourseReview(
-                        o.optString("userName", "Ẩn danh"),
-                        rating,
-                        o.optString("comment", "")
-                ));
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        return result;
     }
 
     // ------------------ CRUD (fake) ------------------
