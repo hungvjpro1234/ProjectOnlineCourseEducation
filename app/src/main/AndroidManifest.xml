@@ -21,6 +21,9 @@
         <activity
             android:name=".feature.student.activity.StudentEditProfileActivity"
             android:exported="false" />
+        <activity
+            android:name=".feature.student.activity.StudentCourseLessonActivity"
+            android:exported="false" />
 
 
         <activity android:name=".feature.student.activity.StudentCourseDetailActivity" />

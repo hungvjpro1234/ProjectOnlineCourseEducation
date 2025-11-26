@@ -216,6 +216,15 @@ public class StudentHomeFragment extends Fragment {
         });
     }
 
+    // 👇 THÊM MỚI: mỗi lần fragment quay lại màn hình -> reload lại list
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (api != null && adapter != null) {
+            applyQuery(); // gọi lại để Re-bind data + badge "ĐÃ MUA"
+        }
+    }
+
     private void applyQuery() {
         // Lấy full list theo filter + search, không giới hạn
         List<Course> all = api.filterSearchSort(currentCategory, currentQuery, currentSort, 0);

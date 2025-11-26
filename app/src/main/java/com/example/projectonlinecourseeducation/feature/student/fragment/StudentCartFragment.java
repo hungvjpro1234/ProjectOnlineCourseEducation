@@ -1,5 +1,6 @@
 package com.example.projectonlinecourseeducation.feature.student.fragment;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,6 +20,9 @@ import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
+import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseLessonActivity;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentHomeActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.CartAdapter;
 
 import java.text.NumberFormat;
@@ -28,6 +32,7 @@ import java.util.Locale;
 public class StudentCartFragment extends Fragment {
 
     private CartApi cartApi;
+    private MyCourseApi myCourseApi;
     private List<Course> cartList;
     private CartAdapter cartAdapter;
     private TextView tvSummary, tvTotalPrice;
@@ -41,6 +46,7 @@ public class StudentCartFragment extends Fragment {
             @Nullable Bundle savedInstanceState
     ) {
         cartApi = ApiProvider.getCartApi();
+        myCourseApi = ApiProvider.getMyCourseApi();
         cartList = cartApi.getCartCourses();
 
         if (cartList == null || cartList.isEmpty()) {
@@ -94,7 +100,28 @@ public class StudentCartFragment extends Fragment {
                     showPaymentConfirmDialog(msg, () ->
                             showPaymentSuccessDialog(
                                     "Thanh toán khóa \"" + course.getTitle() + "\" thành công",
-                                    true
+                                    true,
+                                    () -> {
+                                        // Sau khi thanh toán khóa riêng lẻ:
+                                        // 1. Thêm vào My Course
+                                        if (myCourseApi != null) {
+                                            myCourseApi.addPurchasedCourse(course);
+                                        }
+                                        // 2. Xóa khỏi giỏ
+                                        cartApi.removeFromCart(course.getId());
+                                        // 3. Cập nhật lại list giỏ hàng
+                                        cartList.clear();
+                                        cartList.addAll(cartApi.getCartCourses());
+                                        cartAdapter.notifyDataSetChanged();
+                                        updateSummary();
+                                        // 4. Điều hướng sang màn Lesson của chính khóa vừa mua
+                                        Intent intent = new Intent(requireContext(), StudentCourseLessonActivity.class);
+                                        intent.putExtra("course_id", course.getId());
+                                        intent.putExtra("course_title", course.getTitle());
+                                        startActivity(intent);
+                                        // 5. Đóng Activity chứa fragment (thường là StudentHomeActivity)
+                                        requireActivity().finish();
+                                    }
                             )
                     );
                 }
@@ -124,7 +151,36 @@ public class StudentCartFragment extends Fragment {
                 showPaymentConfirmDialog(msg, () ->
                         showPaymentSuccessDialog(
                                 "Thanh toán toàn bộ giỏ hàng thành công",
-                                true
+                                true,
+                                () -> {
+                                    // 1. Lấy danh sách hiện tại trong giỏ (trước khi clear)
+                                    List<Course> current = cartApi.getCartCourses();
+                                    // 2. Thêm tất cả vào My Course
+                                    if (myCourseApi != null) {
+                                        myCourseApi.addPurchasedCourses(current);
+                                    }
+                                    // 3. Clear giỏ
+                                    cartApi.clearCart();
+                                    cartList.clear();
+                                    cartAdapter.notifyDataSetChanged();
+                                    updateSummary();
+
+                                    // 4. Chọn 1 khóa để mở màn Lesson (ví dụ: khóa đầu tiên)
+                                    if (current != null && !current.isEmpty()) {
+                                        Course first = current.get(0);
+                                        Intent intent = new Intent(requireContext(), StudentCourseLessonActivity.class);
+                                        intent.putExtra("course_id", first.getId());
+                                        intent.putExtra("course_title", first.getTitle());
+                                        startActivity(intent);
+                                    } else {
+                                        // Nếu vì lý do gì đó không có course, fallback về Home
+                                        Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                        startActivity(intent);
+                                    }
+
+                                    // 5. Đóng Activity chứa fragment
+                                    requireActivity().finish();
+                                }
                         )
                 );
             });
@@ -171,6 +227,17 @@ public class StudentCartFragment extends Fragment {
      * @param showToast Có hiển thị thêm Toast nữa không
      */
     private void showPaymentSuccessDialog(String message, boolean showToast) {
+        showPaymentSuccessDialog(message, showToast, null);
+    }
+
+    /**
+     * Dialog thông báo thanh toán thành công trong Fragment + callback sau khi đóng.
+     *
+     * @param message        Nội dung hiển thị
+     * @param showToast      Có hiển thị thêm Toast nữa không
+     * @param afterDismissed Callback chạy sau khi user bấm "Đóng"
+     */
+    private void showPaymentSuccessDialog(String message, boolean showToast, @Nullable Runnable afterDismissed) {
         DialogConfirmHelper.showSuccessDialog(
                 requireContext(),
                 "Thanh toán thành công",
@@ -182,6 +249,9 @@ public class StudentCartFragment extends Fragment {
                         Toast.makeText(requireContext(),
                                 "Thanh toán thành công",
                                 Toast.LENGTH_SHORT).show();
+                    }
+                    if (afterDismissed != null) {
+                        afterDismissed.run();
                     }
                 }
         );

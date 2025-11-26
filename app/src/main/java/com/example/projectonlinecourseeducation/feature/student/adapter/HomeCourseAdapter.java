@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/feature/student/adapter/CourseAdapter.java
+// app/src/main/java/com/example/projectonlinecourseeducation/feature/student/adapter/HomeCourseAdapter.java
 package com.example.projectonlinecourseeducation.feature.student.adapter;
 
 import android.view.LayoutInflater;
@@ -12,8 +12,10 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.core.model.Course;
+import com.example.projectonlinecourseeducation.core.model.CourseStatus;
+import com.example.projectonlinecourseeducation.core.utils.CourseStatusResolver;
+import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -37,7 +39,8 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         notifyDataSetChanged();
     }
 
-    @NonNull @Override
+    @NonNull
+    @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_student_home_course_card, parent, false);
@@ -47,6 +50,7 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
     @Override
     public void onBindViewHolder(@NonNull VH h, int pos) {
         Course c = data.get(pos);
+        if (c == null) return;
 
         ImageLoader.getInstance().display(c.getImageUrl(), h.img, R.drawable.ic_image_placeholder);
 
@@ -59,7 +63,17 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         h.ratingBar.setRating(rating);
         h.tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
 
-        h.tvPrice.setText(NumberFormat.getCurrencyInstance(new Locale("vi","VN")).format(c.getPrice()));
+        h.tvPrice.setText(
+                NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(c.getPrice())
+        );
+
+        // ==== Hiển thị badge "ĐÃ MUA" nếu khóa học đã được mua ====
+        CourseStatus status = CourseStatusResolver.getStatus(c.getId());
+        if (status == CourseStatus.PURCHASED) {
+            h.tvPurchasedBadge.setVisibility(View.VISIBLE);
+        } else {
+            h.tvPurchasedBadge.setVisibility(View.GONE);
+        }
 
         // >>> Click item
         h.itemView.setOnClickListener(view -> {
@@ -67,12 +81,15 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         });
     }
 
-    @Override public int getItemCount() { return data.size(); }
+    @Override
+    public int getItemCount() { return data.size(); }
 
     static class VH extends RecyclerView.ViewHolder {
         ImageView img;
         TextView tvTitle, tvTeacher, tvLectures, tvStudents, tvPrice, tvRatingValue;
+        TextView tvPurchasedBadge;
         RatingBar ratingBar;
+
         VH(@NonNull View v) {
             super(v);
             img = v.findViewById(R.id.imgCourse);
@@ -83,6 +100,7 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
             tvPrice = v.findViewById(R.id.tvPrice);
             ratingBar = v.findViewById(R.id.ratingBar);
             tvRatingValue = v.findViewById(R.id.tvRatingValue);
+            tvPurchasedBadge = v.findViewById(R.id.tvPurchasedBadge);
         }
     }
 }

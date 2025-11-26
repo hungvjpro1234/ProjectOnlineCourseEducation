@@ -1,11 +1,36 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@color/colorBackground">
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/colorBackground"
+    android:padding="12dp">
+
     <TextView
-        android:layout_gravity="center"
-        android:text="Đây là trang MY COURSE"
-        android:textStyle="bold"
+        android:id="@+id/tvMyCourseTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Khóa học của tôi"
         android:textSize="20sp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
-</FrameLayout>
+        android:textStyle="bold"
+        android:textColor="@color/purple_text_primary"
+        android:paddingBottom="4dp" />
+
+    <TextView
+        android:id="@+id/tvMyCourseSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Danh sách các khóa học bạn đã mua"
+        android:textSize="13sp"
+        android:textColor="@color/text_secondary"
+        android:paddingBottom="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMyCourses"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingTop="4dp"
+        android:clipToPadding="false" />
+
+</LinearLayout>

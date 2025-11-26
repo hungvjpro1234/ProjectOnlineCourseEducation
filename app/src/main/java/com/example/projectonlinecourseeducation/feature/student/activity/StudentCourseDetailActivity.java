@@ -9,6 +9,7 @@ import android.widget.ImageView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RatingBar;
+import android.widget.Space;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,6 +17,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -23,6 +25,8 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 import com.example.projectonlinecourseeducation.core.model.Lesson;
+import com.example.projectonlinecourseeducation.core.model.CourseStatus;
+import com.example.projectonlinecourseeducation.core.utils.CourseStatusResolver;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
@@ -30,9 +34,11 @@ import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.review.ReviewApi;
+import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductLessonInfoAdapter;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseLessonActivity;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -43,6 +49,8 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
     // số khóa học liên quan hiển thị mỗi lần
     private static final int RELATED_PAGE_SIZE = 4;
+
+    private NestedScrollView scrollView;
 
     private ImageView imgBanner;
     private ImageButton btnBack; // nút quay lại trên banner
@@ -58,6 +66,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     private LessonApi lessonApi;
     private ReviewApi reviewApi;
     private CartApi cartApi;
+    private MyCourseApi myCourseApi; // My Course API
 
     private ProductLessonInfoAdapter lessonAdapter;
     private HomeCourseAdapter relatedAdapter;
@@ -67,9 +76,12 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     private final List<Course> relatedAll = new ArrayList<>();
     private int relatedVisibleCount = 0;
 
-    // id khóa học hiện tại (dùng cho logic giỏ hàng)
+    // id khóa học hiện tại (dùng cho logic giỏ hàng + MyCourse)
     private String courseId;
     private Course currentCourse; // cache course hiện tại
+
+    // trạng thái hiện tại của khóa học đối với student
+    private CourseStatus currentStatus = CourseStatus.NOT_PURCHASED;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -84,6 +96,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         lessonApi = ApiProvider.getLessonApi();
         reviewApi = ApiProvider.getReviewApi();
         cartApi = ApiProvider.getCartApi();
+        myCourseApi = ApiProvider.getMyCourseApi();
 
         courseId = getIntent().getStringExtra("course_id");
         if (courseId == null) courseId = "c1";
@@ -91,17 +104,20 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         loadCourseDetail(courseId);
         setupActions();
 
-        updateAddToCartButtonState();
+        // cập nhật state ban đầu cho nút giỏ hàng / mua ngay / học ngay
+        updatePurchaseUi();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Khi quay lại từ màn Giỏ hàng
-        updateAddToCartButtonState();
+        // Khi quay lại từ màn Giỏ hàng hoặc My Course
+        updatePurchaseUi();
     }
 
     private void bindViews() {
+        scrollView = findViewById(R.id.scrollView);
+
         imgBanner = findViewById(R.id.imgBanner);
         btnBack = findViewById(R.id.btnBack);
         tvTitle = findViewById(R.id.tvTitle);
@@ -272,12 +288,16 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         }
     }
 
-    // ========= GIỎ HÀNG =========
+    // ========= GIỎ HÀNG + TRẠNG THÁI MUA HÀNG =========
 
     private boolean isInCart(String cid) {
-        return cartApi.isInCart(cid);
+        return cartApi != null && cartApi.isInCart(cid);
     }
 
+    /**
+     * Cập nhật UI của nút "Thêm vào giỏ hàng" dựa trên tình trạng giỏ.
+     * (Chỉ gọi khi khóa học chưa ở trạng thái PURCHASED)
+     */
     private void updateAddToCartButtonState() {
         boolean inCart = isInCart(courseId);
         if (inCart) {
@@ -293,17 +313,52 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Cập nhật UI dựa trên trạng thái khóa học:
+     * - NOT_PURCHASED: hiện đủ "Thêm vào giỏ" + "Mua ngay"
+     * - IN_CART      : nút "Thêm vào giỏ" -> "Đi tới giỏ hàng"
+     * - PURCHASED    : ẩn "Thêm vào giỏ", "Mua ngay" -> "Học ngay"
+     */
+    private void updatePurchaseUi() {
+        currentStatus = CourseStatusResolver.getStatus(courseId);
+
+        if (currentStatus == CourseStatus.PURCHASED) {
+            // Ẩn nút giỏ hàng, chỉ còn "Học ngay"
+            btnAddToCart.setVisibility(View.GONE);
+            btnBuyNow.setText("Học ngay");
+            btnBuyNow.setBackgroundTintList(
+                    ContextCompat.getColorStateList(this, R.color.purple_600)
+            );
+        } else {
+            // Chưa mua: hiện đầy đủ 2 nút
+            btnAddToCart.setVisibility(View.VISIBLE);
+            btnBuyNow.setText("Mua ngay");
+            btnBuyNow.setBackgroundTintList(
+                    ContextCompat.getColorStateList(this, R.color.colorAccent)
+            );
+            updateAddToCartButtonState();
+        }
+    }
+
     private void setupActions() {
         // Nút quay lại trên banner
         btnBack.setOnClickListener(v -> finish());
 
         btnAddToCart.setOnClickListener(v -> {
+            // Nếu đã mua thì không cho thao tác giỏ nữa
+            if (currentStatus == CourseStatus.PURCHASED) {
+                Toast.makeText(this,
+                        "Bạn đã sở hữu khóa học này",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             boolean inCart = isInCart(courseId);
             if (!inCart) {
                 // Thêm vào giỏ hàng qua CartApi
                 if (currentCourse != null) {
                     cartApi.addToCart(currentCourse);
-                    updateAddToCartButtonState();
+                    updatePurchaseUi();
 
                     // 👉 Toast thông báo đã thêm vào giỏ hàng
                     Toast.makeText(
@@ -328,12 +383,21 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
             }
         });
 
-        // Nút "Mua ngay": hiển thị dialog confirm -> dialog thành công
+        // Nút "Mua ngay" / "Học ngay"
         btnBuyNow.setOnClickListener(v -> {
             if (currentCourse == null) {
                 Toast.makeText(this,
                         "Không tìm thấy dữ liệu khóa học để thanh toán",
                         Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (currentStatus == CourseStatus.PURCHASED) {
+                // ✅ ĐÃ MUA -> chuyển sang màn lesson
+                Intent i = new Intent(this, StudentCourseLessonActivity.class);
+                i.putExtra("course_id", currentCourse.getId());
+                i.putExtra("course_title", currentCourse.getTitle());
+                startActivity(i);
                 return;
             }
 
@@ -346,9 +410,33 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
             showPaymentConfirmDialog(
                     message,
-                    () -> showPaymentSuccessDialog("Thanh toán thành công", true)
+                    () -> showPaymentSuccessDialog(
+                            "Thanh toán thành công",
+                            true,
+                            () -> {
+                                // Sau khi thanh toán thành công:
+                                // 1. Thêm vào My Course
+                                if (myCourseApi != null) {
+                                    myCourseApi.addPurchasedCourse(currentCourse);
+                                }
+                                // 2. Nếu đang ở trong giỏ -> xóa khỏi giỏ
+                                if (cartApi != null) {
+                                    cartApi.removeFromCart(courseId);
+                                }
+                                // 3. Cập nhật lại UI (nếu còn ở activity này)
+                                updatePurchaseUi();
+                                // 4. Chuyển sang màn Lesson của khóa vừa mua
+                                Intent intent = new Intent(this, StudentCourseLessonActivity.class);
+                                intent.putExtra("course_id", currentCourse.getId());
+                                intent.putExtra("course_title", currentCourse.getTitle());
+                                startActivity(intent);
+                                // 5. Đóng màn chi tiết (optional, cho flow sạch)
+                                finish();
+                            }
+                    )
             );
         });
+
 
         btnMoreRelated.setOnClickListener(v -> {
             int total = relatedAll.size();
@@ -392,6 +480,17 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
      * @param showToast Có hiển thị thêm Toast nữa không
      */
     private void showPaymentSuccessDialog(String message, boolean showToast) {
+        showPaymentSuccessDialog(message, showToast, null);
+    }
+
+    /**
+     * Dialog thông báo thanh toán thành công + callback sau khi đóng dialog.
+     *
+     * @param message        Nội dung hiển thị
+     * @param showToast      Có hiển thị thêm Toast nữa không
+     * @param afterDismissed Callback chạy sau khi user bấm "Đóng"
+     */
+    private void showPaymentSuccessDialog(String message, boolean showToast, @Nullable Runnable afterDismissed) {
         DialogConfirmHelper.showSuccessDialog(
                 this,
                 "Thanh toán thành công",
@@ -403,6 +502,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
                         Toast.makeText(this,
                                 "Thanh toán thành công",
                                 Toast.LENGTH_SHORT).show();
+                    }
+                    if (afterDismissed != null) {
+                        afterDismissed.run();
                     }
                 }
         );
