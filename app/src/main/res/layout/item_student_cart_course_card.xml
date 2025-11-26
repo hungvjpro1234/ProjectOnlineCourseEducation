@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -13,19 +12,20 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!-- Course image -->
+        <!-- Image -->
         <ImageView
             android:id="@+id/imgCourse"
             android:layout_width="110dp"
             android:layout_height="70dp"
             android:scaleType="centerCrop" />
 
+        <!-- Content -->
         <LinearLayout
             android:orientation="vertical"
-            android:layout_marginStart="12dp"
             android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_height="wrap_content">
+            android:layout_marginStart="12dp">
 
             <TextView
                 android:id="@+id/tvTitle"
@@ -36,7 +36,7 @@
                 android:maxLines="2"
                 android:ellipsize="end"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"/>
 
             <TextView
                 android:id="@+id/tvTeacher"
@@ -46,7 +46,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
-            <!-- Rating + Total lecture -->
             <TextView
                 android:id="@+id/tvInfo"
                 android:text="4.6 ★  •  45 bài học"
@@ -55,7 +54,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
 
-            <!-- Price -->
             <TextView
                 android:id="@+id/tvPrice"
                 android:text="199 000 VND"
@@ -68,34 +66,34 @@
 
         </LinearLayout>
 
-        <!-- Cột nút xóa + thanh toán -->
+        <!-- Delete & Pay column -->
         <LinearLayout
             android:orientation="vertical"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:gravity="top|center_horizontal">
+            android:gravity="center_vertical"
+            android:paddingTop="4dp">
 
-            <!-- Remove button -->
             <ImageView
                 android:id="@+id/btnRemove"
                 android:src="@drawable/ic_delete"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
+                android:layout_width="50dp"
+                android:layout_height="38dp"
                 android:tint="#B00020"
-                android:padding="4dp" />
+                android:padding="6dp"
+                android:layout_marginBottom="10dp"/>
 
-            <!-- Pay button for this item -->
             <Button
                 android:id="@+id/btnPayItem"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
-                android:layout_marginTop="8dp"
                 android:backgroundTint="@color/blue_400"
                 android:text="Thanh toán"
                 android:textSize="10sp"
                 android:textAllCaps="false"
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"/>
+
         </LinearLayout>
 
     </LinearLayout>
