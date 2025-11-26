@@ -22,4 +22,17 @@ public interface AuthApi {
 
     // Mô phỏng bước đổi mật khẩu sau khi click link trong email
     ApiResult<Boolean> finalizeResetViaLink(String token, String newPassword);
+
+    // ====== Thêm cho session hiện tại (phục vụ hiển thị Xin chào, ...) ======
+
+    /**
+     * Lấy user hiện đang đăng nhập (fake session trên client).
+     * Trả về null nếu chưa đăng nhập hoặc đã logout.
+     */
+    User getCurrentUser();
+
+    /**
+     * Ghi lại user hiện tại sau khi login, hoặc truyền null khi logout.
+     */
+    void setCurrentUser(User user);
 }

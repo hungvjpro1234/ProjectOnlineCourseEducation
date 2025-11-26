@@ -2,14 +2,20 @@ package com.example.projectonlinecourseeducation.feature.student.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.core.model.User;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.feature.auth.activity.MainActivity2;
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentCartFragment;
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentHomeFragment;
@@ -24,6 +30,10 @@ public class StudentHomeActivity extends AppCompatActivity {
     private Button btnLogout;
     private BottomNavigationView bottomNav;
 
+    // biến flag để kiểm tra double-back
+    private boolean doubleBackToExitPressedOnce = false;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,14 +45,18 @@ public class StudentHomeActivity extends AppCompatActivity {
         bottomNav = findViewById(R.id.bottomNav);
 
         // TODO: lấy tên user thực tế, tạm thời demo:
-        tvGreeting.setText("Xin chào, Student");
+        // tvGreeting.setText("Xin chào, Student");
 
-        btnLogout.setOnClickListener(v -> {
-            Intent intent = new Intent(this, MainActivity2.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-            finish();
-        });
+        // 👉 Lấy user hiện tại từ AuthApi (fake session) để hiển thị đúng tên
+        User currentUser = ApiProvider.getAuthApi().getCurrentUser();
+        if (currentUser != null && currentUser.getName() != null && !currentUser.getName().isEmpty()) {
+            tvGreeting.setText("Xin chào, " + currentUser.getName());
+        } else {
+            tvGreeting.setText("Xin chào");
+        }
+
+        // Logout: yêu cầu bấm 2 lần để xác nhận đăng xuất
+        btnLogout.setOnClickListener(v -> requestLogoutWithDoubleCheck());
 
         bottomNav.setOnItemSelectedListener(item -> {
             Fragment f;
@@ -68,5 +82,43 @@ public class StudentHomeActivity extends AppCompatActivity {
         // Nếu được truyền flag open_cart từ StudentCourseDetailActivity thì mở tab Giỏ hàng
         boolean openCart = getIntent().getBooleanExtra("open_cart", false);
         bottomNav.setSelectedItemId(openCart ? R.id.nav_cart : R.id.nav_home);
+
+        // 🚀 Back Press Callback mới theo chuẩn AndroidX
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Back cũng dùng chung logic double-check đăng xuất
+                requestLogoutWithDoubleCheck();
+            }
+        });
+    }
+
+    /**
+     * Yêu cầu user bấm 2 lần trong 2s để xác nhận đăng xuất.
+     * Dùng chung cho cả nút Logout và nút Back.
+     */
+    private void requestLogoutWithDoubleCheck() {
+        if (!doubleBackToExitPressedOnce) {
+            doubleBackToExitPressedOnce = true;
+            Toast.makeText(
+                    this,
+                    "Bấm lần nữa để đăng xuất",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            handler.postDelayed(() -> doubleBackToExitPressedOnce = false, 2000);
+        } else {
+            doLogout();
+        }
+    }
+
+    private void doLogout() {
+        // 🔓 Clear fake session khi logout
+        ApiProvider.getAuthApi().setCurrentUser(null);
+
+        Intent intent = new Intent(this, MainActivity2.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        finish();
     }
 }

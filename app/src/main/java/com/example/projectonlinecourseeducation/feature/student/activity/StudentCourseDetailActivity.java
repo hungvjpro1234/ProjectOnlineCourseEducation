@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RatingBar;
 import android.widget.TextView;
@@ -22,6 +23,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 import com.example.projectonlinecourseeducation.core.model.Lesson;
+import com.example.projectonlinecourseeducation.core.utils.DialogHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
@@ -43,6 +45,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     private static final int RELATED_PAGE_SIZE = 4;
 
     private ImageView imgBanner;
+    private ImageButton btnBack; // nút quay lại trên banner
     private TextView tvTitle, tvDescription, tvRatingValue, tvRatingCount,
             tvStudents, tvTeacher, tvCreatedAt, tvPrice, tvLectureSummary, tvRatingSummary;
     private RatingBar ratingBar;
@@ -100,6 +103,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
     private void bindViews() {
         imgBanner = findViewById(R.id.imgBanner);
+        btnBack = findViewById(R.id.btnBack);
         tvTitle = findViewById(R.id.tvTitle);
         tvDescription = findViewById(R.id.tvDescription);
         tvRatingValue = findViewById(R.id.tvRatingValue);
@@ -290,6 +294,9 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     }
 
     private void setupActions() {
+        // Nút quay lại trên banner
+        btnBack.setOnClickListener(v -> finish());
+
         btnAddToCart.setOnClickListener(v -> {
             boolean inCart = isInCart(courseId);
             if (!inCart) {
@@ -297,6 +304,19 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
                 if (currentCourse != null) {
                     cartApi.addToCart(currentCourse);
                     updateAddToCartButtonState();
+
+                    // 👉 Toast thông báo đã thêm vào giỏ hàng
+                    Toast.makeText(
+                            this,
+                            "Đã thêm khóa học vào giỏ hàng",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                } else {
+                    Toast.makeText(
+                            this,
+                            "Không thể thêm vào giỏ hàng, dữ liệu khóa học bị lỗi",
+                            Toast.LENGTH_SHORT
+                    ).show();
                 }
             } else {
                 // Đã ở trong giỏ -> chuyển sang màn Home + mở tab Giỏ hàng
@@ -308,11 +328,27 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
             }
         });
 
-        btnBuyNow.setOnClickListener(v ->
+        // Nút "Mua ngay": hiển thị dialog confirm -> dialog thành công
+        btnBuyNow.setOnClickListener(v -> {
+            if (currentCourse == null) {
                 Toast.makeText(this,
-                        "Mua ngay (fake) – sau này chuyển sang màn thanh toán",
-                        Toast.LENGTH_SHORT).show()
-        );
+                        "Không tìm thấy dữ liệu khóa học để thanh toán",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 👉 Thêm hiển thị giá vào nội dung confirm
+            NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+            String priceText = nf.format(currentCourse.getPrice());
+            String message = "Bạn có chắc muốn thanh toán khóa học \""
+                    + currentCourse.getTitle() + "\"?\n"
+                    + "Giá: " + priceText;
+
+            showPaymentConfirmDialog(
+                    message,
+                    () -> showPaymentSuccessDialog("Thanh toán thành công", true)
+            );
+        });
 
         btnMoreRelated.setOnClickListener(v -> {
             int total = relatedAll.size();
@@ -328,5 +364,47 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
             }
             updateRelatedSection();
         });
+    }
+
+    /**
+     * Hiển thị dialog xác nhận thanh toán.
+     *
+     * @param message    Nội dung confirm
+     * @param onConfirmed callback chạy khi user bấm "Xác nhận"
+     */
+    private void showPaymentConfirmDialog(String message, Runnable onConfirmed) {
+        DialogHelper.showConfirmDialog(
+                this,
+                "Xác nhận thanh toán",
+                message,
+                R.drawable.question,
+                "Xác nhận",
+                "Hủy",
+                R.color.blue_600, // 💜 màu gốc cho nút xác nhận
+                () -> { if (onConfirmed != null) onConfirmed.run(); }
+        );
+    }
+
+    /**
+     * Dialog thông báo thanh toán thành công.
+     *
+     * @param message  Nội dung hiển thị
+     * @param showToast Có hiển thị thêm Toast nữa không
+     */
+    private void showPaymentSuccessDialog(String message, boolean showToast) {
+        DialogHelper.showSuccessDialog(
+                this,
+                "Thanh toán thành công",
+                message,
+                R.drawable.confirm,
+                "Đóng",
+                () -> {
+                    if (showToast) {
+                        Toast.makeText(this,
+                                "Thanh toán thành công",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 }

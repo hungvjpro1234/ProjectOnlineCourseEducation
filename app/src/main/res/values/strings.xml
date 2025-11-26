@@ -4,4 +4,10 @@
     <string name="filter">Filter</string>
     <string name="load_more">Xem thêm</string>
     <string name="search_hint">Tìm theo tiêu đề hoặc GV...</string>
+    <string name="back">Back</string>
+    <string name="confirm_payment">Xác nhận thanh toán</string>
+    <string name="are_you_sure">Bạn chắc chắn?</string>
+    <string name="cancel">Hủy</string>
+    <string name="confirm">Xác nhận</string>
+    <string name="payment_icon">Biểu tượng thanh toán</string>
 </resources>

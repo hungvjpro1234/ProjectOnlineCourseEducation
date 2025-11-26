@@ -23,6 +23,9 @@ public class AuthFakeApiService implements AuthApi {
 
     private final List<User> users = new ArrayList<>();
 
+    // User hiện đang đăng nhập (fake session local)
+    private User currentUser;
+
     // Seed JSON: có username + role
     private static final String SEED_JSON = "[\n" +
             "  {\n" +
@@ -83,6 +86,10 @@ public class AuthFakeApiService implements AuthApi {
             if (u.getUsername().equalsIgnoreCase(username)) {
                 if (!u.isVerified()) return ApiResult.fail("Tài khoản chưa xác minh email.");
                 if (u.getPassword().equals(password)) {
+
+                    // 🔐 Lưu lại user hiện tại để chỗ khác (Home) có thể đọc được
+                    currentUser = u;
+
                     return ApiResult.ok("Đăng nhập thành công", u);
                 } else {
                     return ApiResult.fail("Sai mật khẩu.");
@@ -153,5 +160,17 @@ public class AuthFakeApiService implements AuthApi {
             }
         }
         return ApiResult.fail("Token không hợp lệ hoặc đã hết hạn.");
+    }
+
+    // ====== Session hiện tại ======
+
+    @Override
+    public User getCurrentUser() {
+        return currentUser;
+    }
+
+    @Override
+    public void setCurrentUser(User user) {
+        this.currentUser = user;
     }
 }
