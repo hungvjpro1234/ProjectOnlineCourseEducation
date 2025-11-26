@@ -14,6 +14,7 @@ public class User {
     private String password;   // demo: plaintext. THỰC TẾ hãy hash + salt
     private boolean verified;  // xác minh email
     private String resetToken; // NEW: token đặt lại qua link
+    private Role role; // NEW
 
     public User(String id, String name, String username, String email,
                 String password, boolean verified, String resetToken, Role role) {
@@ -27,8 +28,7 @@ public class User {
         this.role = role;
     }
 
-    private Role role; // NEW
-
+    // ========== GETTER ==========
     public String getId() { return id; }
     public String getName() { return name; }
     public String getUsername() { return username; }
@@ -37,6 +37,11 @@ public class User {
     public boolean isVerified() { return verified; }
     public String getResetToken() { return resetToken; }
     public Role getRole() { return role; }
+
+    // ========== SETTER (bổ sung để update profile) ==========
+    public void setName(String name) { this.name = name; }     // dùng cho update profile
+    public void setEmail(String email) { this.email = email; } // dùng cho update profile
+    public void setUsername(String username) { this.username = username; } // ⭐ THÊM
 
     public void setPassword(String password) { this.password = password; }
     public void setVerified(boolean verified) { this.verified = verified; }

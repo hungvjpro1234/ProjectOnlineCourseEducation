@@ -18,6 +18,10 @@
         <activity android:name=".feature.student.activity.StudentHomeActivity" />
         <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />
         <activity android:name=".feature.admin.activity.AdminHomeActivity" />
+        <activity
+            android:name=".feature.student.activity.StudentEditProfileActivity"
+            android:exported="false" />
+
 
         <activity android:name=".feature.student.activity.StudentCourseDetailActivity" />
 

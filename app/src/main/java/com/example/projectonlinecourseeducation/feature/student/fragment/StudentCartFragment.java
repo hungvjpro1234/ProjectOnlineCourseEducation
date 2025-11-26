@@ -16,7 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.utils.DialogHelper;
+import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.CartAdapter;
@@ -152,7 +152,7 @@ public class StudentCartFragment extends Fragment {
      * @param onConfirmed callback chạy khi user bấm "Xác nhận"
      */
     private void showPaymentConfirmDialog(String message, Runnable onConfirmed) {
-        DialogHelper.showConfirmDialog(
+        DialogConfirmHelper.showConfirmDialog(
                 requireContext(),
                 "Xác nhận thanh toán",
                 message,
@@ -171,7 +171,7 @@ public class StudentCartFragment extends Fragment {
      * @param showToast Có hiển thị thêm Toast nữa không
      */
     private void showPaymentSuccessDialog(String message, boolean showToast) {
-        DialogHelper.showSuccessDialog(
+        DialogConfirmHelper.showSuccessDialog(
                 requireContext(),
                 "Thanh toán thành công",
                 message,
@@ -194,7 +194,7 @@ public class StudentCartFragment extends Fragment {
      * @param onConfirmed Callback khi user bấm "Xóa"
      */
     private void showRemoveConfirmDialog(String message, Runnable onConfirmed) {
-        DialogHelper.showConfirmDialog(
+        DialogConfirmHelper.showConfirmDialog(
                 requireContext(),
                 "Xóa sản phẩm",
                 message,

@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/projectonlinecourseeducation/data/auth/AuthFakeApiService.java
 package com.example.projectonlinecourseeducation.data.auth;
 
 import org.json.JSONArray;
@@ -54,6 +55,15 @@ public class AuthFakeApiService implements AuthApi {
             "    \"password\": \"Admin123\",\n" +
             "    \"verified\": true,\n" +
             "    \"role\": \"ADMIN\"\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"id\": \"u4\",\n" +
+            "    \"name\": \"Student Two\",\n" +
+            "    \"username\": \"student2\",\n" +
+            "    \"email\": \"student2@example.com\",\n" +
+            "    \"password\": \"Pass456\",\n" +
+            "    \"verified\": true,\n" +
+            "    \"role\": \"STUDENT\"\n" +
             "  }\n" +
             "]";
 
@@ -172,5 +182,76 @@ public class AuthFakeApiService implements AuthApi {
     @Override
     public void setCurrentUser(User user) {
         this.currentUser = user;
+    }
+
+    // PUT /auth/profile (fake)
+    @Override
+    public ApiResult<User> updateCurrentUserProfile(String newName,
+                                                    String newEmail,
+                                                    String newUsername) {
+        if (currentUser == null) {
+            return ApiResult.fail("Không tìm thấy user đang đăng nhập.");
+        }
+
+        // Validate đơn giản
+        if (newName == null || newName.trim().isEmpty()) {
+            return ApiResult.fail("Tên không được để trống.");
+        }
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            return ApiResult.fail("Email không được để trống.");
+        }
+        if (!newEmail.contains("@")) {
+            return ApiResult.fail("Email không hợp lệ.");
+        }
+        if (newUsername == null || newUsername.trim().isEmpty()) {
+            return ApiResult.fail("Username không được để trống.");
+        }
+        if (newUsername.trim().length() < 4) {
+            return ApiResult.fail("Username phải có ít nhất 4 ký tự.");
+        }
+
+        // Check trùng email/username với user khác
+        for (User u : users) {
+            if (u == currentUser) continue; // bỏ qua chính nó
+            if (u.getEmail().equalsIgnoreCase(newEmail)) {
+                return ApiResult.fail("Email đã được sử dụng bởi tài khoản khác.");
+            }
+            if (u.getUsername().equalsIgnoreCase(newUsername)) {
+                return ApiResult.fail("Username đã được sử dụng bởi tài khoản khác.");
+            }
+        }
+
+        // Cập nhật vào currentUser (và list users vì cùng reference)
+        currentUser.setName(newName.trim());
+        currentUser.setEmail(newEmail.trim());
+        currentUser.setUsername(newUsername.trim());
+
+        return ApiResult.ok("Cập nhật thông tin thành công.", currentUser);
+    }
+
+    // POST /auth/change-password (fake)
+    @Override
+    public ApiResult<Boolean> changeCurrentUserPassword(String oldPassword,
+                                                        String newPassword) {
+        if (currentUser == null) {
+            return ApiResult.fail("Không tìm thấy user đang đăng nhập.");
+        }
+
+        if (oldPassword == null || oldPassword.isEmpty()) {
+            return ApiResult.fail("Vui lòng nhập mật khẩu cũ.");
+        }
+        if (newPassword == null || newPassword.isEmpty()) {
+            return ApiResult.fail("Mật khẩu mới không được để trống.");
+        }
+        if (newPassword.length() < 6) {
+            return ApiResult.fail("Mật khẩu mới phải có ít nhất 6 ký tự.");
+        }
+
+        if (!currentUser.getPassword().equals(oldPassword)) {
+            return ApiResult.fail("Mật khẩu cũ không chính xác.");
+        }
+
+        currentUser.setPassword(newPassword);
+        return ApiResult.ok("Đổi mật khẩu thành công.", true);
     }
 }

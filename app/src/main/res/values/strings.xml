@@ -3,8 +3,30 @@
     <string name="category">Category</string>
     <string name="filter">Filter</string>
     <string name="load_more">Xem thêm</string>
+    <string name="logout">Log Out</string>
     <string name="search_hint">Tìm theo tiêu đề hoặc GV...</string>
-    <string name="back">Back</string>
+
+    <!-- Chung -->
+    <string name="back">Quay lại</string>
+
+    <!-- Màn hình sửa profile -->
+    <string name="edit_info">Chỉnh sửa thông tin</string>
+    <string name="full_name">Họ và tên</string>
+    <string name="hint_full_name">Nhập họ và tên</string>
+    <string name="username">Username</string>
+    <string name="hint_username">Nhập username</string>
+    <string name="email">Email</string>
+    <string name="hint_email">Nhập email</string>
+    <string name="change_password">Đổi mật khẩu (không bắt buộc)</string>
+    <string name="old_password">Mật khẩu cũ</string>
+    <string name="hint_old_password">Nhập mật khẩu hiện tại</string>
+    <string name="new_password">Mật khẩu mới</string>
+    <string name="hint_new_password">Nhập mật khẩu mới</string>
+    <string name="confirm_password">Nhập lại mật khẩu mới</string>
+    <string name="hint_confirm_password">Nhập lại mật khẩu mới</string>
+    <string name="save_changes">Lưu thay đổi</string>
+
+    <!-- Dialog thanh toán cũ của bạn -->
     <string name="confirm_payment">Xác nhận thanh toán</string>
     <string name="are_you_sure">Bạn chắc chắn?</string>
     <string name="cancel">Hủy</string>

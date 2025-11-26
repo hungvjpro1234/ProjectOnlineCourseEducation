@@ -1,6 +1,5 @@
 package com.example.projectonlinecourseeducation.core.utils;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,7 +11,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.example.projectonlinecourseeducation.R;
 
-public class DialogHelper {
+public class DialogConfirmHelper {
 
     // Callback xác nhận chung
     public interface ConfirmCallback {

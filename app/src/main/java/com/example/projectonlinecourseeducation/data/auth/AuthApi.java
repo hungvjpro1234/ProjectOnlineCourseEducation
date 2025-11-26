@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/projectonlinecourseeducation/data/auth/AuthApi.java
 package com.example.projectonlinecourseeducation.data.auth;
 
 import com.example.projectonlinecourseeducation.core.model.User;
@@ -35,4 +36,21 @@ public interface AuthApi {
      * Ghi lại user hiện tại sau khi login, hoặc truyền null khi logout.
      */
     void setCurrentUser(User user);
+
+    // ====== Thêm: cập nhật thông tin cơ bản của user hiện tại ======
+    /**
+     * Giống PUT /auth/profile (fake):
+     * Cập nhật name, email, username cho user đang đăng nhập.
+     * Validate và check trùng email/username như lúc register.
+     */
+    ApiResult<User> updateCurrentUserProfile(String newName,
+                                             String newEmail,
+                                             String newUsername);
+
+    /**
+     * Giống POST /auth/change-password (fake):
+     * Đổi mật khẩu cho user hiện tại, yêu cầu nhập đúng mật khẩu cũ.
+     */
+    ApiResult<Boolean> changeCurrentUserPassword(String oldPassword,
+                                                 String newPassword);
 }

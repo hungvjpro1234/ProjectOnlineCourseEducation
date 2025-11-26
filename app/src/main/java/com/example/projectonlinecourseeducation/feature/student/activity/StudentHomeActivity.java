@@ -44,16 +44,8 @@ public class StudentHomeActivity extends AppCompatActivity {
         btnLogout = findViewById(R.id.btnLogout);
         bottomNav = findViewById(R.id.bottomNav);
 
-        // TODO: lấy tên user thực tế, tạm thời demo:
-        // tvGreeting.setText("Xin chào, Student");
-
         // 👉 Lấy user hiện tại từ AuthApi (fake session) để hiển thị đúng tên
-        User currentUser = ApiProvider.getAuthApi().getCurrentUser();
-        if (currentUser != null && currentUser.getName() != null && !currentUser.getName().isEmpty()) {
-            tvGreeting.setText("Xin chào, " + currentUser.getName());
-        } else {
-            tvGreeting.setText("Xin chào");
-        }
+        updateGreeting();
 
         // Logout: yêu cầu bấm 2 lần để xác nhận đăng xuất
         btnLogout.setOnClickListener(v -> requestLogoutWithDoubleCheck());
@@ -91,6 +83,26 @@ public class StudentHomeActivity extends AppCompatActivity {
                 requestLogoutWithDoubleCheck();
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Mỗi lần quay lại màn StudentHomeActivity, đọc lại currentUser để greeting luôn mới
+        updateGreeting();
+    }
+
+    /**
+     * Đọc user hiện tại từ AuthApi (fake session) và set text lời chào.
+     * Dùng chung cho onCreate + onResume.
+     */
+    private void updateGreeting() {
+        User currentUser = ApiProvider.getAuthApi().getCurrentUser();
+        if (currentUser != null && currentUser.getName() != null && !currentUser.getName().isEmpty()) {
+            tvGreeting.setText("Xin chào, học viên " + currentUser.getName() + " !");
+        } else {
+            tvGreeting.setText("Xin chào");
+        }
     }
 
     /**

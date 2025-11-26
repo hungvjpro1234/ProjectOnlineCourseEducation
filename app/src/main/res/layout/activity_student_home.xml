@@ -6,36 +6,41 @@
     android:background="@color/colorBackground"
     android:fitsSystemWindows="true">
 
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:padding="12dp"
-        android:background="@color/colorPrimary"
-        android:elevation="8dp"
-        android:clickable="true"
-        android:focusable="true">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="12dp"
+        android:background="@color/purple_400"
+        android:elevation="8dp">
 
         <TextView
             android:id="@+id/tvGreeting"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Xin chào, Student"
+            android:layout_weight="1"
+            android:text="Xin chào, học viên Student One !"
             android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="@color/white"/>
+            android:textSize="16sp"
+            android:textColor="@color/white" />
 
         <Button
             android:id="@+id/btnLogout"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
-            android:textSize="9sp"
-            android:text="Logout"
+            android:layout_height="36dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="@string/logout"
             android:textAllCaps="false"
-            android:backgroundTint="@color/white"
-            android:textColor="@color/colorSecondary"/>
-    </RelativeLayout>
+            android:textSize="12sp"
+            android:textColor="@color/blue_800"
+            android:background="@drawable/bg_logout_button"
+            app:backgroundTint="@null"
+            android:layout_marginEnd="4dp"/>
+    </LinearLayout>
+
 
     <FrameLayout
         android:id="@+id/student_fragment_container"

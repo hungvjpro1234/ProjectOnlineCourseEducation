@@ -23,7 +23,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.core.model.CourseReview;
 import com.example.projectonlinecourseeducation.core.model.Lesson;
-import com.example.projectonlinecourseeducation.core.utils.DialogHelper;
+import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
@@ -373,7 +373,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
      * @param onConfirmed callback chạy khi user bấm "Xác nhận"
      */
     private void showPaymentConfirmDialog(String message, Runnable onConfirmed) {
-        DialogHelper.showConfirmDialog(
+        DialogConfirmHelper.showConfirmDialog(
                 this,
                 "Xác nhận thanh toán",
                 message,
@@ -392,7 +392,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
      * @param showToast Có hiển thị thêm Toast nữa không
      */
     private void showPaymentSuccessDialog(String message, boolean showToast) {
-        DialogHelper.showSuccessDialog(
+        DialogConfirmHelper.showSuccessDialog(
                 this,
                 "Thanh toán thành công",
                 message,
