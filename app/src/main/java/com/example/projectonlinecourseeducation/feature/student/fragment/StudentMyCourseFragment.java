@@ -16,7 +16,6 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.Course;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
-import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseDetailActivity;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseLessonActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.MyCourseAdapter;
 
@@ -46,12 +45,7 @@ public class StudentMyCourseFragment extends Fragment {
         adapter.setMyCourseActionListener(new MyCourseAdapter.MyCourseActionListener() {
             @Override
             public void onItemClicked(Course course) {
-                if (course == null) return;
-                // Mở lại màn chi tiết khóa học
-                Intent i = new Intent(requireContext(), StudentCourseDetailActivity.class);
-                i.putExtra("course_id", course.getId());
-                i.putExtra("course_title", course.getTitle());
-                startActivity(i);
+                // Bỏ sự kiện click vào item, không làm gì cả
             }
 
             @Override

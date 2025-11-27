@@ -1,30 +1,223 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/colorBackground"
-    android:padding="16dp">
+    android:background="@color/colorBackground">
 
-    <!-- Nút back đơn giản -->
-    <ImageButton
-        android:id="@+id/btnBack"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:src="@drawable/ic_back"
-        android:background="@drawable/bg_back_button_round"
-        android:contentDescription="@string/back" />
-
-    <!-- Dòng text demo -->
-    <TextView
-        android:id="@+id/tvDemo"
+    <!-- Main Content ScrollView -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="Đây là khóa học: Demo"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@color/colorPrimary"
-        android:gravity="center" />
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-</LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- ===== Banner & Back Button ===== -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="200dp">
+
+                <ImageView
+                    android:id="@+id/imgCourseBanner"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    tools:src="@drawable/ic_launcher_background" />
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginTop="32dp"
+                    android:layout_gravity="top|start"
+                    android:background="@drawable/bg_back_button_round"
+                    android:src="@drawable/ic_back"
+                    android:contentDescription="@string/back" />
+            </FrameLayout>
+
+            <!-- ===== Course Info Section ===== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Tiêu đề khóa học -->
+                <TextView
+                    android:id="@+id/tvCourseTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textStyle="bold"
+                    android:textSize="22sp"
+                    android:textColor="@color/black"
+                    android:lineSpacingMultiplier="1.2"
+                    tools:text="Java Cơ Bản Cho Người Mới" />
+
+                <!-- Rating & Students & Teacher -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="12dp">
+
+                    <!-- Rating + Count -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <RatingBar
+                            android:id="@+id/ratingBar"
+                            style="?android:attr/ratingBarStyleSmall"
+                            android:isIndicator="true"
+                            android:numStars="5"
+                            android:stepSize="0.5"
+                            android:progressTint="@color/yellow_star"
+                            android:secondaryProgressTint="@color/yellow_star"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+
+                        <TextView
+                            android:id="@+id/tvRatingValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:textStyle="bold"
+                            android:textSize="14sp"
+                            android:textColor="@color/colorSecondary"
+                            tools:text="4.6" />
+
+                        <TextView
+                            android:id="@+id/tvRatingCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:textSize="13sp"
+                            android:textColor="@color/text_secondary"
+                            tools:text="(3 đánh giá)" />
+                    </LinearLayout>
+
+                    <!-- Students Count -->
+                    <TextView
+                        android:id="@+id/tvStudentsCount"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingTop="6dp"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        tools:text="👥 950 học viên" />
+
+                    <!-- Teacher Name -->
+                    <TextView
+                        android:id="@+id/tvTeacherName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingTop="4dp"
+                        android:textSize="13sp"
+                        android:textColor="@color/blue_text_secondary"
+                        tools:text="👨‍🏫 Nguyễn Văn A" />
+
+                    <!-- Updated Date -->
+                    <TextView
+                        android:id="@+id/tvUpdatedDate"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingTop="4dp"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        tools:text="📅 Cập nhật: 03/2024" />
+
+                    <!-- Lectures & Duration Summary -->
+                    <TextView
+                        android:id="@+id/tvLectureSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingTop="4dp"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
+                        tools:text="📖 5 bài • 1 giờ 46 phút" />
+                </LinearLayout>
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="16dp"
+                    android:background="@color/divider" />
+
+                <!-- ===== Course Content Section ===== -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📚 Nội dung khóa học"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="@color/black"
+                    android:paddingBottom="12dp" />
+
+                <!-- RecyclerView for Lessons -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvLessons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    tools:listitem="@layout/item_student_product_course_lesson" />
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="16dp"
+                    android:background="@color/divider" />
+
+                <!-- ===== Reviews Section ===== -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💬 Nhận xét từ học viên"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="@color/black"
+                    android:paddingBottom="12dp" />
+
+                <!-- RecyclerView for Reviews -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvReviews"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    tools:listitem="@layout/item_student_product_course_review" />
+
+                <!-- Bottom Padding -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="100dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- ===== Floating Q&A Button ===== -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabQAndA"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="24dp"
+        android:backgroundTint="@color/blue_200"
+        app:srcCompat="@drawable/ic_chat"
+        android:contentDescription="@string/q_and_a" />
+
+</FrameLayout>

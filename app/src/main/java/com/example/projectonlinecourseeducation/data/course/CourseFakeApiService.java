@@ -42,14 +42,14 @@ public class CourseFakeApiService implements CourseApi {
             "    \"teacher\":\"Nguyễn A\",\n" +
             "    \"imageUrl\":\"https://picsum.photos/seed/j1/640/360\",\n" +
             "    \"category\":\"Java, OOP, Backend\",\n" +
-            "    \"lectures\":45,\n" +
+            "    \"lectures\":5,\n" +
             "    \"students\":1200,\n" +
             "    \"rating\":4.6,\n" +
             "    \"price\":199000,\n" +
             "    \"description\":\"Khóa học Java cơ bản cho người mới bắt đầu, đi từ cú pháp đến OOP và thực hành.\",\n" +
             "    \"createdAt\":\"03/2024\",\n" +
-            "    \"ratingCount\":120,\n" +
-            "    \"totalDurationMinutes\":720,\n" +
+            "    \"ratingCount\":3,\n" +
+            "    \"totalDurationMinutes\":106,\n" +
             "    \"skills\":[\"Nắm cú pháp\", \"Hiểu OOP\", \"Collection\", \"Build console app đơn giản\"],\n" +
             "    \"requirements\":[\"Biết máy tính cơ bản\", \"Dành 6-8 giờ/tuần\", \"Cài JDK\"]\n" +
             "  },\n" +
@@ -59,14 +59,14 @@ public class CourseFakeApiService implements CourseApi {
             "    \"teacher\":\"Nguyễn A\",\n" +
             "    \"imageUrl\":\"https://picsum.photos/seed/j3/640/360\",\n" +
             "    \"category\":\"Java, Spring Boot, Backend\",\n" +
-            "    \"lectures\":55,\n" +
+            "    \"lectures\":5,\n" +
             "    \"students\":1500,\n" +
             "    \"rating\":4.8,\n" +
             "    \"price\":299000,\n" +
             "    \"description\":\"Xây dựng REST API và ứng dụng web backend với Spring Boot, JPA và Security.\",\n" +
             "    \"createdAt\":\"05/2024\",\n" +
-            "    \"ratingCount\":210,\n" +
-            "    \"totalDurationMinutes\":900,\n" +
+            "    \"ratingCount\":3,\n" +
+            "    \"totalDurationMinutes\":112,\n" +
             "    \"skills\":[\"Spring Boot cơ bản\", \"REST API\", \"JPA/Hibernate\", \"Spring Security cơ bản\"],\n" +
             "    \"requirements\":[\"Nắm Java cơ bản\", \"Kiến thức OOP\", \"Biết SQL cơ bản\"]\n" +
             "  },\n" +
@@ -76,14 +76,14 @@ public class CourseFakeApiService implements CourseApi {
             "    \"teacher\":\"Trần B\",\n" +
             "    \"imageUrl\":\"https://picsum.photos/seed/js1/640/360\",\n" +
             "    \"category\":\"JavaScript, HTML, CSS, Frontend\",\n" +
-            "    \"lectures\":50,\n" +
+            "    \"lectures\":5,\n" +
             "    \"students\":2000,\n" +
             "    \"rating\":4.6,\n" +
             "    \"price\":199000,\n" +
             "    \"description\":\"Học JavaScript từ cơ bản đến nâng cao, thao tác DOM và làm mini project.\",\n" +
             "    \"createdAt\":\"01/2024\",\n" +
-            "    \"ratingCount\":220,\n" +
-            "    \"totalDurationMinutes\":780,\n" +
+            "    \"ratingCount\":3,\n" +
+            "    \"totalDurationMinutes\":109,\n" +
             "    \"skills\":[\"Cú pháp JS cơ bản\", \"DOM manipulation\", \"Async/await\", \"Build web mini project\"],\n" +
             "    \"requirements\":[\"Biết HTML/CSS cơ bản\", \"Biết sử dụng trình duyệt\"]\n" +
             "  }\n" +

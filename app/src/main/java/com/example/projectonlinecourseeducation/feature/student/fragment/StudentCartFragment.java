@@ -114,10 +114,10 @@ public class StudentCartFragment extends Fragment {
                                         cartList.addAll(cartApi.getCartCourses());
                                         cartAdapter.notifyDataSetChanged();
                                         updateSummary();
-                                        // 4. Điều hướng sang màn Lesson của chính khóa vừa mua
-                                        Intent intent = new Intent(requireContext(), StudentCourseLessonActivity.class);
-                                        intent.putExtra("course_id", course.getId());
-                                        intent.putExtra("course_title", course.getTitle());
+                                        // 4. Quay về My Course tab
+                                        Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                        intent.putExtra("open_my_course", true);
+                                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                                         startActivity(intent);
                                         // 5. Đóng Activity chứa fragment (thường là StudentHomeActivity)
                                         requireActivity().finish();
@@ -165,18 +165,11 @@ public class StudentCartFragment extends Fragment {
                                     cartAdapter.notifyDataSetChanged();
                                     updateSummary();
 
-                                    // 4. Chọn 1 khóa để mở màn Lesson (ví dụ: khóa đầu tiên)
-                                    if (current != null && !current.isEmpty()) {
-                                        Course first = current.get(0);
-                                        Intent intent = new Intent(requireContext(), StudentCourseLessonActivity.class);
-                                        intent.putExtra("course_id", first.getId());
-                                        intent.putExtra("course_title", first.getTitle());
-                                        startActivity(intent);
-                                    } else {
-                                        // Nếu vì lý do gì đó không có course, fallback về Home
-                                        Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
-                                        startActivity(intent);
-                                    }
+                                    // 4. Quay về My Course tab
+                                    Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                    intent.putExtra("open_my_course", true);
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(intent);
 
                                     // 5. Đóng Activity chứa fragment
                                     requireActivity().finish();

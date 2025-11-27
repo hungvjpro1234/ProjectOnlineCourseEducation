@@ -32,4 +32,11 @@
     <string name="cancel">Hủy</string>
     <string name="confirm">Xác nhận</string>
     <string name="payment_icon">Biểu tượng thanh toán</string>
+
+    <!-- Lesson Activity -->
+    <string name="course_content">📚
+ Nội dung khóa học</string>
+    <string name="q_and_a">💬
+ Hỏi đáp</string>
+    <string name="q_and_a_developing">Phần hỏi đáp đang được phát triển</string>
 </resources>

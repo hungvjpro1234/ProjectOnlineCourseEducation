@@ -72,8 +72,17 @@ public class StudentHomeActivity extends AppCompatActivity {
 
         // mặc định mở Home
         // Nếu được truyền flag open_cart từ StudentCourseDetailActivity thì mở tab Giỏ hàng
+        // Nếu được truyền flag open_my_course từ thanh toán thì mở tab My Course
         boolean openCart = getIntent().getBooleanExtra("open_cart", false);
-        bottomNav.setSelectedItemId(openCart ? R.id.nav_cart : R.id.nav_home);
+        boolean openMyCourse = getIntent().getBooleanExtra("open_my_course", false);
+
+        if (openCart) {
+            bottomNav.setSelectedItemId(R.id.nav_cart);
+        } else if (openMyCourse) {
+            bottomNav.setSelectedItemId(R.id.nav_mycourse);
+        } else {
+            bottomNav.setSelectedItemId(R.id.nav_home);
+        }
 
         // 🚀 Back Press Callback mới theo chuẩn AndroidX
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

@@ -425,12 +425,12 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
                                 }
                                 // 3. Cập nhật lại UI (nếu còn ở activity này)
                                 updatePurchaseUi();
-                                // 4. Chuyển sang màn Lesson của khóa vừa mua
-                                Intent intent = new Intent(this, StudentCourseLessonActivity.class);
-                                intent.putExtra("course_id", currentCourse.getId());
-                                intent.putExtra("course_title", currentCourse.getTitle());
+                                // 4. Quay về My Course tab
+                                Intent intent = new Intent(this, StudentHomeActivity.class);
+                                intent.putExtra("open_my_course", true);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                                 startActivity(intent);
-                                // 5. Đóng màn chi tiết (optional, cho flow sạch)
+                                // 5. Đóng màn chi tiết
                                 finish();
                             }
                     )
