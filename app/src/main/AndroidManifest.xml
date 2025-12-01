@@ -12,14 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ProjectOnlineCourseEducation">
 
-        <meta-data
-            android:name="com.google.android.youtube.API_KEY"
-            android:value="AIzaSyDTfDjCO4Zp6GsboKsgwJRQspt97ijkH0c" />
-
         <activity android:name=".feature.auth.activity.LoginActivity" />
         <activity android:name=".feature.auth.activity.RegisterActivity" />
         <activity android:name=".feature.auth.activity.ForgotPasswordActivity" />
-
         <activity android:name=".feature.student.activity.StudentHomeActivity" />
         <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />
         <activity android:name=".feature.admin.activity.AdminHomeActivity" />
@@ -29,9 +24,11 @@
         <activity
             android:name=".feature.student.activity.StudentCourseLessonActivity"
             android:exported="false" />
-
-
         <activity android:name=".feature.student.activity.StudentCourseDetailActivity" />
+        <activity
+            android:name=".feature.student.activity.YoutubeDemoActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape" />
 
         <activity
             android:name=".feature.auth.activity.MainActivity2"

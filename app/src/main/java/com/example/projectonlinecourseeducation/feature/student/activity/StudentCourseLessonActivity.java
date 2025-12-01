@@ -1,6 +1,8 @@
 package com.example.projectonlinecourseeducation.feature.student.activity;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RatingBar;
@@ -42,6 +44,7 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
     private RatingBar ratingBar;
     private RecyclerView rvLessons, rvReviews;
     private FloatingActionButton fabQAndA;
+    private Button btnYoutubeDemo; // <-- thêm
 
     // Adapters
     private ProductLessonInfoAdapter lessonAdapter;
@@ -96,6 +99,8 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
         rvLessons = findViewById(R.id.rvLessons);
         rvReviews = findViewById(R.id.rvReviews);
         fabQAndA = findViewById(R.id.fabQAndA);
+
+        btnYoutubeDemo = findViewById(R.id.btnYoutubeDemo);
     }
 
     private void setupRecyclerViews() {
@@ -180,11 +185,18 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
 
         // Q&A FAB button
         fabQAndA.setOnClickListener(v -> {
-            // Tạm thời chỉ hiển thị toast
-            // Trong tương lai sẽ chuyển sang màn hỏi đáp
             Toast.makeText(this,
                     "Phần hỏi đáp đang được phát triển",
                     Toast.LENGTH_SHORT).show();
+        });
+
+        // NÚT DEMO YOUTUBE PLAYER
+        btnYoutubeDemo.setOnClickListener(v -> {
+            Intent intent = new Intent(
+                    StudentCourseLessonActivity.this,
+                    YoutubeDemoActivity.class
+            );
+            startActivity(intent);
         });
     }
 }

@@ -164,6 +164,16 @@
                     android:textColor="@color/black"
                     android:paddingBottom="12dp" />
 
+                <!-- NÚT DEMO YOUTUBE PLAYER -->
+                <Button
+                    android:id="@+id/btnYoutubeDemo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Xem demo YouTube Player"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    android:layout_marginBottom="8dp" />
+
                 <!-- RecyclerView for Lessons -->
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rvLessons"
