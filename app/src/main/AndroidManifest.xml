@@ -11,6 +11,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ProjectOnlineCourseEducation">
+
+        <meta-data
+            android:name="com.google.android.youtube.API_KEY"
+            android:value="AIzaSyDTfDjCO4Zp6GsboKsgwJRQspt97ijkH0c" />
+
         <activity android:name=".feature.auth.activity.LoginActivity" />
         <activity android:name=".feature.auth.activity.RegisterActivity" />
         <activity android:name=".feature.auth.activity.ForgotPasswordActivity" />
