@@ -34,9 +34,13 @@
     <string name="payment_icon">Biểu tượng thanh toán</string>
 
     <!-- Lesson Activity -->
-    <string name="course_content">📚
- Nội dung khóa học</string>
-    <string name="q_and_a">💬
- Hỏi đáp</string>
+    <string name="course_content">📚 Nội dung khóa học</string>
+    <string name="q_and_a">💬 Hỏi đáp</string>
     <string name="q_and_a_developing">Phần hỏi đáp đang được phát triển</string>
+    <string name="lesson_thumbnail">Bài học</string>
+    <string name="duration">Thời lượng</string>
+    <string name="play_lesson">Phát bài học</string>
+    <string name="write_comment">Viết bình luận...</string>
+    <string name="your_rating">Đánh giá của bạn</string>
+    <string name="submit_rating">Gửi đánh giá</string>
 </resources>

@@ -1,25 +1,28 @@
-package com.example.projectonlinecourseeducation.data.lesson;
+package com.example.projectonlinecourseeducation.data.lessonvideo;
 
-import com.example.projectonlinecourseeducation.core.model.Lesson;
+import com.example.projectonlinecourseeducation.core.model.LessonVideo;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class LessonFakeApiService implements LessonApi {
+/**
+ * Fake API Service cho LessonVideo
+ * Mock dữ liệu video của các bài học
+ * Sau này có thể thay bằng LessonVideoRemoteApiService kết nối backend
+ */
+public class LessonVideoFakeApiService implements LessonVideoApi {
 
     // Singleton
-    private static LessonFakeApiService instance;
-    public static LessonFakeApiService getInstance() {
-        if (instance == null) instance = new LessonFakeApiService();
+    private static LessonVideoFakeApiService instance;
+    public static LessonVideoFakeApiService getInstance() {
+        if (instance == null) instance = new LessonVideoFakeApiService();
         return instance;
     }
 
-    // JSON SEED CHO NỘI DUNG KHÓA HỌC (LESSON + VIDEO)
-    private static final String LESSONS_JSON = "[\n" +
+    // JSON SEED CHO VIDEO CỦA CÁC BÀI HỌC
+    // Ghi chú: videoUrl là YouTube Video ID (có thể tự thay đổi nếu cần)
+    private static final String LESSONS_VIDEO_JSON = "[\n" +
             "  {\"id\":\"c1_l1\",\"courseId\":\"c1\",\"order\":1,\"title\":\"Giới thiệu Java & cài đặt môi trường\",\n" +
             "   \"description\":\"Bài học này giới thiệu những kiến thức cơ bản về Java, lịch sử phát triển, đặc điểm, và hướng dẫn chi tiết cách cài đặt JDK, IDE để bắt đầu lập trình.\",\n" +
             "   \"videoUrl\":\"mtL4fOWm3vY\",\"duration\":\"09:30\"},\n" +
@@ -81,55 +84,27 @@ public class LessonFakeApiService implements LessonApi {
             "   \"videoUrl\":\"mtL4fOWm3vY\",\"duration\":\"32:00\"}\n" +
             "]";
 
-    private LessonFakeApiService() {
+    private LessonVideoFakeApiService() {
         // Constructor rỗng
     }
 
     @Override
-    public List<Lesson> getLessonsForCourse(String courseId) {
-        List<Lesson> result = new ArrayList<>();
-        if (courseId == null) return result;
-
-        try {
-            JSONArray arr = new JSONArray(LESSONS_JSON);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                if (!courseId.equals(o.optString("courseId"))) continue;
-
-                result.add(new Lesson(
-                        o.getString("id"),
-                        o.getString("courseId"),
-                        o.getString("title"),
-                        o.optString("description", ""),
-                        o.getString("videoUrl"),
-                        o.optString("duration", ""),
-                        o.getInt("order")
-                ));
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        return result;
-    }
-
-    @Override
-    public Lesson getLessonDetail(String lessonId) {
+    public LessonVideo getLessonVideoDetail(String lessonId) {
         if (lessonId == null) return null;
 
         try {
-            JSONArray arr = new JSONArray(LESSONS_JSON);
+            JSONArray arr = new JSONArray(LESSONS_VIDEO_JSON);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);
                 if (lessonId.equals(o.optString("id"))) {
-                    return new Lesson(
+                    return new LessonVideo(
                             o.getString("id"),
-                            o.getString("courseId"),
                             o.getString("title"),
                             o.optString("description", ""),
                             o.getString("videoUrl"),
                             o.optString("duration", ""),
-                            o.getInt("order")
+                            o.getInt("order"),
+                            o.getString("courseId")
                     );
                 }
             }

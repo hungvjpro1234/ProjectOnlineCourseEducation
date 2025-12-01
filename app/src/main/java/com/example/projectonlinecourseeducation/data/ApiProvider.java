@@ -8,6 +8,8 @@ import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.course.CourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonFakeApiService;
+import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.lesson.LessonProgressFakeApiService;
 import com.example.projectonlinecourseeducation.data.review.ReviewApi;
 import com.example.projectonlinecourseeducation.data.review.ReviewFakeApiService;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
@@ -15,10 +17,11 @@ import com.example.projectonlinecourseeducation.data.mycourse.MyCourseFakeApiSer
 
 public class ApiProvider {
 
-    // Mặc định đang dùng FakeApi cho Course + Auth + Cart + Lesson + Review
+    // Mặc định đang dùng FakeApi cho Course + Auth + Cart + Lesson + Review + LessonProgress
     private static AuthApi authApi = AuthFakeApiService.getInstance();
     private static CourseApi courseApi = CourseFakeApiService.getInstance();
     private static LessonApi lessonApi = LessonFakeApiService.getInstance();
+    private static LessonProgressApi lessonProgressApi = LessonProgressFakeApiService.getInstance();
     private static ReviewApi reviewApi = ReviewFakeApiService.getInstance();
     private static CartApi cartApi = CartFakeApiService.getInstance();
 
@@ -50,6 +53,19 @@ public class ApiProvider {
 
     public static void setLessonApi(LessonApi api) {
         lessonApi = api;
+    }
+
+    // -------- LessonProgress --------
+    public static LessonProgressApi getLessonProgressApi() {
+        return lessonProgressApi;
+    }
+
+    /**
+     * Sau này ở Application hoặc chỗ init Retrofit:
+     * ApiProvider.setLessonProgressApi(new LessonProgressRemoteApiService(retrofit));
+     */
+    public static void setLessonProgressApi(LessonProgressApi api) {
+        lessonProgressApi = api;
     }
 
     // -------- Review --------

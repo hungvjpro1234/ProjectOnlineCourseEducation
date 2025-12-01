@@ -29,6 +29,9 @@
             android:name=".feature.student.activity.YoutubeDemoActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape" />
+        <activity
+            android:name=".feature.student.activity.StudentLessonVideoActivity"
+            android:exported="false" />
 
         <activity
             android:name=".feature.auth.activity.MainActivity2"

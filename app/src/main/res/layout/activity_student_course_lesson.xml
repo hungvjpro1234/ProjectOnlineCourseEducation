@@ -164,23 +164,88 @@
                     android:textColor="@color/black"
                     android:paddingBottom="12dp" />
 
-                <!-- NÚT DEMO YOUTUBE PLAYER -->
-                <Button
-                    android:id="@+id/btnYoutubeDemo"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Xem demo YouTube Player"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:layout_marginBottom="8dp" />
-
                 <!-- RecyclerView for Lessons -->
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rvLessons"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:nestedScrollingEnabled="false"
-                    tools:listitem="@layout/item_student_product_course_lesson" />
+                    tools:listitem="@layout/item_student_lesson_card" />
+
+                <!-- Divider -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="16dp"
+                    android:background="@color/divider" />
+
+                <!-- ===== Comment & Rating Section ===== -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✍️ Đánh giá khóa học"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:textColor="@color/black"
+                    android:paddingBottom="12dp" />
+
+                <!-- Your Rating Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@color/white"
+                    android:padding="12dp"
+                    android:elevation="2dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/your_rating"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Rating Bar for user input - editable mode -->
+                    <RatingBar
+                        android:id="@+id/ratingBarUserInput"
+                        style="?android:attr/ratingBarStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:numStars="5"
+                        android:stepSize="1.0"
+                        android:progressTint="@color/yellow_star"
+                        android:secondaryProgressTint="@color/yellow_star"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Comment Input -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:hint="@string/write_comment">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etCommentInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="80dp"
+                            android:inputType="textMultiLine"
+                            android:textSize="13sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Submit Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSubmitRating"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="@string/submit_rating"
+                        android:textSize="12sp"
+                        android:layout_gravity="end"
+                        android:paddingHorizontal="16dp"
+                        android:backgroundTint="@color/colorSecondary" />
+                </LinearLayout>
 
                 <!-- Divider -->
                 <View

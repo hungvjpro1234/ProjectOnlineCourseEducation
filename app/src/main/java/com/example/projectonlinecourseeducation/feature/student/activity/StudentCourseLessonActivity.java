@@ -1,8 +1,6 @@
 package com.example.projectonlinecourseeducation.feature.student.activity;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RatingBar;
@@ -24,9 +22,11 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.review.ReviewApi;
-import com.example.projectonlinecourseeducation.feature.student.adapter.ProductLessonInfoAdapter;
+import com.example.projectonlinecourseeducation.feature.student.adapter.StudentLessonCardAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.List;
 import java.util.Locale;
@@ -41,13 +41,14 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private ImageView imgCourseBanner;
     private TextView tvCourseTitle, tvRatingValue, tvRatingCount, tvStudentsCount, tvTeacherName, tvUpdatedDate, tvLectureSummary;
-    private RatingBar ratingBar;
+    private RatingBar ratingBar, ratingBarUserInput;
     private RecyclerView rvLessons, rvReviews;
     private FloatingActionButton fabQAndA;
-    private Button btnYoutubeDemo; // <-- thêm
+    private TextInputEditText etCommentInput;
+    private MaterialButton btnSubmitRating;
 
     // Adapters
-    private ProductLessonInfoAdapter lessonAdapter;
+    private StudentLessonCardAdapter lessonAdapter;
     private ProductCourseReviewDetailedAdapter reviewAdapter;
 
     // API
@@ -96,16 +97,17 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
         tvUpdatedDate = findViewById(R.id.tvUpdatedDate);
         tvLectureSummary = findViewById(R.id.tvLectureSummary);
         ratingBar = findViewById(R.id.ratingBar);
+        ratingBarUserInput = findViewById(R.id.ratingBarUserInput);
         rvLessons = findViewById(R.id.rvLessons);
         rvReviews = findViewById(R.id.rvReviews);
         fabQAndA = findViewById(R.id.fabQAndA);
-
-        btnYoutubeDemo = findViewById(R.id.btnYoutubeDemo);
+        etCommentInput = findViewById(R.id.etCommentInput);
+        btnSubmitRating = findViewById(R.id.btnSubmitRating);
     }
 
     private void setupRecyclerViews() {
-        // Lesson Adapter
-        lessonAdapter = new ProductLessonInfoAdapter();
+        // Lesson Adapter - mới dùng StudentLessonCardAdapter
+        lessonAdapter = new StudentLessonCardAdapter(this);
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
         rvLessons.setAdapter(lessonAdapter);
         rvLessons.setNestedScrollingEnabled(false);
@@ -190,13 +192,29 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT).show();
         });
 
-        // NÚT DEMO YOUTUBE PLAYER
-        btnYoutubeDemo.setOnClickListener(v -> {
-            Intent intent = new Intent(
-                    StudentCourseLessonActivity.this,
-                    YoutubeDemoActivity.class
-            );
-            startActivity(intent);
+        // Submit Rating button
+        btnSubmitRating.setOnClickListener(v -> {
+            float rating = ratingBarUserInput.getRating();
+            String comment = etCommentInput.getText().toString().trim();
+
+            if (rating == 0) {
+                Toast.makeText(this, "Vui lòng chọn số sao để đánh giá", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (comment.isEmpty()) {
+                Toast.makeText(this, "Vui lòng nhập bình luận", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Demo: Gửi đánh giá thành công
+            Toast.makeText(this,
+                    "Đánh giá " + (int) rating + " sao đã được gửi thành công!",
+                    Toast.LENGTH_SHORT).show();
+
+            // Clear inputs
+            ratingBarUserInput.setRating(0);
+            etCommentInput.setText("");
         });
     }
 }
