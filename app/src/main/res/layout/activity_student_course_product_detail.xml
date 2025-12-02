@@ -55,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:textStyle="bold"
                 android:textSize="20sp"
-                android:textColor="@color/black"
+                android:textColor="@color/blue_900"
                 tools:text="Java Cơ Bản Cho Người Mới" />
 
             <TextView
@@ -114,7 +114,7 @@
                     android:layout_height="wrap_content"
                     android:paddingTop="4dp"
                     tools:text="950 học viên"
-                    android:textColor="@color/blue_900" />
+                    android:textColor="@color/text_secondary" />
 
                 <TextView
                     android:id="@+id/tvTeacher"
@@ -130,7 +130,7 @@
                     android:layout_height="wrap_content"
                     android:paddingTop="2dp"
                     tools:text="Cập nhật: 03/2024"
-                    android:textColor="@color/blue_900" />
+                    android:textColor="@color/text_secondary" />
             </LinearLayout>
 
             <!-- Giá + nút -->
@@ -148,7 +148,7 @@
                     android:layout_weight="1"
                     android:textStyle="bold"
                     android:textSize="20sp"
-                    android:textColor="@color/colorSecondary"
+                    android:textColor="@color/purple_text_secondary"
                     tools:text="199.000 đ" />
 
             </LinearLayout>
@@ -347,7 +347,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:paddingTop="4dp"
-                    android:textColor="@color/black"
+                    android:textColor="@color/purple_text_primary"
                     tools:text="4.6 / 5.0 • 120 lượt đánh giá" />
             </LinearLayout>
 
