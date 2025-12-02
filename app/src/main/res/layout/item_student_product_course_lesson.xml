@@ -32,7 +32,7 @@
             android:id="@+id/tvLessonDuration"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/blue_text_secondary"
+            android:textColor="@color/text_secondary"
             android:textSize="12sp"
             android:text="10:30" />
     </LinearLayout>

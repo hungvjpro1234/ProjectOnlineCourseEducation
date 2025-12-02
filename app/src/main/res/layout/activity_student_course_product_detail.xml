@@ -269,7 +269,7 @@
                     android:id="@+id/tvLectureSummary"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/black"
+                    android:textColor="@color/purple_300"
                     tools:text="24 bài • 12 giờ" />
             </LinearLayout>
 

@@ -55,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:text="24 bài • 12 giờ"
                 android:textSize="12sp"
-                android:textColor="@color/blue_text_secondary"
+                android:textColor="@color/text_secondary"
                 android:layout_marginTop="2dp" />
 
             <TextView
