@@ -280,14 +280,66 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
                 return;
             }
 
-            // Demo: Gửi đánh giá thành công (Fake)
-            Toast.makeText(this,
-                    "Đánh giá " + (int) rating + " sao đã được gửi thành công!",
-                    Toast.LENGTH_SHORT).show();
+            // Lấy tên học viên từ hệ thống xác thực
+            String studentName = "Học viên"; // Default
+            try {
+                com.example.projectonlinecourseeducation.core.model.user.User currentUser =
+                        ApiProvider.getAuthApi().getCurrentUser();
+                if (currentUser != null && currentUser.getName() != null) {
+                    studentName = currentUser.getName();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
 
-            // Clear inputs
-            ratingBarUserInput.setRating(0);
-            etCommentInput.setText("");
+            // Gọi API để lưu review
+            CourseReview newReview = reviewApi.addReviewToCourse(
+                    courseId,
+                    studentName,
+                    rating,
+                    comment
+            );
+
+            if (newReview != null) {
+                // Reload danh sách reviews
+                List<CourseReview> reviews = reviewApi.getReviewsForCourse(courseId);
+                reviewAdapter.submitList(reviews);
+
+                // Cập nhật rating tổng của khóa học
+                updateCourseRating(reviews);
+
+                // Clear inputs
+                ratingBarUserInput.setRating(0);
+                etCommentInput.setText("");
+
+                Toast.makeText(this,
+                        "Đánh giá " + (int) rating + " sao đã được gửi thành công!",
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Lỗi khi gửi đánh giá. Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
+            }
         });
+    }
+
+    private void updateCourseRating(List<CourseReview> reviews) {
+        if (reviews == null || reviews.isEmpty() || currentCourse == null) {
+            return;
+        }
+
+        // Tính trung bình rating
+        double totalRating = 0;
+        for (CourseReview review : reviews) {
+            totalRating += review.getRating();
+        }
+        double avgRating = totalRating / reviews.size();
+
+        // Cập nhật course info
+        currentCourse.setRating(avgRating);
+        currentCourse.setRatingCount(reviews.size());
+
+        // Cập nhật UI
+        ratingBar.setRating((float) avgRating);
+        tvRatingValue.setText(String.format(Locale.US, "%.1f", avgRating));
+        tvRatingCount.setText("(" + reviews.size() + " đánh giá)");
     }
 }

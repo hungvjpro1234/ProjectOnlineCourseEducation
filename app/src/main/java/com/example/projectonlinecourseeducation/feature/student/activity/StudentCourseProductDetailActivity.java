@@ -306,34 +306,36 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
         } else {
             btnAddToCart.setText("Thêm vào giỏ hàng");
             btnAddToCart.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.purple_600)
+                    ContextCompat.getColorStateList(this, R.color.purple_200)
             );
         }
     }
 
     /**
      * Cập nhật UI dựa trên trạng thái khóa học:
-     * - NOT_PURCHASED: hiện đủ "Thêm vào giỏ" + "Mua ngay"
-     * - IN_CART      : nút "Thêm vào giỏ" -> "Đi tới giỏ hàng"
-     * - PURCHASED    : ẩn "Thêm vào giỏ", "Mua ngay" -> "Học ngay"
+     * - NOT_PURCHASED: hiện đủ "Thêm vào giỏ" + "Mua ngay" + giá
+     * - IN_CART      : nút "Thêm vào giỏ" -> "Đi tới giỏ hàng" + giá
+     * - PURCHASED    : ẩn "Thêm vào giỏ", "Mua ngay" -> "Học ngay" + ẩn giá
      */
     private void updatePurchaseUi() {
         currentStatus = CourseStatusResolver.getStatus(courseId);
 
         if (currentStatus == CourseStatus.PURCHASED) {
-            // Ẩn nút giỏ hàng, chỉ còn "Học ngay"
+            // Ẩn nút giỏ hàng, chỉ còn "Học ngay" + ẩn giá
             btnAddToCart.setVisibility(View.GONE);
             btnBuyNow.setText("Học ngay");
             btnBuyNow.setBackgroundTintList(
                     ContextCompat.getColorStateList(this, R.color.purple_600)
             );
+            tvPrice.setVisibility(View.GONE);
         } else {
-            // Chưa mua: hiện đầy đủ 2 nút
+            // Chưa mua: hiện đầy đủ 2 nút + giá
             btnAddToCart.setVisibility(View.VISIBLE);
             btnBuyNow.setText("Mua ngay");
             btnBuyNow.setBackgroundTintList(
                     ContextCompat.getColorStateList(this, R.color.colorAccent)
             );
+            tvPrice.setVisibility(View.VISIBLE);
             updateAddToCartButtonState();
         }
     }

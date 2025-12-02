@@ -30,4 +30,7 @@ public interface CourseApi {
     Course updateCourse(String id, Course updatedCourse);
 
     boolean deleteCourse(String id);
+
+    // Tính toán lại rating của khóa học từ danh sách reviews
+    Course recalculateCourseRating(String courseId);
 }

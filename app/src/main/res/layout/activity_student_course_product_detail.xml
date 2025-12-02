@@ -122,7 +122,7 @@
                     android:layout_height="wrap_content"
                     android:paddingTop="2dp"
                     tools:text="GV: Nguyễn A"
-                    android:textColor="@color/blue_900" />
+                    android:textColor="@color/blue_700" />
 
                 <TextView
                     android:id="@+id/tvCreatedAt"
@@ -148,7 +148,7 @@
                     android:layout_weight="1"
                     android:textStyle="bold"
                     android:textSize="20sp"
-                    android:textColor="@color/purple_text_secondary"
+                    android:textColor="@color/purple_500"
                     tools:text="199.000 đ" />
 
             </LinearLayout>
@@ -166,7 +166,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Thêm vào giỏ"
-                    android:backgroundTint="@color/colorPrimaryVariant"
+                    android:backgroundTint="@color/purple_200"
                     android:textColor="@color/white" />
 
                 <Space

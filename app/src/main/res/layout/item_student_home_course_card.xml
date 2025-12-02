@@ -82,7 +82,7 @@
             android:layout_marginStart="6dp"
             android:text="4.5"
             android:textStyle="bold"
-            android:textColor="@color/colorSecondary"
+            android:textColor="@color/blue_600"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
     </LinearLayout>
@@ -105,5 +105,5 @@
         android:layout_height="wrap_content"
         android:text="0 đ"
         android:textStyle="bold"
-        android:textColor="@color/colorSecondary" />
+        android:textColor="@color/purple_400" />
 </LinearLayout>

@@ -1,9 +1,9 @@
 package com.example.projectonlinecourseeducation.core.model.lesson;
 
 /**
-
- Model cho Lesson - bài học trong khóa học
- Bao gồm: thông tin video, URL, duration (được lấy từ video thực tế), tracking progress*/
+ * Model cho Lesson - bài học trong khóa học
+ * Bao gồm: thông tin video, URL, duration (được lấy từ video thực tế), tracking progress
+ */
 public class Lesson {
     private final String id;                // lesson_id
     private final String courseId;          // khóa học chứa bài này

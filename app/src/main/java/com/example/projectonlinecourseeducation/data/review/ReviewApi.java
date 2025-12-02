@@ -8,4 +8,7 @@ public interface ReviewApi {
 
     // Mỗi khóa học có review riêng
     List<CourseReview> getReviewsForCourse(String courseId);
+
+    // Thêm review mới cho khóa học
+    CourseReview addReviewToCourse(String courseId, String studentName, float rating, String comment);
 }

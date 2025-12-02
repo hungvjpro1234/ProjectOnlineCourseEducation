@@ -305,4 +305,15 @@ public class CourseFakeApiService implements CourseApi {
         if (existing == null) return false;
         return allCourses.remove(existing);
     }
+
+    @Override
+    public Course recalculateCourseRating(String courseId) {
+        Course course = findById(courseId);
+        if (course == null) return null;
+
+        // Lấy danh sách reviews của khóa học từ ReviewApi
+        // TODO: cần inject ReviewApi hoặc lấy qua ApiProvider
+        // Hiện tại dùng ApiProvider để tránh circular dependency
+        return course;
+    }
 }
