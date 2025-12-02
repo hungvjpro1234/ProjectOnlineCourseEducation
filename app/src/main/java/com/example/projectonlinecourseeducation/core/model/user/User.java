@@ -1,5 +1,5 @@
 // app/src/main/java/com/example/projectonlinecourseeducation/core/model/User.java
-package com.example.projectonlinecourseeducation.core.model;
+package com.example.projectonlinecourseeducation.core.model.user;
 
 public class User {
 

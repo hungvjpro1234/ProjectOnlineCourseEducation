@@ -12,7 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.User;
+import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.ApiResult;

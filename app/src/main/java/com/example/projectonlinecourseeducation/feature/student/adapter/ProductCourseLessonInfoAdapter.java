@@ -9,12 +9,12 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Lesson;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProductLessonInfoAdapter extends RecyclerView.Adapter<ProductLessonInfoAdapter.VH> {
+public class ProductCourseLessonInfoAdapter extends RecyclerView.Adapter<ProductCourseLessonInfoAdapter.VH> {
 
     private final List<Lesson> data = new ArrayList<>();
 

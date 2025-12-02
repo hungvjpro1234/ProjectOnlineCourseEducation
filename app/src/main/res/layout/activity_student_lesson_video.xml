@@ -60,6 +60,22 @@
         android:layout_weight="1"
         android:background="@color/black" />
 
+    <!-- Nút chuyển bài tiếp theo -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNextLesson"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        android:text="Bài tiếp theo"
+        android:textAllCaps="false"
+        android:textSize="14sp"
+        android:backgroundTint="@color/bgnav"
+        android:textColor="@color/white"
+        android:enabled="false" />
+
     <!-- Lesson Details Section -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"

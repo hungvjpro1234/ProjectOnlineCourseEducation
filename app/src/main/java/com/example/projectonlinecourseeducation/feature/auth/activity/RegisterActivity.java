@@ -13,8 +13,8 @@ import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.User;
-import com.example.projectonlinecourseeducation.core.model.User.Role;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.model.user.User.Role;
 import com.example.projectonlinecourseeducation.core.utils.Utils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;

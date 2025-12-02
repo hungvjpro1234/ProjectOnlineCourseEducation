@@ -9,7 +9,6 @@ import android.widget.ImageView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RatingBar;
-import android.widget.Space;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,10 +21,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.CourseReview;
-import com.example.projectonlinecourseeducation.core.model.Lesson;
-import com.example.projectonlinecourseeducation.core.model.CourseStatus;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.course.CourseStatus;
 import com.example.projectonlinecourseeducation.core.utils.CourseStatusResolver;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
@@ -37,15 +36,14 @@ import com.example.projectonlinecourseeducation.data.review.ReviewApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
-import com.example.projectonlinecourseeducation.feature.student.adapter.ProductLessonInfoAdapter;
-import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseLessonActivity;
+import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseLessonInfoAdapter;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class StudentCourseDetailActivity extends AppCompatActivity {
+public class StudentCourseProductDetailActivity extends AppCompatActivity {
 
     // số khóa học liên quan hiển thị mỗi lần
     private static final int RELATED_PAGE_SIZE = 4;
@@ -68,7 +66,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     private CartApi cartApi;
     private MyCourseApi myCourseApi; // My Course API
 
-    private ProductLessonInfoAdapter lessonAdapter;
+    private ProductCourseLessonInfoAdapter lessonAdapter;
     private HomeCourseAdapter relatedAdapter;
     private ProductCourseReviewDetailedAdapter reviewAdapter;
 
@@ -87,7 +85,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_student_course_detail);
+        setContentView(R.layout.activity_student_course_product_detail);
 
         bindViews();
         setupRecyclerViews();
@@ -146,7 +144,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
 
     private void setupRecyclerViews() {
         // Nội dung khóa học
-        lessonAdapter = new ProductLessonInfoAdapter();
+        lessonAdapter = new ProductCourseLessonInfoAdapter();
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
         rvLessons.setAdapter(lessonAdapter);
         rvLessons.setNestedScrollingEnabled(false);
@@ -230,7 +228,7 @@ public class StudentCourseDetailActivity extends AppCompatActivity {
         updateRelatedSection();
 
         relatedAdapter.setOnCourseClickListener(c -> {
-            Intent i = new Intent(this, StudentCourseDetailActivity.class);
+            Intent i = new Intent(this, StudentCourseProductDetailActivity.class);
             i.putExtra("course_id", c.getId());
             i.putExtra("course_title", c.getTitle());
             startActivity(i);

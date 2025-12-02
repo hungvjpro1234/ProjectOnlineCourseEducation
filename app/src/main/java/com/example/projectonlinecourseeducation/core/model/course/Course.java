@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.model;
+package com.example.projectonlinecourseeducation.core.model.course;
 
 import java.util.ArrayList;
 import java.util.Collections;

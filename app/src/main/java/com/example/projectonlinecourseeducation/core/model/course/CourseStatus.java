@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.model;
+package com.example.projectonlinecourseeducation.core.model.course;
 
 /**
  * Trạng thái của 1 khóa học đối với STUDENT hiện tại.

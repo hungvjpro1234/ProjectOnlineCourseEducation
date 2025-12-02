@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.model;
+package com.example.projectonlinecourseeducation.core.model.course;
 
 public class CourseReview {
     private final String studentName;

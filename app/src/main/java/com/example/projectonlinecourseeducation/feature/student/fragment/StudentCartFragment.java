@@ -16,12 +16,11 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Course;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
-import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseLessonActivity;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentHomeActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.CartAdapter;
 

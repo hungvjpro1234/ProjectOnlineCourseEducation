@@ -1,7 +1,6 @@
 package com.example.projectonlinecourseeducation.data.lesson;
 
-import com.example.projectonlinecourseeducation.core.model.Lesson;
-import com.example.projectonlinecourseeducation.core.model.LessonProgress;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 
 import java.util.List;
 

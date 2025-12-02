@@ -11,7 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Course;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 
 import java.util.List;

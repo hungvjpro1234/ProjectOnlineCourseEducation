@@ -1,6 +1,6 @@
 package com.example.projectonlinecourseeducation.data.lessonvideo;
 
-import com.example.projectonlinecourseeducation.core.model.LessonVideo;
+import com.example.projectonlinecourseeducation.core.model.lesson.LessonVideo;
 
 import org.json.JSONArray;
 import org.json.JSONException;

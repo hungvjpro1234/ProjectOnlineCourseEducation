@@ -1,6 +1,6 @@
 package com.example.projectonlinecourseeducation.data.mycourse;
 
-import com.example.projectonlinecourseeducation.core.model.Course;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
 
 import java.util.ArrayList;
 import java.util.List;

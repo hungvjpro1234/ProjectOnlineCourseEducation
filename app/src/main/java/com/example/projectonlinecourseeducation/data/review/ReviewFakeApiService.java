@@ -1,6 +1,6 @@
 package com.example.projectonlinecourseeducation.data.review;
 
-import com.example.projectonlinecourseeducation.core.model.CourseReview;
+import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
 
 import org.json.JSONArray;
 import org.json.JSONException;

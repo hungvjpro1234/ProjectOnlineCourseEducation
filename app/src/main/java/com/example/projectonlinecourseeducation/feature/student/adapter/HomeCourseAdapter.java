@@ -12,8 +12,8 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.CourseStatus;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.course.CourseStatus;
 import com.example.projectonlinecourseeducation.core.utils.CourseStatusResolver;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 

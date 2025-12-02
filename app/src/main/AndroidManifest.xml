@@ -24,11 +24,8 @@
         <activity
             android:name=".feature.student.activity.StudentCourseLessonActivity"
             android:exported="false" />
-        <activity android:name=".feature.student.activity.StudentCourseDetailActivity" />
-        <activity
-            android:name=".feature.student.activity.YoutubeDemoActivity"
-            android:exported="false"
-            android:screenOrientation="sensorLandscape" />
+        <activity android:name=".feature.student.activity.StudentCourseProductDetailActivity" />
+
         <activity
             android:name=".feature.student.activity.StudentLessonVideoActivity"
             android:exported="false" />

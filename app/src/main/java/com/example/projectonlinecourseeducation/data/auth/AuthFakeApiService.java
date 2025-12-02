@@ -5,8 +5,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import com.example.projectonlinecourseeducation.core.model.User;
-import com.example.projectonlinecourseeducation.core.model.User.Role;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.model.user.User.Role;
 
 import java.util.ArrayList;
 import java.util.List;

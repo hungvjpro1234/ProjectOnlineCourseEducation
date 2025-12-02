@@ -14,7 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.User;
+import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.feature.auth.activity.MainActivity2;
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentCartFragment;

@@ -1,14 +1,19 @@
 package com.example.projectonlinecourseeducation.data.lesson;
 
-import com.example.projectonlinecourseeducation.core.model.LessonProgress;
+import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Fake API Service cho LessonProgress
- * Lưu trữ tracking progress của từng bài học (memory-based)
- * Sau này có thể thay bằng LessonProgressRemoteApiService kết nối backend
+ * Lưu trữ tracking progress của từng bài học (memory-based).
+ *
+ * QUY ƯỚC (bắt chước backend thật):
+ *  - Luôn lưu "mốc tiến độ cao nhất" mà user đã xem (không cho % bị giảm khi tua lại).
+ *  - isCompleted = true khi completionPercentage >= 90% hoặc đã được markCompleted trước đó.
+ *  - UI chỉ làm việc qua LessonProgressApi, nên sau này có LessonProgressRemoteApiService
+ *    thì chỉ cần set vào ApiProvider, không phải sửa UI.
  */
 public class LessonProgressFakeApiService implements LessonProgressApi {
 
@@ -53,23 +58,40 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
     public void updateLessonProgress(String lessonId, float currentSecond, float totalSecond) {
         if (lessonId == null) return;
 
-        // Tính completion percentage
+        // Lấy progress hiện tại (nếu có) để so sánh, đảm bảo chỉ tăng tiến độ, không giảm.
+        LessonProgress existing = progressCache.get(lessonId);
+
+        float bestCurrentSecond = currentSecond;
+        float bestTotalSecond = totalSecond;
+
+        if (existing != null) {
+            // Giữ tổng thời lượng lớn nhất (thường là cùng 1 giá trị, phòng trường hợp lần đầu = 0)
+            if (bestTotalSecond <= 0 && existing.getTotalSecond() > 0) {
+                bestTotalSecond = existing.getTotalSecond();
+            }
+
+            // Luôn lưu vị trí xem lớn nhất (max)
+            bestCurrentSecond = Math.max(existing.getCurrentSecond(), currentSecond);
+        }
+
+        // Tính completion percentage dựa trên mốc cao nhất
         int completionPercentage = 0;
-        if (totalSecond > 0) {
-            completionPercentage = (int) ((currentSecond / totalSecond) * 100);
+        if (bestTotalSecond > 0) {
+            completionPercentage = (int) ((bestCurrentSecond / bestTotalSecond) * 100);
             completionPercentage = Math.min(100, Math.max(0, completionPercentage));
         }
 
-        // Kiểm tra completion (>= 90%)
-        boolean isCompleted = completionPercentage >= 90;
+        // Nếu đã từng completed thì giữ nguyên completed = true
+        boolean wasCompleted = existing != null && existing.isCompleted();
+        boolean isCompleted = wasCompleted || completionPercentage >= 90;
 
         // Cập nhật progress
         LessonProgress updated = new LessonProgress(
                 "progress_" + lessonId,
                 lessonId,
                 extractCourseId(lessonId),
-                currentSecond,
-                totalSecond,
+                bestCurrentSecond,
+                bestTotalSecond,
                 completionPercentage,
                 isCompleted,
                 System.currentTimeMillis()
@@ -77,8 +99,9 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
 
         progressCache.put(lessonId, updated);
 
-        // TODO: Gửi update lên backend
-        // POST /api/lesson-progress/{lessonId} {currentSecond, totalSecond}
+        // TODO Backend thật:
+        // PATCH /api/lesson-progress/{lessonId}
+        // body: { currentSecond: bestCurrentSecond, totalSecond: bestTotalSecond }
     }
 
     @Override
@@ -90,13 +113,16 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
             current = getLessonProgress(lessonId);
         }
 
+        float total = current.getTotalSecond();
+        float currentSecond = total > 0 ? total : current.getCurrentSecond();
+
         // Tạo completed version
         LessonProgress completed = new LessonProgress(
                 "progress_" + lessonId,
                 lessonId,
                 current.getCourseId(),
-                current.getTotalSecond(),
-                current.getTotalSecond(),
+                currentSecond,
+                total,
                 100,
                 true,
                 System.currentTimeMillis()
@@ -104,7 +130,7 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
 
         progressCache.put(lessonId, completed);
 
-        // TODO: Gửi marking lên backend
+        // TODO Backend thật:
         // POST /api/lesson-progress/{lessonId}/mark-completed
     }
 

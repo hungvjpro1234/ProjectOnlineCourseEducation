@@ -1,6 +1,6 @@
 package com.example.projectonlinecourseeducation.data.lesson;
 
-import com.example.projectonlinecourseeducation.core.model.LessonProgress;
+import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 
 /**
  * Interface API cho LessonProgress

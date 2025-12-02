@@ -10,7 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.CourseReview;
+import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
 
 import java.util.ArrayList;
 import java.util.List;

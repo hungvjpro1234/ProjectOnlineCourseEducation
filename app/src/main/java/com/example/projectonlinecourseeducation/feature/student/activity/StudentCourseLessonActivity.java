@@ -14,26 +14,38 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Course;
-import com.example.projectonlinecourseeducation.core.model.CourseReview;
-import com.example.projectonlinecourseeducation.core.model.Lesson;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
+import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
 import com.example.projectonlinecourseeducation.data.review.ReviewApi;
-import com.example.projectonlinecourseeducation.feature.student.adapter.StudentLessonCardAdapter;
+import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCardAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * Màn học bài – hiển thị chi tiết khóa học và danh sách bài học + reviews
  * Bao gồm: tiêu đề, ảnh, đánh giá, giáo viên, ngày cập nhật, nội dung (bài học), reviews, nút hỏi đáp (FAB)
+ *
+ * BỔ SUNG:
+ *  - Bind thêm LessonProgress cho từng bài học (Fake API / Backend) thông qua LessonProgressApi.
+ *  - Rule khóa bài: chỉ cho phép học bài i nếu tất cả bài trước đó đã hoàn thành (>= 90%).
+ *  - Danh sách bài học dùng StudentLessonCardAdapter hiển thị thanh progress + % hoàn thành.
+ *
+ * LƯU Ý:
+ *  - UI CHỈ gọi qua CourseApi, LessonApi, LessonProgressApi, ReviewApi lấy từ ApiProvider.
+ *  - Sau này cắm backend thật chỉ cần set ApiProvider.setXxxApi(...) mà KHÔNG sửa UI.
  */
 public class StudentCourseLessonActivity extends AppCompatActivity {
 
@@ -48,13 +60,14 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
     private MaterialButton btnSubmitRating;
 
     // Adapters
-    private StudentLessonCardAdapter lessonAdapter;
+    private LessonCardAdapter lessonAdapter;
     private ProductCourseReviewDetailedAdapter reviewAdapter;
 
-    // API
+    // API (đều lấy qua ApiProvider – không phụ thuộc Fake hay Remote)
     private CourseApi courseApi;
     private LessonApi lessonApi;
     private ReviewApi reviewApi;
+    private LessonProgressApi lessonProgressApi;
 
     // Data
     private String courseId;
@@ -70,10 +83,11 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
         bindViews();
         setupRecyclerViews();
 
-        // Initialize APIs
+        // Initialize APIs từ ApiProvider
         courseApi = ApiProvider.getCourseApi();
         lessonApi = ApiProvider.getLessonApi();
         reviewApi = ApiProvider.getReviewApi();
+        lessonProgressApi = ApiProvider.getLessonProgressApi();
 
         // Get intent data
         courseId = getIntent().getStringExtra("course_id");
@@ -82,8 +96,19 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
         if (courseId == null) courseId = "c1";
         if (courseTitle == null) courseTitle = "Khóa học không xác định";
 
+        // Lần đầu vào: load info khóa học + lessons + reviews
         loadCourseData(courseId);
         setupActions();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Mỗi lần quay lại màn (từ LessonVideo back) sẽ REFRESH lại progress + trạng thái khóa bài
+        if (courseId != null) {
+            List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
+            bindLessonsWithProgress(lessons);
+        }
     }
 
     private void bindViews() {
@@ -106,8 +131,8 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerViews() {
-        // Lesson Adapter - mới dùng StudentLessonCardAdapter
-        lessonAdapter = new StudentLessonCardAdapter(this);
+        // Lesson Adapter - dùng StudentLessonCardAdapter (có progress + khóa bài)
+        lessonAdapter = new LessonCardAdapter(this);
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
         rvLessons.setAdapter(lessonAdapter);
         rvLessons.setNestedScrollingEnabled(false);
@@ -120,7 +145,8 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
     }
 
     /**
-     * Load course data từ API và bind vào UI
+     * Lần đầu vào màn hình: load course detail, lesson list, review list.
+     * Progress & trạng thái khóa bài được bind thông qua bindLessonsWithProgress(...).
      */
     private void loadCourseData(String id) {
         // Lấy chi tiết khóa học
@@ -174,11 +200,58 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
         }
         tvLectureSummary.setText("📖 " + currentCourse.getLectures() + " bài • " + time);
 
-        // ===== Bind Course Lessons =====
-        lessonAdapter.submitList(lessons);
+        // ===== Bind Course Lessons + Progress + Rule khóa bài =====
+        bindLessonsWithProgress(lessons);
 
         // ===== Bind Reviews =====
         reviewAdapter.submitList(reviews);
+    }
+
+    /**
+     * Bind danh sách bài học kèm progress & trạng thái khóa/mở.
+     *
+     * Rule:
+     *  - Bài 1 luôn mở.
+     *  - Bài i (i > 1) chỉ mở nếu TẤT CẢ các bài trước đó đã isCompleted (>= 90%).
+     *
+     * Dữ liệu progress hiện tại được lấy từ LessonProgressApi
+     * (FakeApi hiện tại, sau này backend thật cũng implement interface này).
+     */
+    private void bindLessonsWithProgress(List<Lesson> lessons) {
+        if (lessons == null || lessons.isEmpty()) {
+            lessonAdapter.submitItems(null);
+            return;
+        }
+
+        List<LessonCardAdapter.LessonItemUiModel> items = new ArrayList<>();
+
+        boolean allPreviousCompleted = true; // trạng thái các bài trước
+
+        for (Lesson lesson : lessons) {
+            LessonProgress progress = lessonProgressApi.getLessonProgress(lesson.getId());
+
+            int percent = 0;
+            boolean completed = false;
+
+            if (progress != null) {
+                percent = progress.getCompletionPercentage();
+                completed = progress.isCompleted();
+            }
+
+            // Bài hiện tại bị khóa nếu có ÍT NHẤT 1 bài trước đó chưa completed
+            boolean isLocked = !allPreviousCompleted;
+
+            items.add(new LessonCardAdapter.LessonItemUiModel(
+                    lesson,
+                    percent,
+                    isLocked
+            ));
+
+            // Cập nhật trạng thái cho bài tiếp theo
+            allPreviousCompleted = allPreviousCompleted && completed;
+        }
+
+        lessonAdapter.submitItems(items);
     }
 
     private void setupActions() {
@@ -207,7 +280,7 @@ public class StudentCourseLessonActivity extends AppCompatActivity {
                 return;
             }
 
-            // Demo: Gửi đánh giá thành công
+            // Demo: Gửi đánh giá thành công (Fake)
             Toast.makeText(this,
                     "Đánh giá " + (int) rating + " sao đã được gửi thành công!",
                     Toast.LENGTH_SHORT).show();

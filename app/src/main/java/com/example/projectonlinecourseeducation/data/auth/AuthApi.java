@@ -1,8 +1,8 @@
 // app/src/main/java/com/example/projectonlinecourseeducation/data/auth/AuthApi.java
 package com.example.projectonlinecourseeducation.data.auth;
 
-import com.example.projectonlinecourseeducation.core.model.User;
-import com.example.projectonlinecourseeducation.core.model.User.Role;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.model.user.User.Role;
 
 public interface AuthApi {
 

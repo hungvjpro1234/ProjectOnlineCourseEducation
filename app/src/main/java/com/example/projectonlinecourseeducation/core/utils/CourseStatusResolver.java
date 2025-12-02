@@ -1,6 +1,6 @@
 package com.example.projectonlinecourseeducation.core.utils;
 
-import com.example.projectonlinecourseeducation.core.model.CourseStatus;
+import com.example.projectonlinecourseeducation.core.model.course.CourseStatus;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;

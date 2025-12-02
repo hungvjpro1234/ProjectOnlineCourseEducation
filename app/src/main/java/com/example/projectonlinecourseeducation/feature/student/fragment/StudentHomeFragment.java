@@ -25,12 +25,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.widget.ImageView.ScaleType;
 
 import com.example.projectonlinecourseeducation.R;
-import com.example.projectonlinecourseeducation.core.model.Course;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi.Sort;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
-import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseDetailActivity;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseProductDetailActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 
 import java.util.Arrays;
@@ -106,7 +106,7 @@ public class StudentHomeFragment extends Fragment {
 
         // Khi click 1 course -> mở trang chi tiết đúng ID
         adapter.setOnCourseClickListener(course -> {
-            Intent i = new Intent(requireContext(), StudentCourseDetailActivity.class);
+            Intent i = new Intent(requireContext(), StudentCourseProductDetailActivity.class);
             i.putExtra("course_id", course.getId());
             i.putExtra("course_title", course.getTitle());
             startActivity(i);
