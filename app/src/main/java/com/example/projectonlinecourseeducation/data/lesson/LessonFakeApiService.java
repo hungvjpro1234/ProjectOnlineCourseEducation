@@ -1,6 +1,7 @@
 package com.example.projectonlinecourseeducation.data.lesson;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -81,22 +82,25 @@ public class LessonFakeApiService implements LessonApi {
             "   \"videoUrl\":\"tCDvOQI3pco\",\"duration\":\"32:00\"}\n" +
             "]";
 
-    private LessonFakeApiService() {
-        // Constructor rỗng
+    // In-memory storage for runtime modifications
+    private java.util.Map<String, Lesson> lessonMap = new java.util.HashMap<>();
+    private int nextLessonId = 1000;
+
+    private String generateNewLessonId(String courseId) {
+        return courseId + "_l" + (nextLessonId++);
     }
 
-    @Override
-    public List<Lesson> getLessonsForCourse(String courseId) {
-        List<Lesson> result = new ArrayList<>();
-        if (courseId == null) return result;
+    private LessonFakeApiService() {
+        // Constructor rỗng - khởi tạo map từ JSON seed
+        seedLessonsFromJson();
+    }
 
+    private void seedLessonsFromJson() {
         try {
             JSONArray arr = new JSONArray(LESSONS_JSON);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);
-                if (!courseId.equals(o.optString("courseId"))) continue;
-
-                result.add(new Lesson(
+                Lesson lesson = new Lesson(
                         o.getString("id"),
                         o.getString("courseId"),
                         o.getString("title"),
@@ -104,39 +108,66 @@ public class LessonFakeApiService implements LessonApi {
                         o.getString("videoUrl"),
                         o.optString("duration", ""),
                         o.getInt("order")
-                ));
+                );
+                lessonMap.put(lesson.getId(), lesson);
+                // Update nextLessonId based on parsed IDs
+                if (lesson.getId().endsWith("_l5")) nextLessonId = 1000;
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
+    }
 
+    @Override
+    public List<Lesson> getLessonsForCourse(String courseId) {
+        List<Lesson> result = new ArrayList<>();
+        if (courseId == null) return result;
+
+        for (Lesson lesson : lessonMap.values()) {
+            if (courseId.equals(lesson.getCourseId())) {
+                result.add(lesson);
+            }
+        }
+
+        // Sort by order
+        result.sort((a, b) -> Integer.compare(a.getOrder(), b.getOrder()));
         return result;
     }
 
     @Override
     public Lesson getLessonDetail(String lessonId) {
-        if (lessonId == null) return null;
+        return lessonId == null ? null : lessonMap.get(lessonId);
+    }
 
-        try {
-            JSONArray arr = new JSONArray(LESSONS_JSON);
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject o = arr.getJSONObject(i);
-                if (lessonId.equals(o.optString("id"))) {
-                    return new Lesson(
-                            o.getString("id"),
-                            o.getString("courseId"),
-                            o.getString("title"),
-                            o.optString("description", ""),
-                            o.getString("videoUrl"),
-                            o.optString("duration", ""),
-                            o.getInt("order")
-                    );
-                }
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
+    @Override
+    public Lesson createLesson(Lesson newLesson) {
+        if (newLesson == null) return null;
+
+        if (newLesson.getId() == null || newLesson.getId().trim().isEmpty()) {
+            newLesson.setId(generateNewLessonId(newLesson.getCourseId()));
         }
 
-        return null;
+        lessonMap.put(newLesson.getId(), newLesson);
+        return newLesson;
+    }
+
+    @Override
+    public Lesson updateLesson(String lessonId, Lesson updatedLesson) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null || updatedLesson == null) return null;
+
+        existing.setTitle(updatedLesson.getTitle());
+        existing.setDescription(updatedLesson.getDescription());
+        existing.setVideoUrl(updatedLesson.getVideoUrl());
+        existing.setDuration(updatedLesson.getDuration());
+        existing.setOrder(updatedLesson.getOrder());
+
+        return existing;
+    }
+
+    @Override
+    public boolean deleteLesson(String lessonId) {
+        if (lessonId == null) return false;
+        return lessonMap.remove(lessonId) != null;
     }
 }

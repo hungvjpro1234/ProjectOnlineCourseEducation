@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
     <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -12,33 +14,41 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ProjectOnlineCourseEducation">
 
+        <!-- AUTH -->
         <activity android:name=".feature.auth.activity.LoginActivity" />
         <activity android:name=".feature.auth.activity.RegisterActivity" />
         <activity android:name=".feature.auth.activity.ForgotPasswordActivity" />
+
+        <!-- STUDENT -->
         <activity android:name=".feature.student.activity.StudentHomeActivity" />
-        <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />
-        <activity android:name=".feature.admin.activity.AdminHomeActivity" />
-        <activity
-            android:name=".feature.student.activity.StudentEditProfileActivity"
+        <activity android:name=".feature.student.activity.StudentEditProfileActivity"
             android:exported="false" />
-        <activity
-            android:name=".feature.student.activity.StudentCourseLessonActivity"
+        <activity android:name=".feature.student.activity.StudentCourseLessonActivity"
             android:exported="false" />
         <activity android:name=".feature.student.activity.StudentCourseProductDetailActivity" />
-
-        <activity
-            android:name=".feature.student.activity.StudentLessonVideoActivity"
+        <activity android:name=".feature.student.activity.StudentLessonVideoActivity"
             android:exported="false" />
 
+        <!-- TEACHER -->
+        <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />
+        <activity android:name=".feature.teacher.activity.TeacherCourseCreateActivity"
+            android:exported="false" />
+        <activity android:name=".feature.teacher.activity.TeacherCourseEditActivity"
+            android:exported="false" />
+
+        <!-- ADMIN -->
+        <activity android:name=".feature.admin.activity.AdminHomeActivity" />
+
+        <!-- MAIN LAUNCHER -->
         <activity
             android:name=".feature.auth.activity.MainActivity2"
-            android:exported="true" >
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
     </application>
+
 </manifest>

@@ -49,4 +49,11 @@
     <string name="write_comment">Viết bình luận...</string>
     <string name="your_rating">Đánh giá của bạn</string>
     <string name="submit_rating">Gửi đánh giá</string>
+    <string name="create_course">Tạo khóa học mới</string>
+
+    <!-- Teacher Course Edit -->
+    <string name="save">Lưu</string>
+    <string name="edit">Sửa</string>
+    <string name="delete">Xóa</string>
+    <string name="course_image">Ảnh khóa học</string>
 </resources>

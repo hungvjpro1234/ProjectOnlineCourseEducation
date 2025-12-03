@@ -40,7 +40,7 @@ public class AuthFakeApiService implements AuthApi {
             "  },\n" +
             "  {\n" +
             "    \"id\": \"u2\",\n" +
-            "    \"name\": \"Teacher Demo\",\n" +
+            "    \"name\": \"Nguyễn A\",\n" +
             "    \"username\": \"abcabc\",\n" +
             "    \"email\": \"teacher@example.com\",\n" +
             "    \"password\": \"abcabc\",\n" +

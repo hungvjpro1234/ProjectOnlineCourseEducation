@@ -19,4 +19,26 @@ public interface LessonApi {
      * @return Lesson object
      */
     Lesson getLessonDetail(String lessonId);
+
+    /**
+     * Tạo bài học mới
+     * @param newLesson: Lesson object cần tạo
+     * @return Lesson object đã được tạo (có ID)
+     */
+    Lesson createLesson(Lesson newLesson);
+
+    /**
+     * Cập nhật bài học
+     * @param lessonId: ID bài học cần cập nhật
+     * @param updatedLesson: Thông tin cập nhật
+     * @return Lesson object sau khi cập nhật
+     */
+    Lesson updateLesson(String lessonId, Lesson updatedLesson);
+
+    /**
+     * Xóa bài học
+     * @param lessonId: ID bài học cần xóa
+     * @return true nếu xóa thành công, false nếu không tìm thấy
+     */
+    boolean deleteLesson(String lessonId);
 }

@@ -1,17 +1,64 @@
-<!-- app/src/main/res/layout/activity_teacher_home.xml -->
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp"
-    android:background="@color/colorBackground"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground"
+    android:fitsSystemWindows="true">
 
-    <TextView
-        android:text="Đây là TEACHER HOME"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/colorSecondary"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+    <!-- Header với greeting và logout -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="12dp"
+        android:background="@color/blue_700"
+        android:elevation="4dp">
+
+        <TextView
+            android:id="@+id/tvGreeting"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Xin chào, giáo viên!"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="@color/white" />
+
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="@string/logout"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/purple_700"
+            android:background="@drawable/bg_logout_button"
+            app:backgroundTint="@null"
+            android:layout_marginEnd="4dp" />
+    </LinearLayout>
+
+    <!-- Fragment Container -->
+    <FrameLayout
+        android:id="@+id/teacher_fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Bottom Navigation -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@color/white"
+        app:menu="@menu/menu_teacher_bottom"
+        app:itemIconTint="@drawable/selector_bottom_nav_icon_teacher"
+        app:itemTextColor="@drawable/selector_bottom_nav_text_teacher"
+        app:labelVisibilityMode="auto"
+        app:elevation="8dp" />
 </LinearLayout>

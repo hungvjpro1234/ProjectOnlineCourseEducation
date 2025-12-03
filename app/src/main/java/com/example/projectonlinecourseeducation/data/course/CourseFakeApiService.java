@@ -73,7 +73,7 @@ public class CourseFakeApiService implements CourseApi {
             "  {\n" +
             "    \"id\":\"c3\",\n" +
             "    \"title\":\"JavaScript Cơ Bản Đến Nâng Cao\",\n" +
-            "    \"teacher\":\"Trần B\",\n" +
+            "    \"teacher\":\"Nguyễn A\",\n" +
             "    \"imageUrl\":\"https://picsum.photos/seed/js1/640/360\",\n" +
             "    \"category\":\"JavaScript, HTML, CSS, Frontend\",\n" +
             "    \"lectures\":5,\n" +
@@ -227,6 +227,22 @@ public class CourseFakeApiService implements CourseApi {
             return new ArrayList<>(res.subList(0, limit));
         }
         return res;
+    }
+
+    // NEW: Lấy danh sách khóa học do teacher tạo
+    @Override
+    public List<Course> getCoursesByTeacher(String teacherName) {
+        List<Course> courses = new ArrayList<>();
+        if (teacherName == null || teacherName.trim().isEmpty()) {
+            return courses;
+        }
+
+        for (Course c : allCourses) {
+            if (teacherName.equalsIgnoreCase(c.getTeacher())) {
+                courses.add(c);
+            }
+        }
+        return courses;
     }
 
     // API CHO MÀN CHI TIẾT

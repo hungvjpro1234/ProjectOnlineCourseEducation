@@ -19,6 +19,9 @@ public interface CourseApi {
             int limit
     );
 
+    // NEW: Lấy danh sách khóa học do teacher tạo
+    List<Course> getCoursesByTeacher(String teacherName);
+
     // ------------------ DETAIL ------------------
     Course getCourseDetail(String courseId);
 
