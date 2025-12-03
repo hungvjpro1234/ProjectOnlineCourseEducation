@@ -1,10 +1,16 @@
 <resources>
     <string name="app_name">ProjectOnlineCourseEducation</string>
+
+    <!-- Home -->
     <string name="category">Category</string>
     <string name="filter">Filter</string>
     <string name="load_more">Xem thêm</string>
     <string name="logout">Log Out</string>
-    <string name="search_hint">Tìm theo tiêu đề hoặc GV...</string>
+
+    <!-- 🔥 Bổ sung cho fragment_student_home -->
+    <string name="search">Tìm</string>
+    <string name="hint_search">Tìm khóa học...</string>
+    <string name="popular_courses">Khóa học của chúng tôi</string>
 
     <!-- Chung -->
     <string name="back">Quay lại</string>
@@ -26,7 +32,7 @@
     <string name="hint_confirm_password">Nhập lại mật khẩu mới</string>
     <string name="save_changes">Lưu thay đổi</string>
 
-    <!-- Dialog thanh toán cũ của bạn -->
+    <!-- Dialog thanh toán -->
     <string name="confirm_payment">Xác nhận thanh toán</string>
     <string name="are_you_sure">Bạn chắc chắn?</string>
     <string name="cancel">Hủy</string>

@@ -14,7 +14,7 @@
         android:paddingStart="16dp"
         android:paddingEnd="12dp"
         android:background="@color/purple_400"
-        android:elevation="8dp">
+        android:elevation="4dp">
 
         <TextView
             android:id="@+id/tvGreeting"
@@ -35,7 +35,7 @@
             android:text="@string/logout"
             android:textAllCaps="false"
             android:textSize="12sp"
-            android:textColor="@color/blue_800"
+            android:textColor="@color/blue_700"
             android:background="@drawable/bg_logout_button"
             app:backgroundTint="@null"
             android:layout_marginEnd="4dp"/>
@@ -51,9 +51,10 @@
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:background="@color/white"
         app:menu="@menu/menu_student_bottom"
-        app:itemIconTint="@color/bnv_icon_tint"
-        app:itemTextColor="@color/bnv_text_tint"/>
+        app:itemIconTint="@drawable/selector_bottom_nav_icon"
+        app:itemTextColor="@drawable/selector_bottom_nav_text"
+        app:elevation="8dp" />
 </LinearLayout>

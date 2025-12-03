@@ -55,24 +55,25 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         ImageLoader.getInstance().display(c.getImageUrl(), h.img, R.drawable.ic_image_placeholder);
 
         h.tvTitle.setText(c.getTitle());
-        h.tvTeacher.setText("GV: " + c.getTeacher());
-        h.tvLectures.setText("Bài giảng: " + c.getLectures());
-        h.tvStudents.setText("Học viên: " + c.getStudents());
+        h.tvTeacher.setText("Giảng viên: " + c.getTeacher());
+        h.tvLectures.setText("📚 " + c.getLectures() + " bài");
+        h.tvStudents.setText("👥 " + c.getStudents() + " học viên");
 
         float rating = (float) c.getRating();
         h.ratingBar.setRating(rating);
         h.tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
 
-        h.tvPrice.setText(
-                NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(c.getPrice())
-        );
-
         // ==== Hiển thị badge "ĐÃ MUA" nếu khóa học đã được mua ====
         CourseStatus status = CourseStatusResolver.getStatus(c.getId());
         if (status == CourseStatus.PURCHASED) {
             h.tvPurchasedBadge.setVisibility(View.VISIBLE);
+            h.tvPrice.setVisibility(View.GONE);
         } else {
             h.tvPurchasedBadge.setVisibility(View.GONE);
+            h.tvPrice.setVisibility(View.VISIBLE);
+            h.tvPrice.setText(
+                    NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(c.getPrice())
+            );
         }
 
         // >>> Click item

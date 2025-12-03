@@ -41,9 +41,9 @@ public class AuthFakeApiService implements AuthApi {
             "  {\n" +
             "    \"id\": \"u2\",\n" +
             "    \"name\": \"Teacher Demo\",\n" +
-            "    \"username\": \"teacher\",\n" +
+            "    \"username\": \"abcabc\",\n" +
             "    \"email\": \"teacher@example.com\",\n" +
-            "    \"password\": \"Teach123\",\n" +
+            "    \"password\": \"abcabc\",\n" +
             "    \"verified\": true,\n" +
             "    \"role\": \"TEACHER\"\n" +
             "  },\n" +

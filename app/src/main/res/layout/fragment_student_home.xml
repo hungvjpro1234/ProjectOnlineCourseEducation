@@ -1,20 +1,22 @@
-<!-- app/src/main/res/layout/fragment_student_home.xml -->
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground">
 
-    <!-- Phần app bar chứa banner (ViewFlipper) sẽ cuộn theo danh sách -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="200dp">
+        android:layout_height="220dp"
+        android:background="@color/white"
+        android:elevation="4dp">
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed">
+            app:layout_scrollFlags="scroll|exitUntilCollapsed"
+            app:titleCollapseMode="fade">
 
-            <!-- ✅ Banner: giữ nguyên id, thêm collapseMode để cuộn mượt -->
             <ViewFlipper
                 android:id="@+id/viewFlipper"
                 android:layout_width="match_parent"
@@ -26,7 +28,6 @@
         </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Nội dung bên dưới: cuộn dưới AppBar -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -37,94 +38,134 @@
             android:orientation="vertical"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="12dp">
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp">
 
-            <!-- Hàng Category + Filter -->
+            <!-- Category & Filter -->
             <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="12dp">
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="16dp">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCategory"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
                     android:text="@string/category"
                     android:textAllCaps="false"
-                    android:textColor="@color/purple_300"
-                    app:icon="@drawable/list"
+                    android:textSize="13sp"
+                    app:icon="@drawable/ic_category_grid"
                     app:iconTint="@null"
-                    app:iconPadding="6dp"
+                    app:iconPadding="8dp"
                     app:iconGravity="textStart"
-                    app:backgroundTint="#F2F0FF"
-                    style="@style/Widget.Material3.Button.TextButton" />
-
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:layout_weight="1" />
+                    app:backgroundTint="@color/purple_100"
+                    android:textColor="@color/purple_700"
+                    android:layout_marginEnd="8dp"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:gravity="center_vertical"
+                    app:cornerRadius="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnFilter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
                     android:text="@string/filter"
                     android:textAllCaps="false"
-                    android:textColor="@color/purple_300"
-                    app:icon="@drawable/filter"
+                    android:textSize="13sp"
+                    app:icon="@drawable/ic_filter_list"
                     app:iconTint="@null"
-                    app:iconPadding="6dp"
+                    app:iconPadding="8dp"
                     app:iconGravity="textStart"
-                    app:backgroundTint="#F2F0FF"
-                    style="@style/Widget.Material3.Button.TextButton" />
+                    app:backgroundTint="@color/purple_100"
+                    android:textColor="@color/purple_700"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:gravity="center_vertical"
+                    app:cornerRadius="20dp" />
             </LinearLayout>
 
-            <!-- Tìm kiếm -->
+            <!-- Search (rounded background via drawable bg_search) -->
             <LinearLayout
-                android:layout_marginTop="10dp"
                 android:orientation="horizontal"
-                android:background="@android:color/white"
-                android:padding="8dp"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_search"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="16dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:elevation="2dp">
 
-                <ImageView
-                    android:src="@drawable/search"
+                <!-- Use AppCompatImageView + app:srcCompat + app:tint -->
+                <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:layout_gravity="center_vertical" />
+                    app:srcCompat="@drawable/ic_search_magnifier"
+                    android:contentDescription="@string/search"
+                    app:tint="@color/purple_700" />
 
                 <EditText
                     android:id="@+id/edtSearch"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="Tìm theo tiêu đề hoặc GV..."
+                    android:hint="@string/hint_search"
                     android:background="@android:color/transparent"
-                    android:paddingStart="8dp" />
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="14sp"
+                    android:inputType="text"
+                    android:autofillHints="search"
+                    android:textColorHint="@color/text_secondary"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
             </LinearLayout>
 
-            <!-- Danh sách course; giữ nestedScrollingEnabled=false để NestedScrollView gánh cuộn -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvCourses"
-                android:layout_marginTop="12dp"
+            <!-- Course List Title -->
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
+                android:text="@string/popular_courses"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/blue_900"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="12dp" />
 
-            <!-- Nút xem thêm -->
-            <Button
-                android:id="@+id/btnLoadMore"
-                android:layout_marginTop="12dp"
-                android:layout_width="wrap_content"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCourses"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="Xem thêm"
+                android:nestedScrollingEnabled="false"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginBottom="16dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLoadMore"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/load_more"
                 android:textAllCaps="false"
-                android:backgroundTint="@color/colorSecondary"
-                android:textColor="@android:color/white" />
+                android:textSize="14sp"
+                android:textColor="@color/white"
+                app:backgroundTint="@color/colorSecondary"
+                app:cornerRadius="8dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
