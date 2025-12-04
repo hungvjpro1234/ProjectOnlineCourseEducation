@@ -43,7 +43,7 @@ public class LessonEditAdapter extends RecyclerView.Adapter<LessonEditAdapter.VH
     @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_lesson_edit, parent, false);
+                .inflate(R.layout.item_teacher_lesson_edit, parent, false);
         return new VH(v);
     }
 
@@ -52,7 +52,8 @@ public class LessonEditAdapter extends RecyclerView.Adapter<LessonEditAdapter.VH
         Lesson lesson = data.get(pos);
         if (lesson == null) return;
 
-        h.tvOrder.setText(String.valueOf(lesson.getOrder()));
+        // Hiển thị order dựa trên vị trí trong list => luôn liên tục 1..n
+        h.tvOrder.setText(String.valueOf(pos + 1));
         h.tvLessonTitle.setText(lesson.getTitle());
         h.tvDuration.setText(lesson.getDuration());
 

@@ -7,7 +7,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.RatingBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -27,7 +26,7 @@ import java.util.Locale;
  * - An toàn với null (không crash khi thiếu view).
  * - Có log debug để phát hiện nhanh id layout bị thiếu/không khớp.
  */
-public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdapter.VH> {
+public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH> {
 
     private static final String TAG = "TeacherCourseAdapter";
 
@@ -39,9 +38,9 @@ public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdap
     private OnCourseActionListener actionListener;
     private final List<Course> data = new ArrayList<>();
 
-    public TeacherCourseAdapter() {}
+    public HomeCourseAdapter() {}
 
-    public TeacherCourseAdapter(List<Course> initial, OnCourseActionListener listener) {
+    public HomeCourseAdapter(List<Course> initial, OnCourseActionListener listener) {
         if (initial != null) data.addAll(initial);
         this.actionListener = listener;
     }
@@ -61,7 +60,7 @@ public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdap
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         // Quan trọng: inflate với parent, false
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_teacher_course_card, parent, false);
+                .inflate(R.layout.item_teacher_home_course_card, parent, false);
         return new VH(v);
     }
 
@@ -91,21 +90,9 @@ public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdap
             h.tvCategory.setText(c.getCategory() != null ? c.getCategory() : "");
         }
 
-        // Lectures / Students
+        // Lectures
         if (h.tvLectures != null) {
             h.tvLectures.setText("📚 " + c.getLectures() + " bài");
-        }
-        if (h.tvStudents != null) {
-            h.tvStudents.setText("👥 " + c.getStudents() + " học viên");
-        }
-
-        // Rating
-        float rating = (float) c.getRating();
-        if (h.ratingBar != null) {
-            h.ratingBar.setRating(rating);
-        }
-        if (h.tvRatingValue != null) {
-            h.tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
         }
 
         // Price
@@ -138,8 +125,7 @@ public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdap
 
     static class VH extends RecyclerView.ViewHolder {
         ImageView img;
-        TextView tvTitle, tvCategory, tvLectures, tvStudents, tvPrice, tvRatingValue;
-        RatingBar ratingBar;
+        TextView tvTitle, tvCategory, tvLectures, tvPrice;
         Button btnEdit, btnDelete;
 
         VH(@NonNull View v) {
@@ -148,10 +134,7 @@ public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdap
             tvTitle = v.findViewById(R.id.tvTitle);
             tvCategory = v.findViewById(R.id.tvCategory);
             tvLectures = v.findViewById(R.id.tvLectures);
-            tvStudents = v.findViewById(R.id.tvStudents);
             tvPrice = v.findViewById(R.id.tvPrice);
-            ratingBar = v.findViewById(R.id.ratingBar);
-            tvRatingValue = v.findViewById(R.id.tvRatingValue);
             btnEdit = v.findViewById(R.id.btnEditCourse);
             btnDelete = v.findViewById(R.id.btnDeleteCourse);
 
@@ -160,7 +143,6 @@ public class TeacherCourseAdapter extends RecyclerView.Adapter<TeacherCourseAdap
             if (img == null) Log.w(TAG, "VH ctor: imgCourse == null (R.id.imgCourse)");
             if (tvCategory == null) Log.w(TAG, "VH ctor: tvCategory == null (R.id.tvCategory)");
             if (tvPrice == null) Log.w(TAG, "VH ctor: tvPrice == null (R.id.tvPrice)");
-            if (ratingBar == null) Log.w(TAG, "VH ctor: ratingBar == null (R.id.ratingBar)");
             // bạn có thể thêm log cho view khác nếu cần
         }
     }

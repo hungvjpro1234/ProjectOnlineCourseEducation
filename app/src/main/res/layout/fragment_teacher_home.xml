@@ -18,9 +18,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Khóa học của tôi"
-            android:textSize="20sp"
+            android:textSize="25sp"
             android:textStyle="bold"
-            android:textColor="@color/black"
+            android:textColor="@color/purple_800"
             android:layout_marginBottom="16dp" />
 
         <!-- RecyclerView danh sách khóa học -->

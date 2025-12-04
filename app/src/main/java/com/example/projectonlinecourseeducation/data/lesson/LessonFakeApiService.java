@@ -1,7 +1,12 @@
 package com.example.projectonlinecourseeducation.data.lesson;
 
+import android.app.Activity;
+
+import androidx.annotation.NonNull;
+
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
-import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
+import com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService.ActivityProvider;
+import com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService.VideoDurationHelper;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -10,6 +15,16 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fake implementation of LessonApi - in-memory store.
+ *
+ * - This class contains DEV-only helpers to compute duration using VideoDurationHelper.
+ * - It implements LessonApi including listener registration so UI can subscribe without knowing impl.
+ *
+ * IMPORTANT:
+ * - To allow auto compute of duration in dev, initialize ActivityProvider in Application.onCreate():
+ *     ActivityProvider.init(getApplication());
+ */
 public class LessonFakeApiService implements LessonApi {
 
     // Singleton
@@ -90,8 +105,10 @@ public class LessonFakeApiService implements LessonApi {
         return courseId + "_l" + (nextLessonId++);
     }
 
-    private LessonFakeApiService() {
-        // Constructor rỗng - khởi tạo map từ JSON seed
+    // Listeners (exposed via LessonApi interface)
+    private final List<LessonApi.LessonUpdateListener> updateListeners = new ArrayList<>();
+
+    public LessonFakeApiService() {
         seedLessonsFromJson();
     }
 
@@ -111,12 +128,15 @@ public class LessonFakeApiService implements LessonApi {
                 );
                 lessonMap.put(lesson.getId(), lesson);
                 // Update nextLessonId based on parsed IDs
+                // (keep legacy logic if needed)
                 if (lesson.getId().endsWith("_l5")) nextLessonId = 1000;
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
     }
+
+    // ---------------- LessonApi implementation ----------------
 
     @Override
     public List<Lesson> getLessonsForCourse(String courseId) {
@@ -148,6 +168,28 @@ public class LessonFakeApiService implements LessonApi {
         }
 
         lessonMap.put(newLesson.getId(), newLesson);
+
+        // DEV-only behavior: if ActivityProvider has a foreground activity, try to compute duration.
+        Activity current = ActivityProvider.getTopActivity();
+        if (current != null && newLesson.getVideoUrl() != null && !newLesson.getVideoUrl().trim().isEmpty()) {
+            final String assignedId = newLesson.getId();
+            VideoDurationHelper.fetchDuration(current, newLesson.getVideoUrl(), new VideoDurationHelper.Callback() {
+                @Override
+                public void onSuccess(@NonNull String durationText, int durationSeconds) {
+                    Lesson exist = lessonMap.get(assignedId);
+                    if (exist != null) {
+                        exist.setDuration(durationText);
+                        notifyLessonUpdated(assignedId, exist);
+                    }
+                }
+
+                @Override
+                public void onError(@NonNull String reason) {
+                    // ignore in dev mock - optionally could set placeholder
+                }
+            });
+        }
+
         return newLesson;
     }
 
@@ -162,6 +204,30 @@ public class LessonFakeApiService implements LessonApi {
         existing.setDuration(updatedLesson.getDuration());
         existing.setOrder(updatedLesson.getOrder());
 
+        // If we have a foreground Activity, recompute duration (dev-only).
+        Activity current = ActivityProvider.getTopActivity();
+        if (current != null && updatedLesson.getVideoUrl() != null && !updatedLesson.getVideoUrl().trim().isEmpty()) {
+            final String id = lessonId;
+            VideoDurationHelper.fetchDuration(current, updatedLesson.getVideoUrl(), new VideoDurationHelper.Callback() {
+                @Override
+                public void onSuccess(@NonNull String durationText, int durationSeconds) {
+                    Lesson exist2 = lessonMap.get(id);
+                    if (exist2 != null) {
+                        exist2.setDuration(durationText);
+                        notifyLessonUpdated(id, exist2);
+                    }
+                }
+
+                @Override
+                public void onError(@NonNull String reason) {
+                    // ignore
+                }
+            });
+        } else {
+            // notify immediate update
+            notifyLessonUpdated(lessonId, existing);
+        }
+
         return existing;
     }
 
@@ -169,5 +235,26 @@ public class LessonFakeApiService implements LessonApi {
     public boolean deleteLesson(String lessonId) {
         if (lessonId == null) return false;
         return lessonMap.remove(lessonId) != null;
+    }
+
+    // ---------------- Listener support (LessonApi contract) ----------------
+
+    @Override
+    public void addLessonUpdateListener(LessonApi.LessonUpdateListener l) {
+        if (l == null) return;
+        if (!updateListeners.contains(l)) updateListeners.add(l);
+    }
+
+    @Override
+    public void removeLessonUpdateListener(LessonApi.LessonUpdateListener l) {
+        updateListeners.remove(l);
+    }
+
+    private void notifyLessonUpdated(String lessonId, Lesson lesson) {
+        for (LessonApi.LessonUpdateListener l : new ArrayList<>(updateListeners)) {
+            try {
+                l.onLessonUpdated(lessonId, lesson);
+            } catch (Exception ignored) {}
+        }
     }
 }

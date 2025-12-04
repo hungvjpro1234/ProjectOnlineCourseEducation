@@ -19,7 +19,7 @@ import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.feature.teacher.activity.TeacherCourseEditActivity;
 import com.example.projectonlinecourseeducation.feature.teacher.activity.TeacherCourseCreateActivity;
-import com.example.projectonlinecourseeducation.feature.teacher.adapter.TeacherCourseAdapter;
+import com.example.projectonlinecourseeducation.feature.teacher.adapter.HomeCourseAdapter;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.List;
@@ -28,7 +28,7 @@ public class TeacherHomeFragment extends Fragment {
 
     private RecyclerView rvCourses;
     private FloatingActionButton fabCreateCourse;
-    private TeacherCourseAdapter adapter;
+    private HomeCourseAdapter adapter;
     private CourseApi courseApi;
     private AuthApi authApi;
 
@@ -57,8 +57,8 @@ public class TeacherHomeFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        adapter = new TeacherCourseAdapter();
-        adapter.setOnCourseActionListener(new TeacherCourseAdapter.OnCourseActionListener() {
+        adapter = new HomeCourseAdapter();
+        adapter.setOnCourseActionListener(new HomeCourseAdapter.OnCourseActionListener() {
             @Override
             public void onEditCourse(Course course) {
                 // Chuyển tới activity chỉnh sửa khóa học

@@ -52,58 +52,19 @@
                 android:textSize="12sp"
                 android:layout_marginBottom="6dp" />
 
-            <!-- Rating -->
+            <!-- Info Row: Lectures -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <RatingBar
-                    android:id="@+id/ratingBar"
-                    style="?android:attr/ratingBarStyleSmall"
-                    android:isIndicator="true"
-                    android:numStars="5"
-                    android:stepSize="0.5"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:progressTint="@color/yellow_star" />
-
-                <TextView
-                    android:id="@+id/tvRatingValue"
-                    android:layout_marginStart="6dp"
-                    android:text="4.5"
-                    android:textStyle="bold"
-                    android:textColor="@color/blue_600"
-                    android:textSize="12sp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <!-- Info Row: Lectures + Students -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:gravity="start"
                 android:layout_marginBottom="8dp">
 
                 <TextView
                     android:id="@+id/tvLectures"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:text="📚 0 bài"
-                    android:textSize="12sp"
-                    android:textColor="@color/text_secondary" />
-
-                <TextView
-                    android:id="@+id/tvStudents"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="👥 0 học viên"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary" />
             </LinearLayout>
@@ -113,14 +74,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="8dp"
-                android:background="@color/colorBackground"
-                android:gravity="end">
+                android:gravity="center"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="4dp">
 
                 <Button
                     android:id="@+id/btnEditCourse"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="40dp"
+                    android:layout_weight="1"
                     android:minHeight="40dp"
                     android:text="Sửa"
                     android:textSize="12sp"
@@ -129,8 +91,9 @@
 
                 <Button
                     android:id="@+id/btnDeleteCourse"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="40dp"
+                    android:layout_weight="1"
                     android:minHeight="40dp"
                     android:text="Xóa"
                     android:textSize="12sp"

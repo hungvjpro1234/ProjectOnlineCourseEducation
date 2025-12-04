@@ -41,4 +41,47 @@ public interface LessonApi {
      * @return true nếu xóa thành công, false nếu không tìm thấy
      */
     boolean deleteLesson(String lessonId);
+
+    // ------------------------------------------------------------
+    // Listener / observer support
+    //
+    // LÝ DO THÊM:
+    // - Để giao diện (Activity/Fragment) không phải biết provider là fake hay remote nhưng
+    //   vẫn có thể nhận các cập nhật bất đồng bộ (ví dụ: backend tính xong duration rồi push).
+    // - Implementations có thể gọi listener khi dữ liệu một lesson thay đổi (ví dụ: duration được cập nhật).
+    //
+    // LƯU Ý:
+    // - Nếu implementer không có cơ chế push/realtime, có thể triển khai add/remove listener như no-op.
+    // - Các implementer nên đảm bảo notify listener trên thread phù hợp (thường là main/UI thread),
+    //   hoặc document rõ hành vi để caller biết phải post lên UI thread nếu cần.
+    // ------------------------------------------------------------
+
+    /**
+     * Listener để nhận các cập nhật của một Lesson (ví dụ: duration được backend/fake cập nhật).
+     * Giao diện có thể đăng ký listener này để cập nhật UI khi dữ liệu thay đổi.
+     */
+    interface LessonUpdateListener {
+        /**
+         * Called when a lesson is updated by the provider.
+         *
+         * @param lessonId ID của lesson được cập nhật
+         * @param updatedLesson đối tượng Lesson mới nhất (có thể là same instance hoặc copy)
+         */
+        void onLessonUpdated(String lessonId, Lesson updatedLesson);
+    }
+
+    /**
+     * Đăng ký một listener để nhận cập nhật về lesson.
+     * Implementations nên giữ reference tới listener cho tới khi removeLessonUpdateListener được gọi.
+     *
+     * @param l listener cần đăng ký (null sẽ bị bỏ qua)
+     */
+    void addLessonUpdateListener(LessonUpdateListener l);
+
+    /**
+     * Hủy đăng ký một listener đã đăng ký trước đó.
+     *
+     * @param l listener cần hủy (nếu chưa đăng ký thì bỏ qua)
+     */
+    void removeLessonUpdateListener(LessonUpdateListener l);
 }
