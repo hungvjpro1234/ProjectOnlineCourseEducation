@@ -76,39 +76,140 @@
         android:textColor="@color/white"
         android:enabled="false" />
 
-    <!-- Lesson Details Section -->
+    <!-- Lesson Details and Comments Section -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="200dp">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingBottom="16dp">
 
-            <!-- Lesson Info -->
-            <TextView
+            <!-- Lesson Info Section -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="ℹ️ Thông tin bài học"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@color/black"
-                android:paddingBottom="8dp" />
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@color/white">
 
-            <!-- Lesson Description -->
-            <TextView
-                android:id="@+id/tvLessonDescription"
+                <!-- Lesson Info Header -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ℹ️ Thông tin bài học"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black"
+                    android:paddingBottom="8dp" />
+
+                <!-- Lesson Description -->
+                <TextView
+                    android:id="@+id/tvLessonDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:lineSpacingMultiplier="1.2"
+                    tools:text="Bài học này sẽ giới thiệu cho bạn những kiến thức cơ bản về Java và hướng dẫn cách cài đặt môi trường phát triển." />
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="8dp"
+                android:background="@color/colorBackground" />
+
+            <!-- Comments Section -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="@color/text_secondary"
-                android:layout_marginBottom="12dp"
-                android:lineSpacingMultiplier="1.2"
-                tools:text="Bài học này sẽ giới thiệu cho bạn những kiến thức cơ bản về Java và hướng dẫn cách cài đặt môi trường phát triển." />
+                android:orientation="vertical"
+                android:background="@color/white">
 
+                <!-- Comments Header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="16dp">
 
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="💬 Bình luận"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+
+                    <TextView
+                        android:id="@+id/tvCommentCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 bình luận"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary" />
+                </LinearLayout>
+
+                <!-- Comment Input Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="16dp"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/edtCommentInput"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Viết bình luận của bạn..."
+                        android:background="@drawable/bg_edit_text"
+                        android:padding="12dp"
+                        android:minHeight="48dp"
+                        android:maxLines="4"
+                        android:textSize="14sp"
+                        android:inputType="textMultiLine|textCapSentences" />
+
+                    <ImageButton
+                        android:id="@+id/btnSendComment"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_send"
+                        android:contentDescription="Gửi bình luận" />
+                </LinearLayout>
+
+                <!-- Comments RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvComments"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:paddingBottom="16dp"
+                    tools:listitem="@layout/item_lesson_comment" />
+
+                <!-- Empty State -->
+                <TextView
+                    android:id="@+id/tvEmptyComments"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="32dp"
+                    android:text="Chưa có bình luận nào.\nHãy là người đầu tiên bình luận!"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:visibility="gone" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
