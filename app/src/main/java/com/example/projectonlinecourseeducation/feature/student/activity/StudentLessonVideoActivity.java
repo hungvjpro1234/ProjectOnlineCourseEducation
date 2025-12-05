@@ -426,11 +426,11 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
      */
     private void updateCommentCount(int count) {
         if (count == 0) {
-            tvCommentCount.setText("Chưa có bình luận");
+            tvCommentCount.setText(R.string.no_comments);
         } else if (count == 1) {
-            tvCommentCount.setText("1 bình luận");
+            tvCommentCount.setText(R.string.comment_count_one);
         } else {
-            tvCommentCount.setText(count + " bình luận");
+            tvCommentCount.setText(getString(R.string.comment_count_many, count));
         }
     }
 
