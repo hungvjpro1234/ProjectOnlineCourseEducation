@@ -23,7 +23,7 @@
         <activity android:name=".feature.student.activity.StudentHomeActivity" />
         <activity android:name=".feature.student.activity.StudentEditProfileActivity"
             android:exported="false" />
-        <activity android:name=".feature.student.activity.StudentCourseLessonActivity"
+        <activity android:name=".feature.student.activity.StudentCoursePurchasedActivity"
             android:exported="false" />
         <activity android:name=".feature.student.activity.StudentCourseProductDetailActivity" />
         <activity android:name=".feature.student.activity.StudentLessonVideoActivity"

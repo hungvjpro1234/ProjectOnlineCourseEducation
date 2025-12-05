@@ -19,6 +19,11 @@ import java.util.Locale;
  *
  * - createCourse now sets sensible defaults (id, createdAt...)
  * - helper methods to add/remove lessons so LessonFakeApiService can update course summary fields.
+ *
+ * Important changes:
+ * - Seed data students reset to 0 (chỉ hiện thị, chưa ai mua thật).
+ * - Implement recordPurchase(courseId) để tăng students khi có giao dịch thật.
+ * - Thêm cơ chế CourseUpdateListener để UI có thể subscribe và tự cập nhật khi course thay đổi.
  */
 public class CourseFakeApiService implements CourseApi {
 
@@ -40,8 +45,12 @@ public class CourseFakeApiService implements CourseApi {
         return "c" + (nextId++);
     }
 
+    // Listeners for course updates
+    private final List<CourseApi.CourseUpdateListener> courseUpdateListeners = new ArrayList<>();
+
     // --------------------------------------------------------------------
     // JSON SEED CHO TẤT CẢ KHÓA HỌC
+    // LƯU Ý: giữ nguyên JSON nhưng sẽ override students -> 0 sau khi parse
     // --------------------------------------------------------------------
     private static final String COURSES_JSON = "[\n" +
             "  {\n" +
@@ -111,6 +120,7 @@ public class CourseFakeApiService implements CourseApi {
                 List<String> skills = jsonArrayToList(o.optJSONArray("skills"));
                 List<String> requirements = jsonArrayToList(o.optJSONArray("requirements"));
 
+                // Note: even nếu JSON có trường "students", ta reset = 0 vì "chưa ai mua thật"
                 Course c = new Course(
                         o.getString("id"),
                         o.getString("title"),
@@ -118,7 +128,7 @@ public class CourseFakeApiService implements CourseApi {
                         o.optString("imageUrl", ""),
                         o.optString("category", ""),
                         o.optInt("lectures", 0),
-                        o.optInt("students", 0),
+                        0, // students reset to 0
                         o.optDouble("rating", 0.0),
                         o.optDouble("price", 0.0),
                         o.optString("description", ""),
@@ -188,12 +198,22 @@ public class CourseFakeApiService implements CourseApi {
         return null;
     }
 
+    // Notify helpers
+    private void notifyCourseUpdated(String courseId, Course course) {
+        for (CourseApi.CourseUpdateListener l : new ArrayList<>(courseUpdateListeners)) {
+            try {
+                l.onCourseUpdated(courseId, course);
+            } catch (Exception ignored) {}
+        }
+    }
+
     // --------------------------------------------------------------------
     // IMPLEMENT CourseApi
     // --------------------------------------------------------------------
 
     @Override
     public List<Course> listAll() {
+        // trả bản copy để tránh sửa ngoài ý muốn
         return new ArrayList<>(allCourses);
     }
 
@@ -303,7 +323,14 @@ public class CourseFakeApiService implements CourseApi {
         if (newCourse.getRequirements() == null) newCourse.setRequirements(new ArrayList<>());
         if (newCourse.getPrice() < 0) newCourse.setPrice(0);
 
+        // Important: when creating course in system (admin/teacher), initial students = 0
+        newCourse.setStudents(0);
+
         allCourses.add(newCourse);
+
+        // Notify listeners about new course
+        notifyCourseUpdated(newCourse.getId(), newCourse);
+
         return newCourse;
     }
 
@@ -327,6 +354,9 @@ public class CourseFakeApiService implements CourseApi {
         existing.setSkills(updatedCourse.getSkills());
         existing.setRequirements(updatedCourse.getRequirements());
 
+        // Notify listeners that a course was updated
+        notifyCourseUpdated(id, existing);
+
         return existing;
     }
 
@@ -334,7 +364,12 @@ public class CourseFakeApiService implements CourseApi {
     public boolean deleteCourse(String id) {
         Course existing = findById(id);
         if (existing == null) return false;
-        return allCourses.remove(existing);
+        boolean removed = allCourses.remove(existing);
+        if (removed) {
+            // Notify listeners that course was deleted (updatedCourse = null)
+            notifyCourseUpdated(id, null);
+        }
+        return removed;
     }
 
     @Override
@@ -344,6 +379,25 @@ public class CourseFakeApiService implements CourseApi {
 
         // TODO: implement using ReviewApi if available
         return course;
+    }
+
+    @Override
+    public Course recordPurchase(String courseId) {
+        // When a real purchase happens, backend should increment students.
+        // Here in fake service we just increment by 1 and return updated course.
+        if (courseId == null) return null;
+        Course c = findById(courseId);
+        if (c == null) return null;
+
+        // increment students by 1
+        int current = c.getStudents();
+        c.setStudents(current + 1);
+
+        // Notify listeners about students change
+        notifyCourseUpdated(courseId, c);
+
+        // Optionally: if you want to keep track of purchase history/logs, do here (not implemented)
+        return c;
     }
 
     // ----------------- Helpers for Lesson <-> Course sync -----------------
@@ -361,6 +415,9 @@ public class CourseFakeApiService implements CourseApi {
         c.setLectures(c.getLectures() + 1);
         int addMinutes = parseDurationToMinutes(lesson.getDuration());
         c.setTotalDurationMinutes(c.getTotalDurationMinutes() + addMinutes);
+
+        // Notify listeners about lecture count / duration change
+        notifyCourseUpdated(c.getId(), c);
     }
 
     /**
@@ -375,6 +432,9 @@ public class CourseFakeApiService implements CourseApi {
         c.setLectures(Math.max(0, c.getLectures() - 1));
         int subMinutes = parseDurationToMinutes(lesson.getDuration());
         c.setTotalDurationMinutes(Math.max(0, c.getTotalDurationMinutes() - subMinutes));
+
+        // Notify listeners about lecture count / duration change
+        notifyCourseUpdated(c.getId(), c);
     }
 
     /**
@@ -386,6 +446,9 @@ public class CourseFakeApiService implements CourseApi {
         if (c == null) return;
         int newVal = c.getTotalDurationMinutes() + deltaMinutes;
         c.setTotalDurationMinutes(Math.max(0, newVal));
+
+        // Notify listeners about duration change
+        notifyCourseUpdated(courseId, c);
     }
 
     private int parseDurationToMinutes(String durationText) {
@@ -410,5 +473,18 @@ public class CourseFakeApiService implements CourseApi {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    // ------------------ CourseUpdateListener registration ------------------
+
+    @Override
+    public void addCourseUpdateListener(CourseApi.CourseUpdateListener l) {
+        if (l == null) return;
+        if (!courseUpdateListeners.contains(l)) courseUpdateListeners.add(l);
+    }
+
+    @Override
+    public void removeCourseUpdateListener(CourseApi.CourseUpdateListener l) {
+        courseUpdateListeners.remove(l);
     }
 }

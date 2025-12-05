@@ -47,7 +47,7 @@ import java.util.Locale;
  *  - UI CHỈ gọi qua CourseApi, LessonApi, LessonProgressApi, ReviewApi lấy từ ApiProvider.
  *  - Sau này cắm backend thật chỉ cần set ApiProvider.setXxxApi(...) mà KHÔNG sửa UI.
  */
-public class StudentCourseLessonActivity extends AppCompatActivity {
+public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
     // UI Components
     private ImageButton btnBack;

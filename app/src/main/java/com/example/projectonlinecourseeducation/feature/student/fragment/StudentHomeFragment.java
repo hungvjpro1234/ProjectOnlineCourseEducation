@@ -33,6 +33,7 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseProductDetailActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -73,6 +74,19 @@ public class StudentHomeFragment extends Fragment {
         }
     };
 
+    // Listener để nhận cập nhật course (students, lectures, etc.)
+    private final CourseApi.CourseUpdateListener courseListener = new CourseApi.CourseUpdateListener() {
+        @Override
+        public void onCourseUpdated(String courseId, Course updatedCourse) {
+            // run on main thread
+            handler.post(() -> {
+                // nếu fragment đang hiển thị, refresh list / item
+                // Tối ưu: có thể chỉ cập nhật 1 item trong adapter (nếu muốn)
+                applyQuery();
+            });
+        }
+    };
+
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
@@ -89,6 +103,11 @@ public class StudentHomeFragment extends Fragment {
 
         // Lấy implementation từ ApiProvider (hiện tại là FakeApi, sau này là RemoteApi)
         api = ApiProvider.getCourseApi();
+
+        // Register listener so UI updates when course changes
+        try {
+            api.addCourseUpdateListener(courseListener);
+        } catch (Throwable ignored) {}
 
         // setup flipper
         for (String url : SLIDES) {
@@ -225,6 +244,18 @@ public class StudentHomeFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        handler.removeCallbacks(flipRunnable);
+        flipper = null;
+
+        // Unregister listener to avoid leaks
+        try {
+            if (api != null) api.removeCourseUpdateListener(courseListener);
+        } catch (Throwable ignored) {}
+    }
+
     private void applyQuery() {
         // Lấy full list theo filter + search, không giới hạn
         List<Course> all = api.filterSearchSort(currentCategory, currentQuery, currentSort, 0);
@@ -232,7 +263,7 @@ public class StudentHomeFragment extends Fragment {
 
         if (currentLimit <= 0) currentLimit = 4;
         if (totalMatched == 0) {
-            adapter.submitList(all);
+            adapter.submitList(new ArrayList<Course>());
             updateLoadMoreButton();
             return;
         }
@@ -241,9 +272,9 @@ public class StudentHomeFragment extends Fragment {
 
         List<Course> out;
         if (currentLimit < totalMatched) {
-            out = all.subList(0, currentLimit);
+            out = new ArrayList<>(all.subList(0, currentLimit));
         } else {
-            out = all;
+            out = new ArrayList<>(all);
         }
 
         adapter.submitList(out);
@@ -274,11 +305,5 @@ public class StudentHomeFragment extends Fragment {
                     ContextCompat.getColorStateList(requireContext(), R.color.colorSecondary)
             );
         }
-    }
-
-    @Override public void onDestroyView() {
-        super.onDestroyView();
-        handler.removeCallbacks(flipRunnable);
-        flipper = null;
     }
 }

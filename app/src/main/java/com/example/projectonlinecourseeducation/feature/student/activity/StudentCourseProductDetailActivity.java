@@ -99,6 +99,11 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
         courseId = getIntent().getStringExtra("course_id");
         if (courseId == null) courseId = "c1";
 
+        // Register course update listener so this detail page updates automatically
+        try {
+            courseApi.addCourseUpdateListener(courseUpdateListener);
+        } catch (Throwable ignored) {}
+
         loadCourseDetail(courseId);
         setupActions();
 
@@ -111,6 +116,14 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
         super.onResume();
         // Khi quay lại từ màn Giỏ hàng hoặc My Course
         updatePurchaseUi();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        try {
+            if (courseApi != null) courseApi.removeCourseUpdateListener(courseUpdateListener);
+        } catch (Throwable ignored) {}
     }
 
     private void bindViews() {
@@ -394,7 +407,7 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
 
             if (currentStatus == CourseStatus.PURCHASED) {
                 // ✅ ĐÃ MUA -> chuyển sang màn lesson
-                Intent i = new Intent(this, StudentCourseLessonActivity.class);
+                Intent i = new Intent(this, StudentCoursePurchasedActivity.class);
                 i.putExtra("course_id", currentCourse.getId());
                 i.putExtra("course_title", currentCourse.getTitle());
                 startActivity(i);
@@ -404,8 +417,7 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
             // 👉 Thêm hiển thị giá vào nội dung confirm
             NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
             String priceText = nf.format(currentCourse.getPrice());
-            String message = "Bạn có chắc muốn thanh toán khóa học \""
-                    + currentCourse.getTitle() + "\"?\n"
+            String message = "Bạn có chắc muốn thanh toán khóa học \"" + currentCourse.getTitle() + "\"?\n"
                     + "Giá: " + priceText;
 
             showPaymentConfirmDialog(
@@ -414,23 +426,23 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                             "Thanh toán thành công",
                             true,
                             () -> {
-                                // Sau khi thanh toán thành công:
-                                // 1. Thêm vào My Course
+                                // SAFE ORDER: thêm vào MyCourse trước, sau đó gọi recordPurchase để backend/fake tăng students
                                 if (myCourseApi != null) {
                                     myCourseApi.addPurchasedCourse(currentCourse);
                                 }
-                                // 2. Nếu đang ở trong giỏ -> xóa khỏi giỏ
                                 if (cartApi != null) {
                                     cartApi.removeFromCart(courseId);
                                 }
-                                // 3. Cập nhật lại UI (nếu còn ở activity này)
+                                // call backend/fake to record purchase (this will notify listeners)
+                                if (courseApi != null) {
+                                    courseApi.recordPurchase(courseId);
+                                }
+                                // update UI and navigate to MyCourse
                                 updatePurchaseUi();
-                                // 4. Quay về My Course tab
                                 Intent intent = new Intent(this, StudentHomeActivity.class);
                                 intent.putExtra("open_my_course", true);
                                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                                 startActivity(intent);
-                                // 5. Đóng màn chi tiết
                                 finish();
                             }
                     )
@@ -509,4 +521,40 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                 }
         );
     }
+
+    // CourseUpdateListener: update UI when course changes
+    private final CourseApi.CourseUpdateListener courseUpdateListener = new CourseApi.CourseUpdateListener() {
+        @Override
+        public void onCourseUpdated(String id, Course updatedCourse) {
+            if (id == null || !id.equals(courseId)) return;
+            if (updatedCourse == null) return; // deleted case could finish activity
+            runOnUiThread(() -> {
+                currentCourse = updatedCourse;
+                // update visible fields only (students, lectures, duration, rating, price if changed)
+                tvStudents.setText(currentCourse.getStudents() + " học viên");
+
+                // update lecture summary
+                String time;
+                if (currentCourse.getTotalDurationMinutes() >= 60) {
+                    int h = currentCourse.getTotalDurationMinutes() / 60;
+                    int m = currentCourse.getTotalDurationMinutes() % 60;
+                    time = h + " giờ " + (m > 0 ? m + " phút" : "");
+                } else {
+                    time = currentCourse.getTotalDurationMinutes() + " phút";
+                }
+                tvLectureSummary.setText(currentCourse.getLectures() + " bài • " + time);
+
+                // rating
+                float rating = (float) currentCourse.getRating();
+                ratingBar.setRating(rating);
+                tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
+                tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
+
+                // price / purchase state might change
+                NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+                tvPrice.setText(nf.format(currentCourse.getPrice()));
+                updatePurchaseUi();
+            });
+        }
+    };
 }

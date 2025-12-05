@@ -20,6 +20,7 @@ import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
+import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentHomeActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.CartAdapter;
@@ -32,6 +33,7 @@ public class StudentCartFragment extends Fragment {
 
     private CartApi cartApi;
     private MyCourseApi myCourseApi;
+    private CourseApi courseApi; // <-- NEW: để gọi recordPurchase
     private List<Course> cartList;
     private CartAdapter cartAdapter;
     private TextView tvSummary, tvTotalPrice;
@@ -46,6 +48,7 @@ public class StudentCartFragment extends Fragment {
     ) {
         cartApi = ApiProvider.getCartApi();
         myCourseApi = ApiProvider.getMyCourseApi();
+        courseApi = ApiProvider.getCourseApi(); // <-- init CourseApi
         cartList = cartApi.getCartCourses();
 
         if (cartList == null || cartList.isEmpty()) {
@@ -96,33 +99,38 @@ public class StudentCartFragment extends Fragment {
                     String msg = "Bạn có chắc muốn thanh toán khóa học \"" + course.getTitle() + "\"?\n"
                             + "Giá: " + priceText;
 
-                    showPaymentConfirmDialog(msg, () ->
-                            showPaymentSuccessDialog(
-                                    "Thanh toán khóa \"" + course.getTitle() + "\" thành công",
-                                    true,
-                                    () -> {
-                                        // Sau khi thanh toán khóa riêng lẻ:
-                                        // 1. Thêm vào My Course
-                                        if (myCourseApi != null) {
-                                            myCourseApi.addPurchasedCourse(course);
-                                        }
-                                        // 2. Xóa khỏi giỏ
-                                        cartApi.removeFromCart(course.getId());
-                                        // 3. Cập nhật lại list giỏ hàng
-                                        cartList.clear();
-                                        cartList.addAll(cartApi.getCartCourses());
-                                        cartAdapter.notifyDataSetChanged();
-                                        updateSummary();
-                                        // 4. Quay về My Course tab
-                                        Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
-                                        intent.putExtra("open_my_course", true);
-                                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                        startActivity(intent);
-                                        // 5. Đóng Activity chứa fragment (thường là StudentHomeActivity)
-                                        requireActivity().finish();
+                    showPaymentConfirmDialog(msg, () -> {
+                        // FIRST: record purchase at CourseApi (backend responsibility). In fake, it will increment students.
+                        if (courseApi != null) {
+                            courseApi.recordPurchase(course.getId());
+                        }
+
+                        showPaymentSuccessDialog(
+                                "Thanh toán khóa \"" + course.getTitle() + "\" thành công",
+                                true,
+                                () -> {
+                                    // Sau khi thanh toán khóa riêng lẻ:
+                                    // 1. Thêm vào My Course
+                                    if (myCourseApi != null) {
+                                        myCourseApi.addPurchasedCourse(course);
                                     }
-                            )
-                    );
+                                    // 2. Xóa khỏi giỏ
+                                    cartApi.removeFromCart(course.getId());
+                                    // 3. Cập nhật lại list giỏ hàng
+                                    cartList.clear();
+                                    cartList.addAll(cartApi.getCartCourses());
+                                    cartAdapter.notifyDataSetChanged();
+                                    updateSummary();
+                                    // 4. Quay về My Course tab
+                                    Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                    intent.putExtra("open_my_course", true);
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(intent);
+                                    // 5. Đóng Activity chứa fragment (thường là StudentHomeActivity)
+                                    requireActivity().finish();
+                                }
+                        );
+                    });
                 }
             });
 
@@ -147,34 +155,43 @@ public class StudentCartFragment extends Fragment {
                         "Tổng tiền: " + nf.format(totalPrice) + " ?";
 
                 // Thanh toán toàn bộ giỏ hàng (fake): dialog confirm -> dialog thành công
-                showPaymentConfirmDialog(msg, () ->
-                        showPaymentSuccessDialog(
-                                "Thanh toán toàn bộ giỏ hàng thành công",
-                                true,
-                                () -> {
-                                    // 1. Lấy danh sách hiện tại trong giỏ (trước khi clear)
-                                    List<Course> current = cartApi.getCartCourses();
-                                    // 2. Thêm tất cả vào My Course
-                                    if (myCourseApi != null) {
-                                        myCourseApi.addPurchasedCourses(current);
-                                    }
-                                    // 3. Clear giỏ
-                                    cartApi.clearCart();
-                                    cartList.clear();
-                                    cartAdapter.notifyDataSetChanged();
-                                    updateSummary();
+                showPaymentConfirmDialog(msg, () -> {
+                    // BEFORE marking purchased, call recordPurchase for each course (backend action)
+                    List<Course> current = cartApi.getCartCourses();
+                    if (courseApi != null) {
+                        for (Course c : current) {
+                            if (c != null) {
+                                courseApi.recordPurchase(c.getId());
+                            }
+                        }
+                    }
 
-                                    // 4. Quay về My Course tab
-                                    Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
-                                    intent.putExtra("open_my_course", true);
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                    startActivity(intent);
-
-                                    // 5. Đóng Activity chứa fragment
-                                    requireActivity().finish();
+                    showPaymentSuccessDialog(
+                            "Thanh toán toàn bộ giỏ hàng thành công",
+                            true,
+                            () -> {
+                                // 1. Lấy danh sách hiện tại trong giỏ (trước khi clear) - already in 'current'
+                                // 2. Thêm tất cả vào My Course
+                                if (myCourseApi != null) {
+                                    myCourseApi.addPurchasedCourses(current);
                                 }
-                        )
-                );
+                                // 3. Clear giỏ
+                                cartApi.clearCart();
+                                cartList.clear();
+                                cartAdapter.notifyDataSetChanged();
+                                updateSummary();
+
+                                // 4. Quay về My Course tab
+                                Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                intent.putExtra("open_my_course", true);
+                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+
+                                // 5. Đóng Activity chứa fragment
+                                requireActivity().finish();
+                            }
+                    );
+                });
             });
 
             return view;

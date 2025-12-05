@@ -16,7 +16,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
-import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseLessonActivity;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentCoursePurchasedActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.MyCourseAdapter;
 
 import java.util.List;
@@ -52,7 +52,7 @@ public class StudentMyCourseFragment extends Fragment {
             public void onLearnClicked(Course course) {
                 if (course == null) return;
                 // 👉 Học ngay: chuyển sang màn danh sách Lesson của khóa học
-                Intent i = new Intent(requireContext(), StudentCourseLessonActivity.class);
+                Intent i = new Intent(requireContext(), StudentCoursePurchasedActivity.class);
                 i.putExtra("course_id", course.getId());
                 i.putExtra("course_title", course.getTitle());
                 startActivity(i);

@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/feature/student/adapter/HomeCourseAdapter.java
 package com.example.projectonlinecourseeducation.feature.student.adapter;
 
 import android.view.LayoutInflater;
@@ -37,6 +36,23 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         data.clear();
         if (items != null) data.addAll(items);
         notifyDataSetChanged();
+    }
+
+    /**
+     * Update a single course in adapter by id (replace and notify the item).
+     * Useful when Course updated via listener.
+     */
+    public void updateCourseInList(Course updated) {
+        if (updated == null) return;
+        for (int i = 0; i < data.size(); i++) {
+            Course c = data.get(i);
+            if (c != null && updated.getId() != null && updated.getId().equals(c.getId())) {
+                // Replace reference so onBind will show new values
+                data.set(i, updated);
+                notifyItemChanged(i);
+                return;
+            }
+        }
     }
 
     @NonNull
