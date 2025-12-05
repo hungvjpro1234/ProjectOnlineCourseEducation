@@ -32,7 +32,7 @@ public class RetrofitClient {
     private final SessionManager sessionManager;
 
     private RetrofitClient(Context context) {
-        this.sessionManager = new SessionManager(context.getApplicationContext());
+        this.sessionManager = SessionManager.getInstance(context.getApplicationContext());
 
         // Logging interceptor for debugging
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
