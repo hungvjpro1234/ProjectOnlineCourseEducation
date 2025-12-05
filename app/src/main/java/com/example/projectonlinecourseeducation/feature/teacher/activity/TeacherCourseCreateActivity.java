@@ -1,17 +1,467 @@
 package com.example.projectonlinecourseeducation.feature.teacher.activity;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
+import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
+import com.example.projectonlinecourseeducation.data.auth.AuthApi;
+import com.example.projectonlinecourseeducation.data.course.CourseApi;
+import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
+import com.example.projectonlinecourseeducation.feature.teacher.adapter.LessonEditAdapter;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Activity tạo khóa học mới (Teacher)
+ */
 public class TeacherCourseCreateActivity extends AppCompatActivity {
+
+    private ImageButton btnBack;
+    private ImageButton btnCreate;
+    private ImageView imgCoursePreview;
+    private View uploadPlaceholder;
+    private EditText etImageUrl, etTitle, etPrice, etDescription;
+    private Button btnConfirmImage, btnPickCategories, btnAddSkill, btnAddRequirement, btnAddLesson;
+    private LinearLayout skillsContainer, requirementsContainer;
+    private RecyclerView rvLessons;
+    private TextView tvNoLessons;
+    private ChipGroup chipGroupSelectedCategories;
+
+    private CourseApi courseApi;
+    private LessonApi lessonApi;
+    private LessonEditAdapter lessonAdapter;
+
+    private String stagedImageUrl = null;
+    private final List<String> stagedCategoryTags = new ArrayList<>();
+    private final List<Lesson> localLessons = new ArrayList<>();
+
+    private static final String[] FIXED_CATEGORIES = new String[]{
+            "Java","JavaScript","Python","C","C++","C#","PHP","SQL","HTML","CSS","TypeScript",
+            "Go","Kotlin","Backend","Frontend","Data / AI","Mobile","System","DevOps","Swift",
+            "Dart","Rust","Ruby","R","Lua","MATLAB","Scala","Shell / Bash","Haskell","Elixir","Perl"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_teacher_course_create);
+
+        initApis();
+        bindViews();
+
+        // init RecyclerView + Adapter BEFORE setupListeners to avoid NPE when setupListeners uses adapter
+        rvLessons.setLayoutManager(new LinearLayoutManager(this));
+        lessonAdapter = new LessonEditAdapter();
+        rvLessons.setAdapter(lessonAdapter);
+        refreshLessonsUi();
+
+        // Now it's safe to set listeners (they may reference lessonAdapter)
+        setupListeners();
+    }
+
+    private void initApis() {
+        // Sử dụng ApiProvider để lấy api (có thể là Fake hoặc Remote tùy cấu hình ở Application)
+        courseApi = ApiProvider.getCourseApi();
+        lessonApi = ApiProvider.getLessonApi();
+    }
+
+    private void bindViews() {
+        btnBack = findViewById(R.id.btnBack);
+        btnCreate = findViewById(R.id.btnCreate);
+        imgCoursePreview = findViewById(R.id.imgCoursePreview);
+        uploadPlaceholder = findViewById(R.id.uploadPlaceholder);
+        etImageUrl = findViewById(R.id.etImageUrl);
+        btnConfirmImage = findViewById(R.id.btnConfirmImage);
+        etTitle = findViewById(R.id.etTitle);
+        chipGroupSelectedCategories = findViewById(R.id.chipGroupSelectedCategories);
+        btnPickCategories = findViewById(R.id.btnPickCategories);
+        etPrice = findViewById(R.id.etPrice);
+        etDescription = findViewById(R.id.etDescription);
+        skillsContainer = findViewById(R.id.skillsContainer);
+        requirementsContainer = findViewById(R.id.requirementsContainer);
+        btnAddSkill = findViewById(R.id.btnAddSkill);
+        btnAddRequirement = findViewById(R.id.btnAddRequirement);
+        btnAddLesson = findViewById(R.id.btnAddLesson);
+        rvLessons = findViewById(R.id.rvLessons);
+        tvNoLessons = findViewById(R.id.tvNoLessons);
+    }
+
+    private void setupListeners() {
+        btnBack.setOnClickListener(v -> finish());
+
+        btnConfirmImage.setOnClickListener(v -> {
+            String url = etImageUrl.getText().toString().trim();
+            if (url.isEmpty()) {
+                Toast.makeText(this, "Vui lòng nhập URL ảnh", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            stagedImageUrl = url;
+
+            // dùng ImageLoader với callback success/fail
+            ImageLoader.getInstance().display(url, imgCoursePreview, R.drawable.ic_image_placeholder, success -> {
+                if (success) {
+                    if (uploadPlaceholder != null) uploadPlaceholder.setVisibility(View.GONE);
+                    imgCoursePreview.setVisibility(View.VISIBLE);
+                    Toast.makeText(this, "Ảnh đã load thành công. Sẽ lưu khi nhấn Tạo.", Toast.LENGTH_SHORT).show();
+                } else {
+                    // Load lỗi: hiển thị placeholder image (ImageLoader đã set placeholder), ẩn upload placeholder text
+                    if (uploadPlaceholder != null) uploadPlaceholder.setVisibility(View.GONE);
+                    imgCoursePreview.setVisibility(View.VISIBLE);
+                    Toast.makeText(this, "Không tải được ảnh, hiển thị ảnh mặc định.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+
+        btnPickCategories.setOnClickListener(v -> showCategorySelectDialog());
+
+        btnAddSkill.setOnClickListener(v -> showAddSkillDialog());
+        btnAddRequirement.setOnClickListener(v -> showAddRequirementDialog());
+
+        btnAddLesson.setOnClickListener(v -> showLessonDialog(null, -1));
+
+        // Set adapter listener
+        if (lessonAdapter != null) {
+            lessonAdapter.setOnLessonActionListener(new LessonEditAdapter.OnLessonActionListener() {
+                @Override
+                public void onEditLesson(Lesson lesson, int position) {
+                    showLessonDialog(lesson, position);
+                }
+
+                @Override
+                public void onDeleteLesson(Lesson lesson, int position) {
+                    confirmDeleteLessonLocal(lesson, position);
+                }
+            });
+        }
+
+        btnCreate.setOnClickListener(v -> createCourseFlow());
+    }
+
+    private void showAddSkillDialog() {
+        AlertDialog.Builder b = new AlertDialog.Builder(this);
+        b.setTitle("Thêm kỹ năng");
+        final EditText input = new EditText(this);
+        input.setHint("Nhập kỹ năng");
+        b.setView(input);
+        b.setPositiveButton("Thêm", (d, w) -> {
+            String s = input.getText().toString().trim();
+            if (!s.isEmpty()) addSkillRow(s);
+        });
+        b.setNegativeButton("Hủy", (d, w) -> d.cancel());
+        b.show();
+    }
+
+    private void showAddRequirementDialog() {
+        AlertDialog.Builder b = new AlertDialog.Builder(this);
+        b.setTitle("Thêm yêu cầu");
+        final EditText input = new EditText(this);
+        input.setHint("Nhập yêu cầu");
+        b.setView(input);
+        b.setPositiveButton("Thêm", (d, w) -> {
+            String s = input.getText().toString().trim();
+            if (!s.isEmpty()) addRequirementRow(s);
+        });
+        b.setNegativeButton("Hủy", (d, w) -> d.cancel());
+        b.show();
+    }
+
+    private void addSkillRow(String skill) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, 8, 0, 8);
+
+        EditText et = new EditText(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        et.setLayoutParams(lp);
+        et.setText(skill);
+        et.setHint("Kỹ năng");
+
+        Button btnDel = new Button(this);
+        btnDel.setText("X");
+        btnDel.setOnClickListener(v -> skillsContainer.removeView(row));
+
+        row.addView(et);
+        row.addView(btnDel);
+        skillsContainer.addView(row);
+    }
+
+    private void addRequirementRow(String req) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, 8, 0, 8);
+
+        EditText et = new EditText(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        et.setLayoutParams(lp);
+        et.setText(req);
+        et.setHint("Yêu cầu");
+
+        Button btnDel = new Button(this);
+        btnDel.setText("X");
+        btnDel.setOnClickListener(v -> requirementsContainer.removeView(row));
+
+        row.addView(et);
+        row.addView(btnDel);
+        requirementsContainer.addView(row);
+    }
+
+    private void showCategorySelectDialog() {
+        boolean[] checked = new boolean[FIXED_CATEGORIES.length];
+        for (int i = 0; i < FIXED_CATEGORIES.length; i++) {
+            checked[i] = stagedCategoryTags.contains(FIXED_CATEGORIES[i]);
+        }
+
+        AlertDialog.Builder b = new AlertDialog.Builder(this);
+        b.setTitle("Chọn danh mục (có thể chọn nhiều)");
+        b.setMultiChoiceItems(FIXED_CATEGORIES, checked, (dialog, which, isChecked) -> checked[which] = isChecked);
+
+        b.setPositiveButton("Xác nhận", (d, w) -> {
+            stagedCategoryTags.clear();
+            for (int i = 0; i < FIXED_CATEGORIES.length; i++) {
+                if (checked[i]) stagedCategoryTags.add(FIXED_CATEGORIES[i]);
+            }
+            renderSelectedCategoryChips();
+            Toast.makeText(this, "Danh mục đã chọn (chưa lưu).", Toast.LENGTH_SHORT).show();
+        });
+        b.setNegativeButton("Hủy", (d, w) -> d.cancel());
+        b.show();
+    }
+
+    private void renderSelectedCategoryChips() {
+        chipGroupSelectedCategories.removeAllViews();
+        for (String tag : stagedCategoryTags) {
+            Chip chip = new Chip(this);
+            chip.setText(tag);
+            chip.setCloseIconVisible(true);
+            chip.setOnCloseIconClickListener(v -> {
+                stagedCategoryTags.remove(tag);
+                chipGroupSelectedCategories.removeView(chip);
+            });
+            chipGroupSelectedCategories.addView(chip);
+        }
+    }
+
+    private void showLessonDialog(Lesson lesson, int position) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(lesson == null ? "Tạo bài học" : "Chỉnh sửa bài học");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+
+        final EditText etTitle = new EditText(this);
+        etTitle.setHint("Tên bài học");
+        if (lesson != null) etTitle.setText(lesson.getTitle());
+        layout.addView(etTitle);
+
+        final EditText etVideo = new EditText(this);
+        etVideo.setHint("Video URL hoặc ID");
+        if (lesson != null) etVideo.setText(lesson.getVideoUrl());
+        layout.addView(etVideo);
+
+        final EditText etDesc = new EditText(this);
+        etDesc.setHint("Mô tả (tùy chọn)");
+        etDesc.setLines(3);
+        if (lesson != null) etDesc.setText(lesson.getDescription());
+        layout.addView(etDesc);
+
+        TextView tvNote = new TextView(this);
+        tvNote.setText("Thời lượng sẽ được tính tự động sau khi tạo bài (backend/fake API sẽ cập nhật).");
+        layout.addView(tvNote);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("Lưu", (d, w) -> {
+            String title = etTitle.getText().toString().trim();
+            String videoInput = etVideo.getText().toString().trim();
+            String desc = etDesc.getText().toString().trim();
+
+            if (title.isEmpty() || videoInput.isEmpty()) {
+                Toast.makeText(this, "Vui lòng nhập tiêu đề và video", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String videoId = YouTubeUtils.extractVideoId(videoInput);
+            if (videoId == null) {
+                Toast.makeText(this, "URL/ID video không hợp lệ", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (lesson == null) {
+                int order = localLessons.size() + 1;
+                Lesson l = new Lesson(null, /*courseId*/ null, title, desc, videoId, "Đang tính...", order);
+                localLessons.add(l);
+            } else {
+                // edit local
+                lesson.setTitle(title);
+                lesson.setVideoUrl(videoId);
+                lesson.setDescription(desc);
+                lesson.setDuration("Đang tính...");
+            }
+            lessonAdapter.submitList(new ArrayList<>(localLessons));
+            refreshLessonsUi();
+        });
+
+        builder.setNegativeButton("Hủy", (d, w) -> d.cancel());
+        builder.show();
+    }
+
+    private void confirmDeleteLessonLocal(Lesson lesson, int position) {
+        new AlertDialog.Builder(this)
+                .setTitle("Xóa bài học")
+                .setMessage("Bạn có chắc muốn xóa bài học này? (Thao tác chỉ áp dụng khi nhấn Tạo)")
+                .setPositiveButton("Xóa", (d, w) -> {
+                    if (position >= 0 && position < localLessons.size()) {
+                        localLessons.remove(position);
+                    } else {
+                        localLessons.remove(lesson);
+                    }
+                    lessonAdapter.submitList(new ArrayList<>(localLessons));
+                    refreshLessonsUi();
+                })
+                .setNegativeButton("Hủy", (d, w) -> d.cancel())
+                .show();
+    }
+
+    private void refreshLessonsUi() {
+        if (localLessons.isEmpty()) {
+            rvLessons.setVisibility(View.GONE);
+            tvNoLessons.setVisibility(View.VISIBLE);
+        } else {
+            rvLessons.setVisibility(View.VISIBLE);
+            tvNoLessons.setVisibility(View.GONE);
+        }
+    }
+
+    private void createCourseFlow() {
+        String title = etTitle.getText().toString().trim();
+        String priceStr = etPrice.getText().toString().trim();
+        String desc = etDescription.getText().toString().trim();
+
+        if (title.isEmpty()) {
+            Toast.makeText(this, "Tên khóa học không được để trống", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (stagedCategoryTags.isEmpty()) {
+            Toast.makeText(this, "Vui lòng chọn ít nhất 1 danh mục", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (priceStr.isEmpty()) {
+            Toast.makeText(this, "Vui lòng nhập giá", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        double price;
+        try {
+            price = Double.parseDouble(priceStr);
+        } catch (NumberFormatException ex) {
+            Toast.makeText(this, "Giá không hợp lệ", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // collect skills
+        List<String> skills = new ArrayList<>();
+        for (int i = 0; i < skillsContainer.getChildCount(); i++) {
+            View row = skillsContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
+                    View child = ((LinearLayout) row).getChildAt(j);
+                    if (child instanceof EditText) {
+                        String t = ((EditText) child).getText().toString().trim();
+                        if (!t.isEmpty()) skills.add(t);
+                    }
+                }
+            }
+        }
+
+        // collect requirements
+        List<String> requirements = new ArrayList<>();
+        for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
+            View row = requirementsContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
+                    View child = ((LinearLayout) row).getChildAt(j);
+                    if (child instanceof EditText) {
+                        String t = ((EditText) child).getText().toString().trim();
+                        if (!t.isEmpty()) requirements.add(t);
+                    }
+                }
+            }
+        }
+
+        // Lấy tên giáo viên từ Auth API (nếu có)
+        String teacherName = "TÊN_GIÁO_VIÊN_PLACEHOLDER";
+        try {
+            AuthApi a = ApiProvider.getAuthApi();
+            if (a != null) {
+                User u = a.getCurrentUser();
+                if (u != null && u.getName() != null && !u.getName().trim().isEmpty()) {
+                    teacherName = u.getName();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // SỬA CHÍNH: khởi tạo Course với lectureCount = 0 (không đếm trước localLessons.size())
+        Course newCourse = new Course(
+                null, // id - createCourse assigns it
+                title,
+                teacherName,
+                stagedImageUrl != null ? stagedImageUrl : "",
+                String.join(", ", stagedCategoryTags),
+                0, // <-- set lecture count to 0 to avoid double-counting
+                0,
+                0.0,
+                price,
+                desc,
+                "",
+                0,
+                0,
+                skills,
+                requirements
+        );
+
+        // Create course via CourseApi (may be fake or remote depending on ApiProvider)
+        Course created = courseApi.createCourse(newCourse);
+        if (created == null || created.getId() == null) {
+            Toast.makeText(this, "Tạo khóa học thất bại", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Create lessons for this course via LessonApi
+        for (int i = 0; i < localLessons.size(); i++) {
+            Lesson l = localLessons.get(i);
+            l.setCourseId(created.getId());
+            l.setOrder(i + 1);
+            Lesson createdLesson = lessonApi.createLesson(l);
+            if (createdLesson != null && createdLesson.getId() != null) {
+                l.setId(createdLesson.getId());
+                l.setDuration(createdLesson.getDuration());
+            }
+        }
+
+        Toast.makeText(this, "Tạo khóa học thành công", Toast.LENGTH_SHORT).show();
+        finish();
     }
 }

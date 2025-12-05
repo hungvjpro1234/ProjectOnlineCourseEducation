@@ -21,10 +21,9 @@ import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils; // <-- dùng YouTubeUtils thay VideoDurationHelper
+import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
-import com.example.projectonlinecourseeducation.data.course.CourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.data.lesson.LessonFakeApiService;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.LessonEditAdapter;
 
 import java.util.ArrayList;
@@ -158,8 +157,9 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     }
 
     private void initApis() {
-        courseApi = CourseFakeApiService.getInstance();
-        lessonApi = LessonFakeApiService.getInstance(); // as LessonApi
+        // CHANGED: use ApiProvider so we can swap implementations later (fake vs remote)
+        courseApi = ApiProvider.getCourseApi();
+        lessonApi = ApiProvider.getLessonApi();
     }
 
     private void initViews() {

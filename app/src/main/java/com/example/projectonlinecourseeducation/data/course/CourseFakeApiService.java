@@ -1,16 +1,25 @@
 package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Fake Course API Service (in-memory)
+ *
+ * - createCourse now sets sensible defaults (id, createdAt...)
+ * - helper methods to add/remove lessons so LessonFakeApiService can update course summary fields.
+ */
 public class CourseFakeApiService implements CourseApi {
 
     // --------------------------------------------------------------------
@@ -33,7 +42,6 @@ public class CourseFakeApiService implements CourseApi {
 
     // --------------------------------------------------------------------
     // JSON SEED CHO TẤT CẢ KHÓA HỌC
-    // (giống như response /courses từ backend)
     // --------------------------------------------------------------------
     private static final String COURSES_JSON = "[\n" +
             "  {\n" +
@@ -106,13 +114,13 @@ public class CourseFakeApiService implements CourseApi {
                 Course c = new Course(
                         o.getString("id"),
                         o.getString("title"),
-                        o.getString("teacher"),
-                        o.getString("imageUrl"),
-                        o.getString("category"),
-                        o.getInt("lectures"),
-                        o.getInt("students"),
-                        o.getDouble("rating"),
-                        o.getDouble("price"),
+                        o.optString("teacher", ""),
+                        o.optString("imageUrl", ""),
+                        o.optString("category", ""),
+                        o.optInt("lectures", 0),
+                        o.optInt("students", 0),
+                        o.optDouble("rating", 0.0),
+                        o.optDouble("price", 0.0),
                         o.optString("description", ""),
                         o.optString("createdAt", ""),
                         o.optInt("ratingCount", 0),
@@ -140,7 +148,6 @@ public class CourseFakeApiService implements CourseApi {
     // Helper cho category multi-tag
     // --------------------------------------------------------------------
 
-    // category kiểu "Java, Python, SQL" -> kiểm tra có chứa wanted hay không
     private boolean hasCategory(String categories, String wanted) {
         if (categories == null || wanted == null) return false;
         String[] parts = categories.split(",");
@@ -152,7 +159,6 @@ public class CourseFakeApiService implements CourseApi {
         return false;
     }
 
-    // Hai chuỗi category có ít nhất 1 tag trùng nhau hay không
     private boolean shareCategory(String cat1, String cat2) {
         if (cat1 == null || cat2 == null) return false;
         String[] a1 = cat1.split(",");
@@ -191,7 +197,6 @@ public class CourseFakeApiService implements CourseApi {
         return new ArrayList<>(allCourses);
     }
 
-    // API CHO HOME – filter + sort + limit
     @Override
     public List<Course> filterSearchSort(String categoryOrAll, String query, Sort sort, int limit) {
         String cat = categoryOrAll == null ? "All" : categoryOrAll;
@@ -201,8 +206,8 @@ public class CourseFakeApiService implements CourseApi {
         for (Course c : allCourses) {
             boolean catOk = cat.equals("All") || hasCategory(c.getCategory(), cat);
             boolean matches = q.isEmpty()
-                    || c.getTitle().toLowerCase(Locale.US).contains(q)
-                    || c.getTeacher().toLowerCase(Locale.US).contains(q);
+                    || (c.getTitle() != null && c.getTitle().toLowerCase(Locale.US).contains(q))
+                    || (c.getTeacher() != null && c.getTeacher().toLowerCase(Locale.US).contains(q));
             if (catOk && matches) res.add(c);
         }
 
@@ -229,7 +234,6 @@ public class CourseFakeApiService implements CourseApi {
         return res;
     }
 
-    // NEW: Lấy danh sách khóa học do teacher tạo
     @Override
     public List<Course> getCoursesByTeacher(String teacherName) {
         List<Course> courses = new ArrayList<>();
@@ -245,7 +249,6 @@ public class CourseFakeApiService implements CourseApi {
         return courses;
     }
 
-    // API CHO MÀN CHI TIẾT
     @Override
     public Course getCourseDetail(String courseId) {
         Course c = findById(courseId);
@@ -253,7 +256,6 @@ public class CourseFakeApiService implements CourseApi {
         return allCourses.isEmpty() ? null : allCourses.get(0);
     }
 
-    // KHÓA HỌC LIÊN QUAN
     @Override
     public List<Course> getRelatedCourses(String courseId) {
         List<Course> related = new ArrayList<>();
@@ -280,6 +282,9 @@ public class CourseFakeApiService implements CourseApi {
 
     @Override
     public Course createCourse(Course newCourse) {
+        if (newCourse == null) return null;
+
+        // assign id if missing
         if (newCourse.getId() == null || newCourse.getId().trim().isEmpty()) {
             newCourse.setId(generateNewId());
         } else {
@@ -288,6 +293,16 @@ public class CourseFakeApiService implements CourseApi {
                 allCourses.remove(old);
             }
         }
+
+        // defaults
+        if (newCourse.getCreatedAt() == null || newCourse.getCreatedAt().trim().isEmpty()) {
+            SimpleDateFormat fmt = new SimpleDateFormat("MM/yyyy", Locale.US);
+            newCourse.setCreatedAt(fmt.format(new Date()));
+        }
+        if (newCourse.getSkills() == null) newCourse.setSkills(new ArrayList<>());
+        if (newCourse.getRequirements() == null) newCourse.setRequirements(new ArrayList<>());
+        if (newCourse.getPrice() < 0) newCourse.setPrice(0);
+
         allCourses.add(newCourse);
         return newCourse;
     }
@@ -327,9 +342,73 @@ public class CourseFakeApiService implements CourseApi {
         Course course = findById(courseId);
         if (course == null) return null;
 
-        // Lấy danh sách reviews của khóa học từ ReviewApi
-        // TODO: cần inject ReviewApi hoặc lấy qua ApiProvider
-        // Hiện tại dùng ApiProvider để tránh circular dependency
+        // TODO: implement using ReviewApi if available
         return course;
+    }
+
+    // ----------------- Helpers for Lesson <-> Course sync -----------------
+
+    /**
+     * Called by LessonFakeApiService when a new lesson is created for this course.
+     * Updates lectures count and totalDurationMinutes (if duration provided).
+     */
+    public void addLessonToCourse(Lesson lesson) {
+        if (lesson == null) return;
+        if (lesson.getCourseId() == null) return;
+        Course c = findById(lesson.getCourseId());
+        if (c == null) return;
+
+        c.setLectures(c.getLectures() + 1);
+        int addMinutes = parseDurationToMinutes(lesson.getDuration());
+        c.setTotalDurationMinutes(c.getTotalDurationMinutes() + addMinutes);
+    }
+
+    /**
+     * Called when a lesson is removed.
+     */
+    public void removeLessonFromCourse(Lesson lesson) {
+        if (lesson == null) return;
+        if (lesson.getCourseId() == null) return;
+        Course c = findById(lesson.getCourseId());
+        if (c == null) return;
+
+        c.setLectures(Math.max(0, c.getLectures() - 1));
+        int subMinutes = parseDurationToMinutes(lesson.getDuration());
+        c.setTotalDurationMinutes(Math.max(0, c.getTotalDurationMinutes() - subMinutes));
+    }
+
+    /**
+     * Adjust totalDurationMinutes of a course by delta (can be negative).
+     */
+    public void adjustCourseDuration(String courseId, int deltaMinutes) {
+        if (courseId == null) return;
+        Course c = findById(courseId);
+        if (c == null) return;
+        int newVal = c.getTotalDurationMinutes() + deltaMinutes;
+        c.setTotalDurationMinutes(Math.max(0, newVal));
+    }
+
+    private int parseDurationToMinutes(String durationText) {
+        if (durationText == null) return 0;
+        try {
+            String[] parts = durationText.split(":");
+            int seconds = 0;
+            if (parts.length == 2) {
+                int mm = Integer.parseInt(parts[0].trim());
+                int ss = Integer.parseInt(parts[1].trim());
+                seconds = mm * 60 + ss;
+            } else if (parts.length == 3) {
+                int hh = Integer.parseInt(parts[0].trim());
+                int mm = Integer.parseInt(parts[1].trim());
+                int ss = Integer.parseInt(parts[2].trim());
+                seconds = hh * 3600 + mm * 60 + ss;
+            } else {
+                int val = Integer.parseInt(durationText.trim());
+                seconds = val;
+            }
+            return (seconds + 30) / 60;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }

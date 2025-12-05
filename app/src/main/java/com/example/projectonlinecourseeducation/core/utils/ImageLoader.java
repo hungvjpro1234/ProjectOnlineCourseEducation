@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/projectonlinecourseeducation/core/utils/ImageLoader.java
 package com.example.projectonlinecourseeducation.core.utils;
 
 import android.graphics.Bitmap;
@@ -19,6 +18,8 @@ import java.util.concurrent.Executors;
  * - Có cache RAM bằng LruCache
  * - Tải nền bằng threadpool
  * - Tránh gán nhầm ảnh nhờ setTag(url)
+ *
+ * Bổ sung: callback để biết load thành công/không
  */
 public class ImageLoader {
 
@@ -35,7 +36,7 @@ public class ImageLoader {
 
     private ImageLoader() {
         final int maxMem = (int) (Runtime.getRuntime().maxMemory() / 1024); // KB
-        final int cacheSize = maxMem / 8; // 1/8 bộ nhớ cho cache
+        final int cacheSize = Math.max(4 * 1024, maxMem / 8); // at least 4MB
         memoryCache = new LruCache<String, Bitmap>(cacheSize) {
             @Override
             protected int sizeOf(String key, Bitmap value) {
@@ -44,13 +45,29 @@ public class ImageLoader {
         };
     }
 
+    public interface Callback {
+        void onComplete(boolean success);
+    }
+
+    /**
+     * Existing simple display (no callback)
+     */
     public void display(String url, ImageView target, int placeholderResId) {
+        display(url, target, placeholderResId, null);
+    }
+
+    /**
+     * New overload with callback: callback.onComplete(true) khi tải thành công và ảnh hiển thị,
+     * callback.onComplete(false) khi lỗi (placeholder đã được set).
+     */
+    public void display(String url, ImageView target, int placeholderResId, Callback cb) {
         target.setTag(url);
         if (placeholderResId != 0) target.setImageResource(placeholderResId);
 
         Bitmap cached = memoryCache.get(url);
         if (cached != null) {
             target.setImageBitmap(cached);
+            if (cb != null) cb.onComplete(true);
             return;
         }
 
@@ -59,11 +76,21 @@ public class ImageLoader {
             if (bmp != null) {
                 memoryCache.put(url, bmp);
                 main.post(() -> {
-                    // Chỉ gán nếu ImageView vẫn đang cần url này
                     Object tag = target.getTag();
                     if (tag != null && tag.equals(url)) {
                         target.setImageBitmap(bmp);
+                        if (cb != null) cb.onComplete(true);
+                    } else {
+                        // view no longer interested; still success but don't set
+                        if (cb != null) cb.onComplete(true);
                     }
+                });
+            } else {
+                // download failed: ensure placeholder stays (already set), call callback with false
+                main.post(() -> {
+                    // set placeholder (already set, but re-ensure)
+                    if (placeholderResId != 0) target.setImageResource(placeholderResId);
+                    if (cb != null) cb.onComplete(false);
                 });
             }
         });

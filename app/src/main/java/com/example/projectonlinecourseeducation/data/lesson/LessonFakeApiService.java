@@ -7,6 +7,8 @@ import androidx.annotation.NonNull;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService.ActivityProvider;
 import com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService.VideoDurationHelper;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
+import com.example.projectonlinecourseeducation.data.course.CourseFakeApiService;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -127,16 +129,11 @@ public class LessonFakeApiService implements LessonApi {
                         o.getInt("order")
                 );
                 lessonMap.put(lesson.getId(), lesson);
-                // Update nextLessonId based on parsed IDs
-                // (keep legacy logic if needed)
-                if (lesson.getId().endsWith("_l5")) nextLessonId = 1000;
             }
         } catch (JSONException e) {
             e.printStackTrace();
         }
     }
-
-    // ---------------- LessonApi implementation ----------------
 
     @Override
     public List<Lesson> getLessonsForCourse(String courseId) {
@@ -167,9 +164,18 @@ public class LessonFakeApiService implements LessonApi {
             newLesson.setId(generateNewLessonId(newLesson.getCourseId()));
         }
 
+        // Put into map
         lessonMap.put(newLesson.getId(), newLesson);
 
-        // DEV-only behavior: if ActivityProvider has a foreground activity, try to compute duration.
+        // Inform CourseFakeApiService (if available) that a new lesson was added (updates lectures + duration)
+        try {
+            if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                cs.addLessonToCourse(newLesson); // will add lecture count and add duration minutes (duration may be "Đang tính..." => parsed as 0)
+            }
+        } catch (Exception ignored) {}
+
+        // DEV-only behavior: if ActivityProvider has a foreground activity, try to compute duration asynchronously.
         Activity current = ActivityProvider.getTopActivity();
         if (current != null && newLesson.getVideoUrl() != null && !newLesson.getVideoUrl().trim().isEmpty()) {
             final String assignedId = newLesson.getId();
@@ -178,8 +184,23 @@ public class LessonFakeApiService implements LessonApi {
                 public void onSuccess(@NonNull String durationText, int durationSeconds) {
                     Lesson exist = lessonMap.get(assignedId);
                     if (exist != null) {
+                        // compute delta minutes relative to previous value (previous likely 0 or placeholder)
+                        int newMinutes = secondsToRoundedMinutes(durationSeconds);
+
+                        // Determine previous minutes from exist.getDuration()
+                        int prevMinutes = parseDurationToMinutesSafe(exist.getDuration());
+
                         exist.setDuration(durationText);
                         notifyLessonUpdated(assignedId, exist);
+
+                        // update course total duration by delta
+                        int delta = newMinutes - prevMinutes;
+                        try {
+                            if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                                CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                                cs.adjustCourseDuration(exist.getCourseId(), delta);
+                            }
+                        } catch (Exception ignored) {}
                     }
                 }
 
@@ -198,6 +219,9 @@ public class LessonFakeApiService implements LessonApi {
         Lesson existing = lessonMap.get(lessonId);
         if (existing == null || updatedLesson == null) return null;
 
+        // compute prev minutes for proper delta if duration will change
+        int prevMinutes = parseDurationToMinutesSafe(existing.getDuration());
+
         existing.setTitle(updatedLesson.getTitle());
         existing.setDescription(updatedLesson.getDescription());
         existing.setVideoUrl(updatedLesson.getVideoUrl());
@@ -213,8 +237,17 @@ public class LessonFakeApiService implements LessonApi {
                 public void onSuccess(@NonNull String durationText, int durationSeconds) {
                     Lesson exist2 = lessonMap.get(id);
                     if (exist2 != null) {
+                        int newMinutes = secondsToRoundedMinutes(durationSeconds);
+                        int prev = parseDurationToMinutesSafe(existing.getDuration());
                         exist2.setDuration(durationText);
                         notifyLessonUpdated(id, exist2);
+                        int delta = newMinutes - prev;
+                        try {
+                            if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                                CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                                cs.adjustCourseDuration(exist2.getCourseId(), delta);
+                            }
+                        } catch (Exception ignored) {}
                     }
                 }
 
@@ -224,7 +257,7 @@ public class LessonFakeApiService implements LessonApi {
                 }
             });
         } else {
-            // notify immediate update
+            // notify immediate update (duration likely unchanged)
             notifyLessonUpdated(lessonId, existing);
         }
 
@@ -234,10 +267,19 @@ public class LessonFakeApiService implements LessonApi {
     @Override
     public boolean deleteLesson(String lessonId) {
         if (lessonId == null) return false;
-        return lessonMap.remove(lessonId) != null;
+        Lesson removed = lessonMap.remove(lessonId);
+        if (removed != null) {
+            // update course summary
+            try {
+                if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                    CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                    cs.removeLessonFromCourse(removed);
+                }
+            } catch (Exception ignored) {}
+            return true;
+        }
+        return false;
     }
-
-    // ---------------- Listener support (LessonApi contract) ----------------
 
     @Override
     public void addLessonUpdateListener(LessonApi.LessonUpdateListener l) {
@@ -256,5 +298,34 @@ public class LessonFakeApiService implements LessonApi {
                 l.onLessonUpdated(lessonId, lesson);
             } catch (Exception ignored) {}
         }
+    }
+
+    // Helpers
+    private int parseDurationToMinutesSafe(String durationText) {
+        if (durationText == null) return 0;
+        try {
+            String[] parts = durationText.split(":");
+            int seconds = 0;
+            if (parts.length == 2) {
+                int mm = Integer.parseInt(parts[0].trim());
+                int ss = Integer.parseInt(parts[1].trim());
+                seconds = mm * 60 + ss;
+            } else if (parts.length == 3) {
+                int hh = Integer.parseInt(parts[0].trim());
+                int mm = Integer.parseInt(parts[1].trim());
+                int ss = Integer.parseInt(parts[2].trim());
+                seconds = hh * 3600 + mm * 60 + ss;
+            } else {
+                int val = Integer.parseInt(durationText.trim());
+                seconds = val;
+            }
+            return (seconds + 30) / 60;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private int secondsToRoundedMinutes(int seconds) {
+        return (seconds + 30) / 60;
     }
 }
