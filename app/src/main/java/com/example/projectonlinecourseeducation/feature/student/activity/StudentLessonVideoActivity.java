@@ -490,10 +490,10 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
      */
     private void showDeleteCommentDialog(LessonComment comment) {
         new AlertDialog.Builder(this)
-            .setTitle("Xóa bình luận")
-            .setMessage("Bạn có chắc chắn muốn xóa bình luận này?")
-            .setPositiveButton("Xóa", (dialog, which) -> deleteComment(comment))
-            .setNegativeButton("Hủy", null)
+            .setTitle(R.string.delete_comment)
+            .setMessage(R.string.delete_comment_confirm)
+            .setPositiveButton(R.string.delete, (dialog, which) -> deleteComment(comment))
+            .setNegativeButton(R.string.cancel, null)
             .show();
     }
 

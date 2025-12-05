@@ -68,7 +68,7 @@
         android:layout_marginEnd="16dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="4dp"
-        android:text="Bài tiếp theo"
+        android:text="@string/next_lesson"
         android:textAllCaps="false"
         android:textSize="14sp"
         android:backgroundTint="@color/bgnav"
@@ -99,7 +99,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="ℹ️ Thông tin bài học"
+                    android:text="@string/lesson_info"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/black"
@@ -141,7 +141,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="💬 Bình luận"
+                        android:text="@string/comments"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/black" />
@@ -150,7 +150,7 @@
                         android:id="@+id/tvCommentCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0 bình luận"
+                        android:text="@string/no_comments"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary" />
                 </LinearLayout>
@@ -170,13 +170,14 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:hint="Viết bình luận của bạn..."
+                        android:hint="@string/write_your_comment"
                         android:background="@drawable/bg_edit_text"
                         android:padding="12dp"
                         android:minHeight="48dp"
                         android:maxLines="4"
                         android:textSize="14sp"
-                        android:inputType="textMultiLine|textCapSentences" />
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:autofillHints="" />
 
                     <ImageButton
                         android:id="@+id/btnSendComment"
@@ -185,7 +186,7 @@
                         android:layout_marginStart="8dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:src="@drawable/ic_send"
-                        android:contentDescription="Gửi bình luận" />
+                        android:contentDescription="@string/send_comment" />
                 </LinearLayout>
 
                 <!-- Comments RecyclerView -->
@@ -203,7 +204,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:padding="32dp"
-                    android:text="Chưa có bình luận nào.\nHãy là người đầu tiên bình luận!"
+                    android:text="@string/empty_comments"
                     android:textSize="14sp"
                     android:textColor="@color/text_secondary"
                     android:gravity="center"

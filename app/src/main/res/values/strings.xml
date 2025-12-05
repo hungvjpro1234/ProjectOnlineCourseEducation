@@ -51,6 +51,21 @@
     <string name="submit_rating">Gửi đánh giá</string>
     <string name="create_course">Tạo khóa học mới</string>
 
+    <!-- Lesson Video Comments -->
+    <string name="lesson_info">ℹ️ Thông tin bài học</string>
+    <string name="comments">💬 Bình luận</string>
+    <string name="no_comments">Chưa có bình luận</string>
+    <string name="comment_count_zero">0 bình luận</string>
+    <string name="comment_count_one">1 bình luận</string>
+    <string name="comment_count_many">%d bình luận</string>
+    <string name="write_your_comment">Viết bình luận của bạn...</string>
+    <string name="send_comment">Gửi bình luận</string>
+    <string name="empty_comments">Chưa có bình luận nào.\nHãy là người đầu tiên bình luận!</string>
+    <string name="next_lesson">Bài tiếp theo</string>
+    <string name="last_lesson">Đây là bài cuối trong khóa</string>
+    <string name="delete_comment">Xóa bình luận</string>
+    <string name="delete_comment_confirm">Bạn có chắc chắn muốn xóa bình luận này?</string>
+
     <!-- Teacher Course Edit -->
     <string name="save">Lưu</string>
     <string name="edit">Sửa</string>
