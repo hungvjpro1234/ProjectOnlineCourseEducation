@@ -130,10 +130,10 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
                 ImageLoader.getInstance().display(
                     comment.getUserAvatar(),
                     ivUserAvatar,
-                    R.drawable.ic_user_circle
+                    R.drawable.ic_user_profile
                 );
             } else {
-                ivUserAvatar.setImageResource(R.drawable.ic_user_circle);
+                ivUserAvatar.setImageResource(R.drawable.ic_user_profile);
             }
 
             // Hiển thị nút xóa chỉ khi là bình luận của chính người dùng
