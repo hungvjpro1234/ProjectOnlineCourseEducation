@@ -16,6 +16,7 @@ import com.example.projectonlinecourseeducation.core.utils.Utils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.auth.ApiResult;
+import com.example.projectonlinecourseeducation.data.network.SessionManager;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentHomeActivity;
 import com.example.projectonlinecourseeducation.feature.teacher.activity.TeacherHomeActivity;
 import com.example.projectonlinecourseeducation.feature.admin.activity.AdminHomeActivity;
@@ -54,6 +55,10 @@ public class LoginActivity extends AppCompatActivity {
 
             if (result.isSuccess()) {
                 User user = result.getData();
+
+                // ✅ LƯU USER VÀO SESSION để dùng trong app (bình luận, profile, etc.)
+                SessionManager.getInstance(this).saveSession("", user);
+
                 Toast.makeText(
                         this,
                         "Đăng nhập thành công. Xin chào "

@@ -14,6 +14,8 @@ import com.example.projectonlinecourseeducation.data.review.ReviewApi;
 import com.example.projectonlinecourseeducation.data.review.ReviewFakeApiService;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseFakeApiService;
+import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
+import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentFakeApiService;
 
 public class ApiProvider {
 
@@ -27,6 +29,9 @@ public class ApiProvider {
 
     // MyCourseApi: quản lý các khóa học student đã mua
     private static MyCourseApi myCourseApi = MyCourseFakeApiService.getInstance();
+
+    // LessonCommentApi: quản lý bình luận bài học
+    private static LessonCommentApi lessonCommentApi = LessonCommentFakeApiService.getInstance();
 
     // -------- Auth --------
     public static AuthApi getAuthApi() {
@@ -101,5 +106,18 @@ public class ApiProvider {
      */
     public static void setMyCourseApi(MyCourseApi api) {
         myCourseApi = api;
+    }
+
+    // -------- LessonComment --------
+    public static LessonCommentApi getLessonCommentApi() {
+        return lessonCommentApi;
+    }
+
+    /**
+     * Sau này ở Application hoặc chỗ init Retrofit:
+     * ApiProvider.setLessonCommentApi(new LessonCommentRemoteApiService(retrofit));
+     */
+    public static void setLessonCommentApi(LessonCommentApi api) {
+        lessonCommentApi = api;
     }
 }

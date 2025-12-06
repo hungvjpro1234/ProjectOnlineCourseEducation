@@ -17,14 +17,25 @@ public class SessionManager {
     private static final String KEY_USER = "current_user";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
 
+    private static SessionManager instance;
     private final SharedPreferences prefs;
     private final SharedPreferences.Editor editor;
     private final Gson gson;
 
-    public SessionManager(Context context) {
-        prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+    private SessionManager(Context context) {
+        prefs = context.getApplicationContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         editor = prefs.edit();
         gson = new Gson();
+    }
+
+    /**
+     * Get singleton instance
+     */
+    public static synchronized SessionManager getInstance(Context context) {
+        if (instance == null) {
+            instance = new SessionManager(context);
+        }
+        return instance;
     }
 
     /**

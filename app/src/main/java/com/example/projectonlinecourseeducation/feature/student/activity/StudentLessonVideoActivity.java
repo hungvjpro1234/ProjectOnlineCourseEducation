@@ -2,24 +2,34 @@ package com.example.projectonlinecourseeducation.feature.student.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
+import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
+import com.example.projectonlinecourseeducation.data.network.SessionManager;
+import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCommentAdapter;
 import com.google.android.material.button.MaterialButton;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer;
@@ -49,6 +59,13 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     // NEW: nút chuyển bài tiếp theo
     private MaterialButton btnNextLesson;
 
+    // Comment views
+    private RecyclerView rvComments;
+    private EditText edtCommentInput;
+    private ImageButton btnSendComment;
+    private TextView tvCommentCount;
+    private TextView tvEmptyComments;
+
     private String lessonId;
     private String courseId;
     private Lesson lesson;
@@ -56,6 +73,10 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
     private LessonApi lessonApi;
     private LessonProgressApi lessonProgressApi;
+    private LessonCommentApi lessonCommentApi;
+
+    // Comment adapter
+    private LessonCommentAdapter commentAdapter;
 
     // NEW: biến phục vụ tracking
     private float videoDurationSeconds = 0f;
@@ -82,6 +103,10 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         // Lấy API từ ApiProvider
         lessonApi = ApiProvider.getLessonApi();
         lessonProgressApi = ApiProvider.getLessonProgressApi();
+        lessonCommentApi = ApiProvider.getLessonCommentApi();
+
+        // Setup comment adapter
+        setupCommentSection();
 
         // Lấy dữ liệu từ Intent
         lessonId = getIntent().getStringExtra("lesson_id");
@@ -92,6 +117,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
         // Load dữ liệu bài học
         loadLessonData(lessonId);
+
+        // Load bình luận
+        loadComments();
 
         // Setup Actions
         setupActions();
@@ -146,6 +174,39 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         tvProgressPercentage = findViewById(R.id.tvProgressPercentage);
         youTubePlayerView = findViewById(R.id.youtubePlayerView);
         btnNextLesson = findViewById(R.id.btnNextLesson);
+
+        // Comment views
+        rvComments = findViewById(R.id.rvComments);
+        edtCommentInput = findViewById(R.id.edtCommentInput);
+        btnSendComment = findViewById(R.id.btnSendComment);
+        tvCommentCount = findViewById(R.id.tvCommentCount);
+        tvEmptyComments = findViewById(R.id.tvEmptyComments);
+    }
+
+    /**
+     * Setup RecyclerView và adapter cho phần bình luận
+     */
+    private void setupCommentSection() {
+        commentAdapter = new LessonCommentAdapter();
+        rvComments.setLayoutManager(new LinearLayoutManager(this));
+        rvComments.setAdapter(commentAdapter);
+
+        // Lấy thông tin người dùng hiện tại
+        User currentUser = SessionManager.getInstance(this).getCurrentUser();
+        if (currentUser != null) {
+            commentAdapter.setCurrentUserId(currentUser.getId());
+        }
+
+        // Xử lý sự kiện xóa bình luận
+        commentAdapter.setOnCommentActionListener(new LessonCommentAdapter.OnCommentActionListener() {
+            @Override
+            public void onDeleteComment(LessonComment comment) {
+                showDeleteCommentDialog(comment);
+            }
+        });
+
+        // Xử lý sự kiện gửi bình luận
+        btnSendComment.setOnClickListener(v -> sendComment());
     }
 
     /**
@@ -384,6 +445,137 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
+    }
+
+    /**
+     * Load danh sách bình luận từ API
+     */
+    private void loadComments() {
+        if (lessonId == null) return;
+
+        List<LessonComment> comments = lessonCommentApi.getCommentsForLesson(lessonId);
+        commentAdapter.submitList(comments);
+
+        // Cập nhật số lượng bình luận
+        int count = comments != null ? comments.size() : 0;
+        updateCommentCount(count);
+
+        // Hiển thị empty state nếu không có bình luận
+        if (count == 0) {
+            tvEmptyComments.setVisibility(View.VISIBLE);
+            rvComments.setVisibility(View.GONE);
+        } else {
+            tvEmptyComments.setVisibility(View.GONE);
+            rvComments.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * Cập nhật số lượng bình luận hiển thị
+     */
+    private void updateCommentCount(int count) {
+        if (count == 0) {
+            tvCommentCount.setText(R.string.no_comments);
+        } else if (count == 1) {
+            tvCommentCount.setText(R.string.comment_count_one);
+        } else {
+            tvCommentCount.setText(getString(R.string.comment_count_many, count));
+        }
+    }
+
+    /**
+     * Gửi bình luận mới
+     */
+    private void sendComment() {
+        String content = edtCommentInput.getText().toString().trim();
+
+        if (content.isEmpty()) {
+            Toast.makeText(this, "Vui lòng nhập nội dung bình luận", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Lấy thông tin người dùng hiện tại
+        User currentUser = SessionManager.getInstance(this).getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "Vui lòng đăng nhập để bình luận", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Thêm bình luận qua API (không cần avatar)
+        LessonComment newComment = lessonCommentApi.addComment(
+            lessonId,
+            currentUser.getId(),
+            currentUser.getName(),
+            null, // Avatar không được hiển thị
+            content
+        );
+
+        if (newComment != null) {
+            // Thêm bình luận mới vào đầu danh sách
+            commentAdapter.addComment(newComment);
+
+            // Xóa nội dung input
+            edtCommentInput.setText("");
+
+            // Cập nhật số lượng
+            int newCount = lessonCommentApi.getCommentCount(lessonId);
+            updateCommentCount(newCount);
+
+            // Ẩn empty state
+            tvEmptyComments.setVisibility(View.GONE);
+            rvComments.setVisibility(View.VISIBLE);
+
+            // Scroll lên đầu để xem bình luận mới
+            rvComments.smoothScrollToPosition(0);
+
+            Toast.makeText(this, "Đã gửi bình luận", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Không thể gửi bình luận", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Hiển thị dialog xác nhận xóa bình luận
+     */
+    private void showDeleteCommentDialog(LessonComment comment) {
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.delete_comment)
+            .setMessage(R.string.delete_comment_confirm)
+            .setPositiveButton(R.string.delete, (dialog, which) -> deleteComment(comment))
+            .setNegativeButton(R.string.cancel, null)
+            .show();
+    }
+
+    /**
+     * Xóa bình luận
+     */
+    private void deleteComment(LessonComment comment) {
+        User currentUser = SessionManager.getInstance(this).getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "Vui lòng đăng nhập", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        boolean success = lessonCommentApi.deleteComment(comment.getId(), currentUser.getId());
+
+        if (success) {
+            // Xóa khỏi adapter
+            commentAdapter.removeComment(comment.getId());
+
+            // Cập nhật số lượng
+            int newCount = lessonCommentApi.getCommentCount(lessonId);
+            updateCommentCount(newCount);
+
+            // Hiển thị empty state nếu không còn bình luận
+            if (newCount == 0) {
+                tvEmptyComments.setVisibility(View.VISIBLE);
+                rvComments.setVisibility(View.GONE);
+            }
+
+            Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Không thể xóa bình luận", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
