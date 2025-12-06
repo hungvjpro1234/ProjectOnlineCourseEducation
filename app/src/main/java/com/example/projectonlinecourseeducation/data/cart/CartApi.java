@@ -46,4 +46,25 @@ public interface CartApi {
      * Tổng số tiền cần thanh toán.
      */
     double getTotalPrice();
+
+    // ------------------ LISTENER / NOTIFY ------------------
+
+    /**
+     * Listener để UI hoặc các component khác đăng ký nhận thông báo khi giỏ hàng thay đổi.
+     * Khi onCartChanged() được gọi, component nên gọi lại getCartCourses()/getTotalItems()/getTotalPrice()
+     * để lấy trạng thái mới.
+     */
+    interface CartUpdateListener {
+        void onCartChanged();
+    }
+
+    /**
+     * Đăng ký listener.
+     */
+    void addCartUpdateListener(CartUpdateListener listener);
+
+    /**
+     * Hủy đăng ký listener.
+     */
+    void removeCartUpdateListener(CartUpdateListener listener);
 }

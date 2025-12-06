@@ -39,6 +39,47 @@ public class StudentCartFragment extends Fragment {
     private TextView tvSummary, tvTotalPrice;
     private Button btnCheckout;
 
+    // Listener để đăng ký với CartApi
+    private final CartApi.CartUpdateListener cartUpdateListener = new CartApi.CartUpdateListener() {
+        @Override
+        public void onCartChanged() {
+            // đảm bảo chạy trên main thread
+            if (getActivity() == null) return;
+            requireActivity().runOnUiThread(() -> {
+                // Lấy trạng thái mới
+                List<Course> latest = cartApi.getCartCourses();
+                int latestCount = cartApi.getTotalItems();
+
+                // Nếu fragment hiện đang hiển empty layout (chưa init adapter)
+                if (cartAdapter == null) {
+                    // Nếu giờ đã có item -> recreate fragment view để inflate layout có RecyclerView
+                    if (latestCount > 0) {
+                        // đơn giản: detach/attach để gọi lại onCreateView/onViewCreated
+                        // (an toàn, vì thao tác UI và fragment manager đang trên main thread)
+                        requireActivity().getSupportFragmentManager()
+                                .beginTransaction()
+                                .detach(StudentCartFragment.this)
+                                .attach(StudentCartFragment.this)
+                                .commitAllowingStateLoss();
+                    }
+                    // ngược lại vẫn empty -> không cần làm gì
+                    return;
+                }
+
+                // Nếu có adapter rồi: cập nhật list hiển thị
+                cartList.clear();
+                if (latest != null && !latest.isEmpty()) {
+                    cartList.addAll(latest);
+                }
+                cartAdapter.notifyDataSetChanged();
+                updateSummary();
+
+                // Nếu list vừa trở nên rỗng và bạn muốn hiển empty layout hoàn chỉnh,
+                // có thể detach/attach tương tự như trên. Ở đây ta chỉ cập nhật view hiện tại.
+            });
+        }
+    };
+
     @Nullable
     @Override
     public View onCreateView(
@@ -52,10 +93,11 @@ public class StudentCartFragment extends Fragment {
         cartList = cartApi.getCartCourses();
 
         if (cartList == null || cartList.isEmpty()) {
-            // Giỏ hàng trống
+            // Giỏ hàng trống -> trả về layout empty
+            // IMPORTANT: vẫn sẽ đăng ký listener ở onStart() để có thể detect khi user add item từ nơi khác
             return inflater.inflate(R.layout.fragment_student_cart_empty, container, false);
         } else {
-            // Có dữ liệu
+            // Có dữ liệu -> inflate layout có RecyclerView
             View view = inflater.inflate(R.layout.fragment_student_cart, container, false);
 
             tvSummary = view.findViewById(R.id.tvSummary);
@@ -78,8 +120,14 @@ public class StudentCartFragment extends Fragment {
                             cartList.clear();
                             cartList.addAll(cartApi.getCartCourses());
 
-                            cartAdapter.notifyItemRemoved(position);
-                            cartAdapter.notifyItemRangeChanged(position, cartList.size() - position);
+                            // Nếu position có thể out of bounds do full refresh, gọi notifyDataSetChanged()
+                            // nhưng giữ logic tối ưu dưới đây:
+                            if (position >= 0 && position < cartList.size() + 1) {
+                                cartAdapter.notifyItemRemoved(position);
+                                cartAdapter.notifyItemRangeChanged(position, Math.max(0, cartList.size() - position));
+                            } else {
+                                cartAdapter.notifyDataSetChanged();
+                            }
 
                             updateSummary();
                             Toast.makeText(requireContext(), "Đã xóa khỏi giỏ hàng", Toast.LENGTH_SHORT).show();
@@ -195,6 +243,33 @@ public class StudentCartFragment extends Fragment {
             });
 
             return view;
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Đăng ký listener để đồng bộ UI khi cart thay đổi
+        if (cartApi != null) {
+            cartApi.addCartUpdateListener(cartUpdateListener);
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        // Hủy đăng ký để tránh leak
+        if (cartApi != null) {
+            cartApi.removeCartUpdateListener(cartUpdateListener);
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // đảm bảo remove listener nếu view bị destroy giữa chừng
+        if (cartApi != null) {
+            cartApi.removeCartUpdateListener(cartUpdateListener);
         }
     }
 

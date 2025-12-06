@@ -81,6 +81,69 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
     // trạng thái hiện tại của khóa học đối với student
     private CourseStatus currentStatus = CourseStatus.NOT_PURCHASED;
 
+    // ------------------ LISTENERS ------------------
+    // CourseUpdateListener: update UI when course changes
+    private final CourseApi.CourseUpdateListener courseUpdateListener = new CourseApi.CourseUpdateListener() {
+        @Override
+        public void onCourseUpdated(String id, Course updatedCourse) {
+            if (id == null || !id.equals(courseId)) return;
+            if (updatedCourse == null) return; // deleted case could finish activity
+            runOnUiThread(() -> {
+                currentCourse = updatedCourse;
+                // update visible fields only (students, lectures, duration, rating, price if changed)
+                tvStudents.setText(currentCourse.getStudents() + " học viên");
+
+                // update lecture summary
+                String time;
+                if (currentCourse.getTotalDurationMinutes() >= 60) {
+                    int h = currentCourse.getTotalDurationMinutes() / 60;
+                    int m = currentCourse.getTotalDurationMinutes() % 60;
+                    time = h + " giờ " + (m > 0 ? m + " phút" : "");
+                } else {
+                    time = currentCourse.getTotalDurationMinutes() + " phút";
+                }
+                tvLectureSummary.setText(currentCourse.getLectures() + " bài • " + time);
+
+                // rating
+                float rating = (float) currentCourse.getRating();
+                ratingBar.setRating(rating);
+                tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
+                tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
+
+                // price / purchase state might change
+                NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
+                tvPrice.setText(nf.format(currentCourse.getPrice()));
+                // rely on listener-driven UI update (avoid duplicate manual UI updates)
+                updatePurchaseUi();
+            });
+        }
+    };
+
+    // Cart update listener: khi giỏ hàng thay đổi từ chỗ khác, cập nhật nút AddToCart
+    private final CartApi.CartUpdateListener cartUpdateListener = new CartApi.CartUpdateListener() {
+        @Override
+        public void onCartChanged() {
+            // đảm bảo chạy trên main thread
+            runOnUiThread(() -> {
+                updateAddToCartButtonState();
+            });
+        }
+    };
+
+    // Review update listener: tận dụng cơ chế notify mới để tự reload reviews khi có thay đổi từ backend/fake
+    private final ReviewApi.ReviewUpdateListener reviewUpdateListener = new ReviewApi.ReviewUpdateListener() {
+        @Override
+        public void onReviewsChanged(String changedCourseId) {
+            if (changedCourseId == null || !changedCourseId.equals(courseId)) return;
+            runOnUiThread(() -> {
+                // fetch fresh reviews from API and submit to adapter
+                List<CourseReview> reviews = reviewApi.getReviewsForCourse(courseId);
+                reviewAdapter.submitList(reviews);
+            });
+        }
+    };
+
+    // ------------------ LIFECYCLE ------------------
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -101,7 +164,9 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
 
         // Register course update listener so this detail page updates automatically
         try {
-            courseApi.addCourseUpdateListener(courseUpdateListener);
+            if (courseApi != null) {
+                courseApi.addCourseUpdateListener(courseUpdateListener);
+            }
         } catch (Throwable ignored) {}
 
         loadCourseDetail(courseId);
@@ -112,10 +177,48 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        // Đăng ký cart listener khi activity visible
+        try {
+            if (cartApi != null) {
+                cartApi.addCartUpdateListener(cartUpdateListener);
+            }
+        } catch (Throwable ignored) {}
+
+        // Đăng ký review listener khi activity visible để nhận notify thay đổi review
+        try {
+            if (reviewApi != null) {
+                reviewApi.addReviewUpdateListener(reviewUpdateListener);
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         // Khi quay lại từ màn Giỏ hàng hoặc My Course
         updatePurchaseUi();
+        // và cập nhật trạng thái nút addToCart (phòng trường hợp onStart chưa chạy)
+        updateAddToCartButtonState();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Hủy đăng ký cart listener
+        try {
+            if (cartApi != null) {
+                cartApi.removeCartUpdateListener(cartUpdateListener);
+            }
+        } catch (Throwable ignored) {}
+
+        // Hủy đăng ký review listener
+        try {
+            if (reviewApi != null) {
+                reviewApi.removeReviewUpdateListener(reviewUpdateListener);
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -124,8 +227,19 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
         try {
             if (courseApi != null) courseApi.removeCourseUpdateListener(courseUpdateListener);
         } catch (Throwable ignored) {}
+
+        // đảm bảo remove cart listener để tránh leak
+        try {
+            if (cartApi != null) cartApi.removeCartUpdateListener(cartUpdateListener);
+        } catch (Throwable ignored) {}
+
+        // đảm bảo remove review listener để tránh leak (redundant but safe)
+        try {
+            if (reviewApi != null) reviewApi.removeReviewUpdateListener(reviewUpdateListener);
+        } catch (Throwable ignored) {}
     }
 
+    // ------------------ VIEW SETUP ------------------
     private void bindViews() {
         scrollView = findViewById(R.id.scrollView);
 
@@ -310,18 +424,22 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
      * (Chỉ gọi khi khóa học chưa ở trạng thái PURCHASED)
      */
     private void updateAddToCartButtonState() {
-        boolean inCart = isInCart(courseId);
-        if (inCart) {
-            btnAddToCart.setText("Đi tới giỏ hàng");
-            btnAddToCart.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.blue_900)
-            );
-        } else {
-            btnAddToCart.setText("Thêm vào giỏ hàng");
-            btnAddToCart.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.purple_200)
-            );
-        }
+        // bảo đảm chạy trên main thread nếu được gọi từ listener
+        runOnUiThread(() -> {
+            if (btnAddToCart == null) return;
+            boolean inCart = isInCart(courseId);
+            if (inCart) {
+                btnAddToCart.setText("Đi tới giỏ hàng");
+                btnAddToCart.setBackgroundTintList(
+                        ContextCompat.getColorStateList(this, R.color.blue_900)
+                );
+            } else {
+                btnAddToCart.setText("Thêm vào giỏ hàng");
+                btnAddToCart.setBackgroundTintList(
+                        ContextCompat.getColorStateList(this, R.color.purple_200)
+                );
+            }
+        });
     }
 
     /**
@@ -371,7 +489,8 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                 // Thêm vào giỏ hàng qua CartApi
                 if (currentCourse != null) {
                     cartApi.addToCart(currentCourse);
-                    updatePurchaseUi();
+                    // Không gọi updateAddToCartButtonState() thủ công ở đây nữa —
+                    // để tránh duplicate: listener của CartApi sẽ notify và cập nhật UI.
 
                     // 👉 Toast thông báo đã thêm vào giỏ hàng
                     Toast.makeText(
@@ -437,8 +556,8 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                                 if (courseApi != null) {
                                     courseApi.recordPurchase(courseId);
                                 }
-                                // update UI and navigate to MyCourse
-                                updatePurchaseUi();
+                                // Không gọi updatePurchaseUi() thủ công ở đây — rely on listeners to update UI
+
                                 Intent intent = new Intent(this, StudentHomeActivity.class);
                                 intent.putExtra("open_my_course", true);
                                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -521,40 +640,4 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                 }
         );
     }
-
-    // CourseUpdateListener: update UI when course changes
-    private final CourseApi.CourseUpdateListener courseUpdateListener = new CourseApi.CourseUpdateListener() {
-        @Override
-        public void onCourseUpdated(String id, Course updatedCourse) {
-            if (id == null || !id.equals(courseId)) return;
-            if (updatedCourse == null) return; // deleted case could finish activity
-            runOnUiThread(() -> {
-                currentCourse = updatedCourse;
-                // update visible fields only (students, lectures, duration, rating, price if changed)
-                tvStudents.setText(currentCourse.getStudents() + " học viên");
-
-                // update lecture summary
-                String time;
-                if (currentCourse.getTotalDurationMinutes() >= 60) {
-                    int h = currentCourse.getTotalDurationMinutes() / 60;
-                    int m = currentCourse.getTotalDurationMinutes() % 60;
-                    time = h + " giờ " + (m > 0 ? m + " phút" : "");
-                } else {
-                    time = currentCourse.getTotalDurationMinutes() + " phút";
-                }
-                tvLectureSummary.setText(currentCourse.getLectures() + " bài • " + time);
-
-                // rating
-                float rating = (float) currentCourse.getRating();
-                ratingBar.setRating(rating);
-                tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
-                tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
-
-                // price / purchase state might change
-                NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-                tvPrice.setText(nf.format(currentCourse.getPrice()));
-                updatePurchaseUi();
-            });
-        }
-    };
 }

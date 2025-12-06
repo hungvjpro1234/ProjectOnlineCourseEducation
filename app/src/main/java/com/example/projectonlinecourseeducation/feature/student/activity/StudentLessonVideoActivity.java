@@ -32,6 +32,12 @@ import java.util.List;
  * Activity hiển thị video bài học
  * Bao gồm: YouTube player, tiêu đề, mô tả bài học, tracking progress
  * Tracking sẽ cập nhật: currentSecond, totalSecond, completionPercentage
+ *
+ * CHANGES:
+ * - Sử dụng LessonProgressApi.LessonProgressUpdateListener để đồng bộ UI
+ *   với các thay đổi tiến độ (từ chính activity hoặc từ nơi khác).
+ * - Không cập nhật UI trực tiếp ngay sau updateLessonProgress/markLessonAsCompleted,
+ *   thay vào đó listener sẽ đảm nhiệm việc refresh UI.
  */
 public class StudentLessonVideoActivity extends AppCompatActivity {
 
@@ -55,6 +61,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     private float videoDurationSeconds = 0f;
     private float lastSavedSecond = 0f;
     private float startSecond = 0f;     // vị trí bắt đầu (resume từ progress cũ nếu có)
+
+    // NEW: listener để nhận thông báo progress thay đổi
+    private LessonProgressApi.LessonProgressUpdateListener lessonProgressListener;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -86,6 +95,48 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
         // Setup Actions
         setupActions();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        // Đăng ký listener để nhận notify khi có thay đổi progress (từ activity này hoặc nơi khác)
+        if (lessonProgressApi != null && lessonProgressListener == null) {
+            lessonProgressListener = new LessonProgressApi.LessonProgressUpdateListener() {
+                @Override
+                public void onLessonProgressChanged(String changedLessonId) {
+                    // Nếu thay đổi liên quan tới lesson hiện tại (hoặc truyền null/empty => global), refresh UI
+                    boolean relevant = false;
+                    if (changedLessonId == null || changedLessonId.isEmpty()) {
+                        relevant = true;
+                    } else if (lessonId != null && changedLessonId.equals(lessonId)) {
+                        relevant = true;
+                    }
+
+                    if (relevant) {
+                        runOnUiThread(() -> {
+                            // Lấy progress mới (single source of truth) và cập nhật UI
+                            LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
+                            updateProgressUI(progress);
+                            updateNextButtonState(progress);
+                        });
+                    }
+                }
+            };
+
+            lessonProgressApi.addLessonProgressUpdateListener(lessonProgressListener);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Hủy đăng ký listener để tránh leak
+        if (lessonProgressApi != null && lessonProgressListener != null) {
+            lessonProgressApi.removeLessonProgressUpdateListener(lessonProgressListener);
+            lessonProgressListener = null;
+        }
     }
 
     private void bindViews() {
@@ -209,15 +260,15 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
                 if (second - lastSavedSecond >= MIN_UPDATE_INTERVAL_SEC) {
                     lastSavedSecond = second;
 
+                    // Gọi API cập nhật tiến độ. UI sẽ được cập nhật via listener.
                     lessonProgressApi.updateLessonProgress(
                             lessonId,
                             second,
                             videoDurationSeconds
                     );
 
-                    LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
-                    updateProgressUI(progress);
-                    updateNextButtonState(progress);
+                    // *** Không gọi getLessonProgress() + updateProgressUI trực tiếp ở đây ***
+                    // để tránh duplicate update; listener sẽ nhận notify và cập nhật UI.
                 }
             }
 
@@ -238,9 +289,8 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
                         videoDurationSeconds
                 );
 
-                LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
-                updateProgressUI(progress);
-                updateNextButtonState(progress);
+                // *** Không gọi getLessonProgress() + updateProgressUI trực tiếp ở đây ***
+                // listener sẽ nhận notify và cập nhật UI.
             }
 
             /**
@@ -254,9 +304,8 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
                     // Đánh dấu bài học là hoàn thành
                     if (lesson != null) {
                         lessonProgressApi.markLessonAsCompleted(lessonId);
-                        LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
-                        updateProgressUI(progress);
-                        updateNextButtonState(progress);
+
+                        // *** Không gọi getLessonProgress() ở đây — listener sẽ nhận notify và cập nhật UI. ***
 
                         Toast.makeText(StudentLessonVideoActivity.this,
                                 "Bài học hoàn thành!",

@@ -2,7 +2,9 @@ package com.example.projectonlinecourseeducation.data.lesson;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -14,6 +16,10 @@ import java.util.Map;
  *  - isCompleted = true khi completionPercentage >= 90% hoặc đã được markCompleted trước đó.
  *  - UI chỉ làm việc qua LessonProgressApi, nên sau này có LessonProgressRemoteApiService
  *    thì chỉ cần set vào ApiProvider, không phải sửa UI.
+ *
+ *  CHANGES:
+ *  - Thêm cơ chế LessonProgressUpdateListener để UI có thể đăng ký nhận notify
+ *    khi có thay đổi update/markCompleted (tương tự CartFakeApiService).
  */
 public class LessonProgressFakeApiService implements LessonProgressApi {
 
@@ -28,12 +34,15 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
     // Thực tế sẽ lưu trong database/API
     private final Map<String, LessonProgress> progressCache = new HashMap<>();
 
+    // Registered listeners
+    private final List<LessonProgressApi.LessonProgressUpdateListener> listeners = new ArrayList<>();
+
     private LessonProgressFakeApiService() {
         // Khởi tạo với progress mặc định (0% progress)
     }
 
     @Override
-    public LessonProgress getLessonProgress(String lessonId) {
+    public synchronized LessonProgress getLessonProgress(String lessonId) {
         if (lessonId == null) return null;
 
         // Nếu chưa có progress, tạo mới với giá trị 0
@@ -51,11 +60,12 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
             progressCache.put(lessonId, defaultProgress);
         }
 
+        // Trả về đối tượng trong cache (immutable nếu LessonProgress là immutable)
         return progressCache.get(lessonId);
     }
 
     @Override
-    public void updateLessonProgress(String lessonId, float currentSecond, float totalSecond) {
+    public synchronized void updateLessonProgress(String lessonId, float currentSecond, float totalSecond) {
         if (lessonId == null) return;
 
         // Lấy progress hiện tại (nếu có) để so sánh, đảm bảo chỉ tăng tiến độ, không giảm.
@@ -99,13 +109,16 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
 
         progressCache.put(lessonId, updated);
 
+        // Notify listeners về lesson này đã thay đổi
+        notifyLessonProgressChanged(lessonId);
+
         // TODO Backend thật:
         // PATCH /api/lesson-progress/{lessonId}
         // body: { currentSecond: bestCurrentSecond, totalSecond: bestTotalSecond }
     }
 
     @Override
-    public void markLessonAsCompleted(String lessonId) {
+    public synchronized void markLessonAsCompleted(String lessonId) {
         if (lessonId == null) return;
 
         LessonProgress current = progressCache.get(lessonId);
@@ -130,8 +143,36 @@ public class LessonProgressFakeApiService implements LessonProgressApi {
 
         progressCache.put(lessonId, completed);
 
+        // Notify listeners về lesson này đã completed
+        notifyLessonProgressChanged(lessonId);
+
         // TODO Backend thật:
         // POST /api/lesson-progress/{lessonId}/mark-completed
+    }
+
+    // ----------------- Listener registration -----------------
+
+    @Override
+    public synchronized void addLessonProgressUpdateListener(LessonProgressApi.LessonProgressUpdateListener listener) {
+        if (listener == null) return;
+        if (!listeners.contains(listener)) listeners.add(listener);
+    }
+
+    @Override
+    public synchronized void removeLessonProgressUpdateListener(LessonProgressApi.LessonProgressUpdateListener listener) {
+        listeners.remove(listener);
+    }
+
+    private synchronized void notifyLessonProgressChanged(String lessonId) {
+        // copy to avoid concurrent modification while notifying
+        List<LessonProgressApi.LessonProgressUpdateListener> copy = new ArrayList<>(listeners);
+        for (LessonProgressApi.LessonProgressUpdateListener l : copy) {
+            try {
+                l.onLessonProgressChanged(lessonId);
+            } catch (Exception ignored) {
+                // ignore listener exceptions to avoid breaking others
+            }
+        }
     }
 
     /**

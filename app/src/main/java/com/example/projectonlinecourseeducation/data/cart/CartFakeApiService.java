@@ -9,6 +9,10 @@ import java.util.List;
  * Fake implementation cho CartApi.
  * Lưu giỏ hàng trong RAM, không có backend.
  * Sau này thay bằng CartRemoteApiService (Retrofit) là xong.
+ *
+ * CHANGES:
+ * - Thêm cơ chế CartUpdateListener để UI có thể đăng ký và nhận notify tự động
+ *   khi có thay đổi add/remove/clear.
  */
 public class CartFakeApiService implements CartApi {
 
@@ -23,6 +27,9 @@ public class CartFakeApiService implements CartApi {
 
     // "Bảng" cart_courses trong RAM
     private final List<Course> cartCourses = new ArrayList<>();
+
+    // Registered listeners
+    private final List<CartApi.CartUpdateListener> listeners = new ArrayList<>();
 
     private CartFakeApiService() {
     }
@@ -43,6 +50,7 @@ public class CartFakeApiService implements CartApi {
             }
         }
         cartCourses.add(course);
+        notifyCartChanged();
         return true;
     }
 
@@ -52,6 +60,7 @@ public class CartFakeApiService implements CartApi {
         for (int i = 0; i < cartCourses.size(); i++) {
             if (courseId.equals(cartCourses.get(i).getId())) {
                 cartCourses.remove(i);
+                notifyCartChanged();
                 return true;
             }
         }
@@ -60,7 +69,9 @@ public class CartFakeApiService implements CartApi {
 
     @Override
     public synchronized void clearCart() {
+        if (cartCourses.isEmpty()) return;
         cartCourses.clear();
+        notifyCartChanged();
     }
 
     @Override
@@ -86,5 +97,30 @@ public class CartFakeApiService implements CartApi {
             }
         }
         return total;
+    }
+
+    // ----------------- Listener registration -----------------
+
+    @Override
+    public synchronized void addCartUpdateListener(CartApi.CartUpdateListener listener) {
+        if (listener == null) return;
+        if (!listeners.contains(listener)) listeners.add(listener);
+    }
+
+    @Override
+    public synchronized void removeCartUpdateListener(CartApi.CartUpdateListener listener) {
+        listeners.remove(listener);
+    }
+
+    private synchronized void notifyCartChanged() {
+        // copy to avoid concurrent modification while notifying
+        List<CartApi.CartUpdateListener> copy = new ArrayList<>(listeners);
+        for (CartApi.CartUpdateListener l : copy) {
+            try {
+                l.onCartChanged();
+            } catch (Exception ignored) {
+                // ignore listener exceptions to avoid breaking others
+            }
+        }
     }
 }

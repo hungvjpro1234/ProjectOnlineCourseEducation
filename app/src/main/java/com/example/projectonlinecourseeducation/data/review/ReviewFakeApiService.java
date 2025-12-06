@@ -46,7 +46,10 @@ public class ReviewFakeApiService implements ReviewApi {
             "]";
 
     // Cache lưu review theo courseId
-    private Map<String, List<CourseReview>> reviewCache = new HashMap<>();
+    private final Map<String, List<CourseReview>> reviewCache = new HashMap<>();
+
+    // Registered listeners
+    private final List<ReviewApi.ReviewUpdateListener> listeners = new ArrayList<>();
 
     private ReviewFakeApiService() {
         initializeFromJson();
@@ -76,13 +79,16 @@ public class ReviewFakeApiService implements ReviewApi {
     }
 
     @Override
-    public List<CourseReview> getReviewsForCourse(String courseId) {
+    public synchronized List<CourseReview> getReviewsForCourse(String courseId) {
         if (courseId == null) return new ArrayList<>();
-        return reviewCache.getOrDefault(courseId, new ArrayList<>());
+        // Trả về bản copy để UI không sửa trực tiếp list bên trong cache
+        return new ArrayList<>(reviewCache.getOrDefault(courseId, new ArrayList<>()));
     }
 
     @Override
-    public CourseReview addReviewToCourse(String courseId, String studentName, float rating, String comment) {
+    public synchronized CourseReview addReviewToCourse(String courseId, String studentName, float rating, String comment) {
+        if (courseId == null) return null;
+
         // Tạo ID mới cho review
         String reviewId = "review_" + UUID.randomUUID().toString().substring(0, 8);
         long createdAt = System.currentTimeMillis();
@@ -90,17 +96,69 @@ public class ReviewFakeApiService implements ReviewApi {
         CourseReview review = new CourseReview(
                 reviewId,
                 courseId,
-                studentName,
+                studentName != null ? studentName : "Ẩn danh",
                 rating,
-                comment,
+                comment != null ? comment : "",
                 createdAt
         );
 
         // Lưu vào cache
         reviewCache.computeIfAbsent(courseId, k -> new ArrayList<>()).add(review);
 
+        // Notify listeners rằng review của courseId đã thay đổi
+        notifyReviewsChanged(courseId);
+
         // TODO: Sau này thay thế bằng POST /api/courses/{courseId}/reviews
 
         return review;
+    }
+
+    // ----------------- Listener registration -----------------
+
+    @Override
+    public synchronized void addReviewUpdateListener(ReviewApi.ReviewUpdateListener listener) {
+        if (listener == null) return;
+        if (!listeners.contains(listener)) listeners.add(listener);
+    }
+
+    @Override
+    public synchronized void removeReviewUpdateListener(ReviewApi.ReviewUpdateListener listener) {
+        listeners.remove(listener);
+    }
+
+    private synchronized void notifyReviewsChanged(String courseId) {
+        // copy to avoid concurrent modification while notifying
+        List<ReviewApi.ReviewUpdateListener> copy = new ArrayList<>(listeners);
+        for (ReviewApi.ReviewUpdateListener l : copy) {
+            try {
+                l.onReviewsChanged(courseId);
+            } catch (Exception ignored) {
+                // ignore listener exceptions to avoid breaking others
+            }
+        }
+    }
+
+    // (Tùy chọn) helper để xóa review — nếu cần có thể thêm notify tương tự
+    public synchronized boolean removeReview(String courseId, String reviewId) {
+        if (courseId == null || reviewId == null) return false;
+        List<CourseReview> list = reviewCache.get(courseId);
+        if (list == null) return false;
+        for (int i = 0; i < list.size(); i++) {
+            if (reviewId.equals(list.get(i).getId())) {
+                list.remove(i);
+                notifyReviewsChanged(courseId);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // (Tùy chọn) clear reviews of a course
+    public synchronized void clearReviewsForCourse(String courseId) {
+        if (courseId == null) return;
+        List<CourseReview> list = reviewCache.get(courseId);
+        if (list == null || list.isEmpty()) return;
+        list.clear();
+        notifyReviewsChanged(courseId);
     }
 }

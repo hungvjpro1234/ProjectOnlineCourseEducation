@@ -28,4 +28,31 @@ public interface LessonProgressApi {
      * @param lessonId: ID bài học
      */
     void markLessonAsCompleted(String lessonId);
+
+    // ------------------ LISTENER / NOTIFY ------------------
+
+    /**
+     * Listener để UI hoặc các component khác đăng ký nhận thông báo khi
+     * tiến độ của 1 lesson thay đổi (update/markCompleted).
+     *
+     * Khi onLessonProgressChanged(lessonId) được gọi, component nên gọi lại
+     * getLessonProgress(lessonId) để lấy trạng thái mới.
+     */
+    interface LessonProgressUpdateListener {
+        /**
+         * Thông báo tiến độ của lessonId đã thay đổi.
+         * @param lessonId id của lesson thay đổi (có thể null/empty nếu là thay đổi chung)
+         */
+        void onLessonProgressChanged(String lessonId);
+    }
+
+    /**
+     * Đăng ký listener.
+     */
+    void addLessonProgressUpdateListener(LessonProgressUpdateListener listener);
+
+    /**
+     * Hủy đăng ký listener.
+     */
+    void removeLessonProgressUpdateListener(LessonProgressUpdateListener listener);
 }

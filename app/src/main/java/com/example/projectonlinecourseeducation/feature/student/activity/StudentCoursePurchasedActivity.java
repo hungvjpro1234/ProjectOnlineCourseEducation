@@ -36,16 +36,11 @@ import java.util.Locale;
 
 /**
  * Màn học bài – hiển thị chi tiết khóa học và danh sách bài học + reviews
- * Bao gồm: tiêu đề, ảnh, đánh giá, giáo viên, ngày cập nhật, nội dung (bài học), reviews, nút hỏi đáp (FAB)
  *
- * BỔ SUNG:
- *  - Bind thêm LessonProgress cho từng bài học (Fake API / Backend) thông qua LessonProgressApi.
- *  - Rule khóa bài: chỉ cho phép học bài i nếu tất cả bài trước đó đã hoàn thành (>= 90%).
- *  - Danh sách bài học dùng StudentLessonCardAdapter hiển thị thanh progress + % hoàn thành.
- *
- * LƯU Ý:
- *  - UI CHỈ gọi qua CourseApi, LessonApi, LessonProgressApi, ReviewApi lấy từ ApiProvider.
- *  - Sau này cắm backend thật chỉ cần set ApiProvider.setXxxApi(...) mà KHÔNG sửa UI.
+ * CHANGES:
+ *  - Đăng ký LessonProgressUpdateListener & ReviewUpdateListener & CourseUpdateListener trong onStart() và hủy trong onStop().
+ *  - Khi thêm review, không tự fetch lại reviews hay tính rating thủ công — chờ ReviewApi/ CourseApi notify.
+ *  - Giữ UX: vẫn clear input và show toast ngay khi addReviewToCourse() thành công.
  */
 public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
@@ -68,6 +63,11 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     private LessonApi lessonApi;
     private ReviewApi reviewApi;
     private LessonProgressApi lessonProgressApi;
+
+    // Listeners
+    private LessonProgressApi.LessonProgressUpdateListener lessonProgressListener;
+    private ReviewApi.ReviewUpdateListener reviewUpdateListener;
+    private CourseApi.CourseUpdateListener courseUpdateListener;
 
     // Data
     private String courseId;
@@ -102,12 +102,87 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        // Mỗi lần quay lại màn (từ LessonVideo back) sẽ REFRESH lại progress + trạng thái khóa bài
-        if (courseId != null) {
-            List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-            bindLessonsWithProgress(lessons);
+    protected void onStart() {
+        super.onStart();
+
+        // LessonProgress listener (cập nhật progress từng bài)
+        if (lessonProgressApi != null && lessonProgressListener == null) {
+            lessonProgressListener = new LessonProgressApi.LessonProgressUpdateListener() {
+                @Override
+                public void onLessonProgressChanged(String lessonId) {
+                    if (courseId == null) return;
+
+                    boolean belongsToCurrentCourse = false;
+                    if (lessonId == null || lessonId.isEmpty()) {
+                        belongsToCurrentCourse = true;
+                    } else if (lessonId.startsWith(courseId + "_")) {
+                        belongsToCurrentCourse = true;
+                    }
+
+                    if (belongsToCurrentCourse) {
+                        runOnUiThread(() -> {
+                            List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
+                            bindLessonsWithProgress(lessons);
+                        });
+                    }
+                }
+            };
+            lessonProgressApi.addLessonProgressUpdateListener(lessonProgressListener);
+        }
+
+        // Review listener: reload reviews when there is change from backend/fake
+        if (reviewApi != null && reviewUpdateListener == null) {
+            reviewUpdateListener = new ReviewApi.ReviewUpdateListener() {
+                @Override
+                public void onReviewsChanged(String changedCourseId) {
+                    if (changedCourseId == null || !changedCourseId.equals(courseId)) return;
+                    runOnUiThread(() -> {
+                        List<CourseReview> reviews = reviewApi.getReviewsForCourse(courseId);
+                        reviewAdapter.submitList(reviews);
+                    });
+                }
+            };
+            reviewApi.addReviewUpdateListener(reviewUpdateListener);
+        }
+
+        // Course listener: update course meta (rating, student count, price, etc.) when backend notifies
+        if (courseApi != null && courseUpdateListener == null) {
+            courseUpdateListener = new CourseApi.CourseUpdateListener() {
+                @Override
+                public void onCourseUpdated(String id, Course updatedCourse) {
+                    if (id == null || !id.equals(courseId)) return;
+                    if (updatedCourse == null) return;
+                    runOnUiThread(() -> {
+                        currentCourse = updatedCourse;
+                        // update rating & counts
+                        float rating = (float) currentCourse.getRating();
+                        ratingBar.setRating(rating);
+                        tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
+                        tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
+
+                        tvStudentsCount.setText("👥 " + currentCourse.getStudents() + " học viên");
+                    });
+                }
+            };
+            courseApi.addCourseUpdateListener(courseUpdateListener);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Hủy đăng ký để tránh leak
+        if (lessonProgressApi != null && lessonProgressListener != null) {
+            lessonProgressApi.removeLessonProgressUpdateListener(lessonProgressListener);
+            lessonProgressListener = null;
+        }
+        if (reviewApi != null && reviewUpdateListener != null) {
+            reviewApi.removeReviewUpdateListener(reviewUpdateListener);
+            reviewUpdateListener = null;
+        }
+        if (courseApi != null && courseUpdateListener != null) {
+            courseApi.removeCourseUpdateListener(courseUpdateListener);
+            courseUpdateListener = null;
         }
     }
 
@@ -131,25 +206,18 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerViews() {
-        // Lesson Adapter - dùng StudentLessonCardAdapter (có progress + khóa bài)
         lessonAdapter = new LessonCardAdapter(this);
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
         rvLessons.setAdapter(lessonAdapter);
         rvLessons.setNestedScrollingEnabled(false);
 
-        // Review Adapter
         reviewAdapter = new ProductCourseReviewDetailedAdapter();
         rvReviews.setLayoutManager(new LinearLayoutManager(this));
         rvReviews.setAdapter(reviewAdapter);
         rvReviews.setNestedScrollingEnabled(false);
     }
 
-    /**
-     * Lần đầu vào màn hình: load course detail, lesson list, review list.
-     * Progress & trạng thái khóa bài được bind thông qua bindLessonsWithProgress(...).
-     */
     private void loadCourseData(String id) {
-        // Lấy chi tiết khóa học
         currentCourse = courseApi.getCourseDetail(id);
         if (currentCourse == null) {
             Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();
@@ -157,39 +225,26 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
             return;
         }
 
-        // Lấy danh sách bài học
         List<Lesson> lessons = lessonApi.getLessonsForCourse(id);
-
-        // Lấy danh sách reviews
         List<CourseReview> reviews = reviewApi.getReviewsForCourse(id);
 
-        // ===== Bind Course Information =====
-        // Banner image
         ImageLoader.getInstance().display(
                 currentCourse.getImageUrl(),
                 imgCourseBanner,
                 R.drawable.ic_image_placeholder
         );
 
-        // Course title
         tvCourseTitle.setText(currentCourse.getTitle());
 
-        // Rating
         float rating = (float) currentCourse.getRating();
         ratingBar.setRating(rating);
         tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
         tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
 
-        // Students count
         tvStudentsCount.setText("👥 " + currentCourse.getStudents() + " học viên");
-
-        // Teacher name
         tvTeacherName.setText("👨‍🏫 " + currentCourse.getTeacher());
-
-        // Updated date
         tvUpdatedDate.setText("📅 Cập nhật: " + currentCourse.getCreatedAt());
 
-        // Lecture Summary (số bài + thời lượng)
         String time;
         if (currentCourse.getTotalDurationMinutes() >= 60) {
             int h = currentCourse.getTotalDurationMinutes() / 60;
@@ -200,23 +255,11 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         }
         tvLectureSummary.setText("📖 " + currentCourse.getLectures() + " bài • " + time);
 
-        // ===== Bind Course Lessons + Progress + Rule khóa bài =====
         bindLessonsWithProgress(lessons);
 
-        // ===== Bind Reviews =====
         reviewAdapter.submitList(reviews);
     }
 
-    /**
-     * Bind danh sách bài học kèm progress & trạng thái khóa/mở.
-     *
-     * Rule:
-     *  - Bài 1 luôn mở.
-     *  - Bài i (i > 1) chỉ mở nếu TẤT CẢ các bài trước đó đã isCompleted (>= 90%).
-     *
-     * Dữ liệu progress hiện tại được lấy từ LessonProgressApi
-     * (FakeApi hiện tại, sau này backend thật cũng implement interface này).
-     */
     private void bindLessonsWithProgress(List<Lesson> lessons) {
         if (lessons == null || lessons.isEmpty()) {
             lessonAdapter.submitItems(null);
@@ -225,7 +268,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
         List<LessonCardAdapter.LessonItemUiModel> items = new ArrayList<>();
 
-        boolean allPreviousCompleted = true; // trạng thái các bài trước
+        boolean allPreviousCompleted = true;
 
         for (Lesson lesson : lessons) {
             LessonProgress progress = lessonProgressApi.getLessonProgress(lesson.getId());
@@ -238,7 +281,6 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 completed = progress.isCompleted();
             }
 
-            // Bài hiện tại bị khóa nếu có ÍT NHẤT 1 bài trước đó chưa completed
             boolean isLocked = !allPreviousCompleted;
 
             items.add(new LessonCardAdapter.LessonItemUiModel(
@@ -247,7 +289,6 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                     isLocked
             ));
 
-            // Cập nhật trạng thái cho bài tiếp theo
             allPreviousCompleted = allPreviousCompleted && completed;
         }
 
@@ -255,17 +296,10 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     private void setupActions() {
-        // Back button
         btnBack.setOnClickListener(v -> finish());
 
-        // Q&A FAB button
-        fabQAndA.setOnClickListener(v -> {
-            Toast.makeText(this,
-                    "Phần hỏi đáp đang được phát triển",
-                    Toast.LENGTH_SHORT).show();
-        });
+        fabQAndA.setOnClickListener(v -> Toast.makeText(this, "Phần hỏi đáp đang được phát triển", Toast.LENGTH_SHORT).show());
 
-        // Submit Rating button
         btnSubmitRating.setOnClickListener(v -> {
             float rating = ratingBarUserInput.getRating();
             String comment = etCommentInput.getText().toString().trim();
@@ -280,8 +314,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 return;
             }
 
-            // Lấy tên học viên từ hệ thống xác thực
-            String studentName = "Học viên"; // Default
+            String studentName = "Học viên";
             try {
                 com.example.projectonlinecourseeducation.core.model.user.User currentUser =
                         ApiProvider.getAuthApi().getCurrentUser();
@@ -292,7 +325,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
 
-            // Gọi API để lưu review
+            // Gọi API để lưu review (không fetch lại thủ công sau khi thành công)
             CourseReview newReview = reviewApi.addReviewToCourse(
                     courseId,
                     studentName,
@@ -301,45 +334,21 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
             );
 
             if (newReview != null) {
-                // Reload danh sách reviews
-                List<CourseReview> reviews = reviewApi.getReviewsForCourse(courseId);
-                reviewAdapter.submitList(reviews);
-
-                // Cập nhật rating tổng của khóa học
-                updateCourseRating(reviews);
-
-                // Clear inputs
+                // UX: clear inputs + show toast. Actual list & course rating will be updated
+                // by ReviewApi/ CourseApi listeners when backend/fake notify.
                 ratingBarUserInput.setRating(0);
                 etCommentInput.setText("");
 
                 Toast.makeText(this,
                         "Đánh giá " + (int) rating + " sao đã được gửi thành công!",
                         Toast.LENGTH_SHORT).show();
+
+                // OPTIONAL: if you want optimistic update, you could append to adapter here,
+                // but to avoid duplication we rely on the listener notify path.
+
             } else {
                 Toast.makeText(this, "Lỗi khi gửi đánh giá. Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    private void updateCourseRating(List<CourseReview> reviews) {
-        if (reviews == null || reviews.isEmpty() || currentCourse == null) {
-            return;
-        }
-
-        // Tính trung bình rating
-        double totalRating = 0;
-        for (CourseReview review : reviews) {
-            totalRating += review.getRating();
-        }
-        double avgRating = totalRating / reviews.size();
-
-        // Cập nhật course info
-        currentCourse.setRating(avgRating);
-        currentCourse.setRatingCount(reviews.size());
-
-        // Cập nhật UI
-        ratingBar.setRating((float) avgRating);
-        tvRatingValue.setText(String.format(Locale.US, "%.1f", avgRating));
-        tvRatingCount.setText("(" + reviews.size() + " đánh giá)");
     }
 }
