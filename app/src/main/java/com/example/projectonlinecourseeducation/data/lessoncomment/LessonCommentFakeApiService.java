@@ -35,30 +35,75 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
     }
 
     /**
-     * Tạo dữ liệu bình luận mẫu cho một số bài học
+     * Tạo dữ liệu bình luận mẫu cho một số bài học với thời gian khác nhau
      */
     private void seedSampleComments() {
-        // Bình luận cho bài học "c1_l1" (giả sử đây là bài đầu tiên)
-        addComment("c1_l1", "student1", "Nguyễn Văn A",
-                  "https://i.pravatar.cc/150?img=1",
-                  "Em chưa hiểu rõ phần cài đặt JDK, thầy có thể giải thích thêm không ạ?");
+        long now = System.currentTimeMillis();
+        long ONE_MINUTE = 60 * 1000;
+        long ONE_HOUR = 60 * ONE_MINUTE;
+        long ONE_DAY = 24 * ONE_HOUR;
 
-        addComment("c1_l1", "student2", "Trần Thị B",
+        // Bình luận cho bài học "c1_l1" với thời gian đa dạng
+        addCommentWithTime("c1_l1", "student1", "Nguyễn Văn A",
+                  "https://i.pravatar.cc/150?img=1",
+                  "Em chưa hiểu rõ phần cài đặt JDK, thầy có thể giải thích thêm không ạ?",
+                  now - 3 * ONE_DAY); // 3 ngày trước
+
+        addCommentWithTime("c1_l1", "student2", "Trần Thị B",
                   "https://i.pravatar.cc/150?img=2",
-                  "Video rất hay và dễ hiểu. Cảm ơn thầy!");
+                  "Video rất hay và dễ hiểu. Cảm ơn thầy!",
+                  now - 2 * ONE_DAY); // 2 ngày trước
 
-        addComment("c1_l1", "student3", "Lê Văn C",
+        addCommentWithTime("c1_l1", "student3", "Lê Văn C",
                   "https://i.pravatar.cc/150?img=3",
-                  "Cho em hỏi là sau khi cài JDK xong thì phải config biến môi trường như thế nào ạ?");
+                  "Cho em hỏi là sau khi cài JDK xong thì phải config biến môi trường như thế nào ạ?",
+                  now - 5 * ONE_HOUR); // 5 giờ trước
 
-        // Bình luận cho bài học khác (nếu có)
-        addComment("c1_l2", "student1", "Nguyễn Văn A",
-                  "https://i.pravatar.cc/150?img=1",
-                  "Phần này khó quá, em cần xem lại nhiều lần.");
-
-        addComment("c1_l2", "student4", "Phạm Thị D",
+        addCommentWithTime("c1_l1", "student4", "Phạm Thị D",
                   "https://i.pravatar.cc/150?img=4",
-                  "Thầy ơi, em làm theo hướng dẫn nhưng bị lỗi này thì sửa như thế nào ạ?");
+                  "Cảm ơn thầy, em đã hiểu rồi ạ!",
+                  now - 30 * ONE_MINUTE); // 30 phút trước
+
+        addCommentWithTime("c1_l1", "student5", "Hoàng Văn E",
+                  "https://i.pravatar.cc/150?img=5",
+                  "Bài giảng rất chi tiết, em rất thích!",
+                  now - 2 * ONE_MINUTE); // 2 phút trước (Vừa xong)
+
+        // Bình luận cho bài học "c1_l2"
+        addCommentWithTime("c1_l2", "student1", "Nguyễn Văn A",
+                  "https://i.pravatar.cc/150?img=1",
+                  "Phần này khó quá, em cần xem lại nhiều lần.",
+                  now - 1 * ONE_DAY); // 1 ngày trước
+
+        addCommentWithTime("c1_l2", "student2", "Trần Thị B",
+                  "https://i.pravatar.cc/150?img=2",
+                  "Thầy ơi, em làm theo hướng dẫn nhưng bị lỗi này thì sửa như thế nào ạ?",
+                  now - 8 * ONE_HOUR); // 8 giờ trước
+    }
+
+    /**
+     * Thêm bình luận với timestamp tùy chỉnh
+     */
+    private LessonComment addCommentWithTime(String lessonId, String userId, String userName,
+                                             String userAvatar, String content, long timestamp) {
+        if (content == null || content.trim().isEmpty()) {
+            return null;
+        }
+
+        String commentId = "comment_" + commentIdCounter.getAndIncrement();
+
+        LessonComment newComment = new LessonComment(
+            commentId,
+            lessonId,
+            userId,
+            userName,
+            userAvatar,
+            content.trim(),
+            timestamp // Sử dụng timestamp tùy chỉnh
+        );
+
+        allComments.add(newComment);
+        return newComment;
     }
 
     @Override

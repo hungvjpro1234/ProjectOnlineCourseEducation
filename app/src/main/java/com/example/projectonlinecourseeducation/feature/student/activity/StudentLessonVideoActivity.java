@@ -452,12 +452,12 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             return;
         }
 
-        // Thêm bình luận qua API
+        // Thêm bình luận qua API (không cần avatar)
         LessonComment newComment = lessonCommentApi.addComment(
             lessonId,
             currentUser.getId(),
             currentUser.getName(),
-            currentUser.getAvatar(),
+            null, // Avatar không được hiển thị
             content
         );
 

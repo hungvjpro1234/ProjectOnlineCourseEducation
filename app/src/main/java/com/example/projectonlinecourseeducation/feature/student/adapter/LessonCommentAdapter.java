@@ -4,7 +4,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -12,7 +11,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
-import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -100,7 +98,6 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
      * ViewHolder cho mỗi bình luận
      */
     class CommentViewHolder extends RecyclerView.ViewHolder {
-        private final ImageView ivUserAvatar;
         private final TextView tvUserName;
         private final TextView tvCommentTime;
         private final TextView tvCommentContent;
@@ -108,7 +105,6 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
 
         public CommentViewHolder(@NonNull View itemView) {
             super(itemView);
-            ivUserAvatar = itemView.findViewById(R.id.ivUserAvatar);
             tvUserName = itemView.findViewById(R.id.tvUserName);
             tvCommentTime = itemView.findViewById(R.id.tvCommentTime);
             tvCommentContent = itemView.findViewById(R.id.tvCommentContent);
@@ -124,17 +120,6 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
 
             // Hiển thị thời gian (relative time: "2 giờ trước", "1 ngày trước")
             tvCommentTime.setText(getRelativeTime(comment.getCreatedAt()));
-
-            // Load avatar
-            if (comment.getUserAvatar() != null && !comment.getUserAvatar().isEmpty()) {
-                ImageLoader.getInstance().display(
-                    comment.getUserAvatar(),
-                    ivUserAvatar,
-                    R.drawable.ic_user_profile
-                );
-            } else {
-                ivUserAvatar.setImageResource(R.drawable.ic_user_profile);
-            }
 
             // Hiển thị nút xóa chỉ khi là bình luận của chính người dùng
             if (currentUserId != null && currentUserId.equals(comment.getUserId())) {
