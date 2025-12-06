@@ -3,6 +3,7 @@ package com.example.projectonlinecourseeducation.feature.student.activity;
 import android.os.Bundle;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,9 +39,9 @@ import java.util.Locale;
  * Màn học bài – hiển thị chi tiết khóa học và danh sách bài học + reviews
  *
  * CHANGES:
- *  - Đăng ký LessonProgressUpdateListener & ReviewUpdateListener & CourseUpdateListener trong onStart() và hủy trong onStop().
- *  - Khi thêm review, không tự fetch lại reviews hay tính rating thủ công — chờ ReviewApi/ CourseApi notify.
- *  - Giữ UX: vẫn clear input và show toast ngay khi addReviewToCourse() thành công.
+ *  - Thêm course-level progress bar tổng hợp từ LessonProgress
+ *  - Dùng LessonProgressApi để lấy progress từng bài (single source of truth)
+ *  - Khi listener notify, UI được cập nhật thông qua bindLessonsWithProgress() -> updateCourseProgress()
  */
 public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
@@ -53,6 +54,10 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     private FloatingActionButton fabQAndA;
     private TextInputEditText etCommentInput;
     private MaterialButton btnSubmitRating;
+
+    // NEW: Course-level progress views
+    private ProgressBar progressCourseBar;
+    private TextView tvCourseProgressPercent;
 
     // Adapters
     private LessonCardAdapter lessonAdapter;
@@ -78,7 +83,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_student_course_lesson);
+        setContentView(R.layout.activity_student_course_purchased);
 
         bindViews();
         setupRecyclerViews();
@@ -203,6 +208,10 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         fabQAndA = findViewById(R.id.fabQAndA);
         etCommentInput = findViewById(R.id.etCommentInput);
         btnSubmitRating = findViewById(R.id.btnSubmitRating);
+
+        // NEW: course progress views
+        progressCourseBar = findViewById(R.id.progressCourseBar);
+        tvCourseProgressPercent = findViewById(R.id.tvCourseProgressPercent);
     }
 
     private void setupRecyclerViews() {
@@ -257,12 +266,17 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
         bindLessonsWithProgress(lessons);
 
+        // NEW: update course progress now (bindLessonsWithProgress also calls it)
+        updateCourseProgress(lessons);
+
         reviewAdapter.submitList(reviews);
     }
 
     private void bindLessonsWithProgress(List<Lesson> lessons) {
         if (lessons == null || lessons.isEmpty()) {
             lessonAdapter.submitItems(null);
+            // also set course progress to 0
+            updateCourseProgress(null);
             return;
         }
 
@@ -293,6 +307,75 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         }
 
         lessonAdapter.submitItems(items);
+
+        // NEW: update tổng tiến độ khi lessons + progress đã được bind
+        updateCourseProgress(lessons);
+    }
+
+    /**
+     * Tính tổng tiến độ khóa học dựa trên lesson progress.
+     * - Nếu mọi lesson có totalSecond > 0 => weighted-by-duration
+     * - Ngược lại => dùng trung bình completionPercentage
+     */
+    private void updateCourseProgress(List<Lesson> lessons) {
+        runOnUiThread(() -> {
+            if (lessons == null || lessons.isEmpty()) {
+                progressCourseBar.setProgress(0);
+                tvCourseProgressPercent.setText("0%");
+                return;
+            }
+
+            boolean allHaveDuration = true;
+            for (Lesson l : lessons) {
+                LessonProgress p = lessonProgressApi.getLessonProgress(l.getId());
+                if (p == null || p.getTotalSecond() <= 0f) {
+                    allHaveDuration = false;
+                    break;
+                }
+            }
+
+            int percent = 0;
+
+            if (allHaveDuration) {
+                // weighted by duration
+                double totalSecondsSum = 0.0;
+                double watchedSecondsSum = 0.0;
+                for (Lesson l : lessons) {
+                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId());
+                    if (p != null) {
+                        double t = p.getTotalSecond();
+                        double c = Math.min(p.getCurrentSecond(), t);
+                        totalSecondsSum += t;
+                        watchedSecondsSum += c;
+                    }
+                }
+                if (totalSecondsSum > 0) {
+                    percent = (int) Math.round((watchedSecondsSum / totalSecondsSum) * 100.0);
+                } else {
+                    percent = 0;
+                }
+            } else {
+                // fallback: average of completionPercentage
+                int sumPerc = 0;
+                int count = 0;
+                for (Lesson l : lessons) {
+                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId());
+                    int cp = 0;
+                    if (p != null) cp = p.getCompletionPercentage();
+                    sumPerc += cp;
+                    count++;
+                }
+                if (count > 0) {
+                    percent = Math.round((float) sumPerc / (float) count);
+                } else {
+                    percent = 0;
+                }
+            }
+
+            percent = Math.max(0, Math.min(100, percent));
+            progressCourseBar.setProgress(percent);
+            tvCourseProgressPercent.setText(percent + "%");
+        });
     }
 
     private void setupActions() {

@@ -24,6 +24,7 @@ import java.util.List;
 public class StudentMyCourseFragment extends Fragment {
 
     private MyCourseApi myCourseApi;
+    private MyCourseAdapter adapter;
 
     @Nullable
     @Override
@@ -40,7 +41,7 @@ public class StudentMyCourseFragment extends Fragment {
         RecyclerView rv = view.findViewById(R.id.rvMyCourses);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        MyCourseAdapter adapter = new MyCourseAdapter();
+        adapter = new MyCourseAdapter();
         adapter.submitList(myCourses);
         adapter.setMyCourseActionListener(new MyCourseAdapter.MyCourseActionListener() {
             @Override
@@ -61,5 +62,14 @@ public class StudentMyCourseFragment extends Fragment {
 
         rv.setAdapter(adapter);
         return view;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // Hủy đăng ký listener trong adapter để tránh leak
+        if (adapter != null) {
+            adapter.dispose();
+        }
     }
 }

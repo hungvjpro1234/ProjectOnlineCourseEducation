@@ -146,6 +146,37 @@
                         tools:text="📖 5 bài • 1 giờ 46 phút" />
                 </LinearLayout>
 
+                <!-- Course-level Progress (NEW) -->
+                <LinearLayout
+                    android:id="@+id/llCourseProgress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp">
+
+                    <ProgressBar
+                        android:id="@+id/progressCourseBar"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="12dp"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="0"
+                        android:indeterminate="false"
+                        android:layout_marginEnd="8dp" />
+
+                    <TextView
+                        android:id="@+id/tvCourseProgressPercent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+
                 <!-- Divider -->
                 <View
                     android:layout_width="match_parent"

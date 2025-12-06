@@ -58,6 +58,44 @@
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="2dp" />
 
+            <!-- NEW: Course item progress bar + percent + completed count -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="6dp">
+
+                <ProgressBar
+                    android:id="@+id/progressCourseItemBar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="0dp"
+                    android:layout_height="10dp"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="0"
+                    android:indeterminate="false"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tvCourseItemProgressPercent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvCourseItemCompleted"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="0 / 0 bài hoàn thành"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="4dp" />
+
             <TextView
                 android:id="@+id/tvStatusPurchased"
                 android:layout_width="wrap_content"
