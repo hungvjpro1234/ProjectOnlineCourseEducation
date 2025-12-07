@@ -34,6 +34,46 @@ const port = process.env.PORT || 3000;
 const secretKey = process.env.JWT_SECRET || "apphoctap"; // move to env in prod
 
 app.use(express.json());
+// --- Thêm / dán vào server.js (đặt BEFORE các route dùng upload, tức trước app.post("/course", ...) ) ---
+
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+// tạo folder uploads nếu chưa có (đảm bảo có quyền ghi)
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// cấu hình storage để giữ extension file
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // lưu filename: timestamp-originalname (an toàn hơn)
+    const safeName = Date.now() + '-' + file.originalname.replace(/\s+/g, '_');
+    cb(null, safeName);
+  }
+});
+
+// filter file (tuỳ chọn): chấp nhận image thôi
+const fileFilter = (req, file, cb) => {
+  if (!file.mimetype.startsWith('image/')) {
+    // reject non-image files
+    return cb(null, false);
+  }
+  cb(null, true);
+};
+
+const upload = multer({ storage: storage, fileFilter: fileFilter });
+
+// expose uploads static để client GET /uploads/filename
+app.use('/uploads', express.static(uploadDir));
+
+// --- End paste ---
+
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] }));
 
