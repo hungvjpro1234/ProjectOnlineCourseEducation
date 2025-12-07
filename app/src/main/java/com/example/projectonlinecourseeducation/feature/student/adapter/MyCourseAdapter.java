@@ -15,10 +15,12 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
+import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.network.SessionManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -193,10 +195,14 @@ public class MyCourseAdapter extends RecyclerView.Adapter<MyCourseAdapter.MyCour
                 return;
             }
 
+            // FIXED: Lấy current user để query progress per-student
+            User currentUser = SessionManager.getInstance(itemView.getContext()).getCurrentUser();
+            String studentId = currentUser != null ? currentUser.getId() : null;
+
             // check if all lessons have totalSecond
             boolean allHaveDuration = true;
             for (Lesson l : lessons) {
-                LessonProgress p = progressApi != null ? progressApi.getLessonProgress(l.getId()) : null;
+                LessonProgress p = progressApi != null ? progressApi.getLessonProgress(l.getId(), studentId) : null;
                 if (p == null || p.getTotalSecond() <= 0f) {
                     allHaveDuration = false;
                     break;
@@ -210,7 +216,7 @@ public class MyCourseAdapter extends RecyclerView.Adapter<MyCourseAdapter.MyCour
                 double totalSecondsSum = 0.0;
                 double watchedSecondsSum = 0.0;
                 for (Lesson l : lessons) {
-                    LessonProgress p = progressApi != null ? progressApi.getLessonProgress(l.getId()) : null;
+                    LessonProgress p = progressApi != null ? progressApi.getLessonProgress(l.getId(), studentId) : null;
                     if (p != null) {
                         double t = p.getTotalSecond();
                         double c = Math.min(p.getCurrentSecond(), t);
@@ -230,7 +236,7 @@ public class MyCourseAdapter extends RecyclerView.Adapter<MyCourseAdapter.MyCour
                 int sumPerc = 0;
                 int count = 0;
                 for (Lesson l : lessons) {
-                    LessonProgress p = progressApi != null ? progressApi.getLessonProgress(l.getId()) : null;
+                    LessonProgress p = progressApi != null ? progressApi.getLessonProgress(l.getId(), studentId) : null;
                     int cp = 0;
                     if (p != null) {
                         cp = p.getCompletionPercentage();

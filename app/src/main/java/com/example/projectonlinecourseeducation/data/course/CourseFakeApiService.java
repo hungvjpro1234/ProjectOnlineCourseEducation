@@ -1,7 +1,12 @@
 package com.example.projectonlinecourseeducation.data.course;
 
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.course.CourseStudent;
+import com.example.projectonlinecourseeducation.core.model.course.CourseReview; // NEW
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
+import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi; // NEW
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -377,7 +382,41 @@ public class CourseFakeApiService implements CourseApi {
         Course course = findById(courseId);
         if (course == null) return null;
 
-        // TODO: implement using ReviewApi if available
+        try {
+            // Lấy ReviewApi từ ApiProvider (có thể là ReviewFakeApiService)
+            ReviewApi reviewApi = ApiProvider.getReviewApi();
+            if (reviewApi == null) {
+                // không có review api -> giữ nguyên
+                return course;
+            }
+
+            List<CourseReview> reviews = reviewApi.getReviewsForCourse(courseId);
+            if (reviews == null || reviews.isEmpty()) {
+                // Nếu không có review, reset rating về 0 (tùy ý — hoặc giữ giá trị cũ)
+                course.setRating(0.0);
+                course.setRatingCount(0);
+                notifyCourseUpdated(courseId, course);
+                return course;
+            }
+
+            double sum = 0.0;
+            for (CourseReview r : reviews) {
+                sum += r.getRating();
+            }
+            double avg = sum / reviews.size();
+
+            // Cập nhật course
+            course.setRating(avg);
+            course.setRatingCount(reviews.size());
+
+            // Notify listeners để UI (ví dụ StudentCourseProductDetailActivity / StudentCoursePurchasedActivity)
+            notifyCourseUpdated(courseId, course);
+
+        } catch (Exception e) {
+            // không để lỗi này làm crash app
+            android.util.Log.w("CourseFakeApiService", "Failed to recalculate rating: " + e.getMessage());
+        }
+
         return course;
     }
 
@@ -392,6 +431,33 @@ public class CourseFakeApiService implements CourseApi {
         // increment students by 1
         int current = c.getStudents();
         c.setStudents(current + 1);
+
+        // NEW: Đồng bộ student vào CourseStudentApi để TeacherCourseManagementActivity có thể track
+        try {
+            User currentUser = ApiProvider.getAuthApi() != null
+                    ? ApiProvider.getAuthApi().getCurrentUser()
+                    : null;
+
+            if (currentUser != null) {
+                // Tạo CourseStudent object từ current user
+                CourseStudent courseStudent = new CourseStudent(
+                        currentUser.getId(),
+                        currentUser.getName(),
+                        currentUser.getAvatar(), // User.getAvatar() not getAvatarUrl()
+                        System.currentTimeMillis() // enrolledAt = now
+                );
+
+                // Thêm vào CourseStudentApi
+                CourseStudentApi csApi = ApiProvider.getCourseStudentApi();
+                if (csApi instanceof CourseStudentFakeApiService) {
+                    ((CourseStudentFakeApiService) csApi).addStudentToCourse(courseId, courseStudent);
+                }
+            }
+        } catch (Exception e) {
+            // Log error nhưng không crash app (purchase vẫn thành công)
+            android.util.Log.w("CourseFakeApiService",
+                    "Failed to sync student to CourseStudentApi: " + e.getMessage());
+        }
 
         // Notify listeners about students change
         notifyCourseUpdated(courseId, c);

@@ -1,6 +1,7 @@
-package com.example.projectonlinecourseeducation.data.review;
+package com.example.projectonlinecourseeducation.data.coursereview;
 
 import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
+import com.example.projectonlinecourseeducation.data.ApiProvider; // NEW
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -107,6 +108,16 @@ public class ReviewFakeApiService implements ReviewApi {
 
         // Notify listeners rằng review của courseId đã thay đổi
         notifyReviewsChanged(courseId);
+
+        // --- NEW: cập nhật lại rating của course tương ứng ---
+        try {
+            if (ApiProvider.getCourseApi() != null) {
+                ApiProvider.getCourseApi().recalculateCourseRating(courseId);
+            }
+        } catch (Exception e) {
+            // Không để việc cập nhật rating làm crash app
+            e.printStackTrace();
+        }
 
         // TODO: Sau này thay thế bằng POST /api/courses/{courseId}/reviews
 

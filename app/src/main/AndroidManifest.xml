@@ -35,6 +35,10 @@
             android:exported="false" />
         <activity android:name=".feature.teacher.activity.TeacherCourseEditActivity"
             android:exported="false" />
+        <activity android:name=".feature.teacher.activity.TeacherCourseManagementActivity"
+            android:exported="false" />
+        <activity android:name=".feature.teacher.activity.TeacherLessonManagementActivity"
+            android:exported="false" />
 
         <!-- ADMIN -->
         <activity android:name=".feature.admin.activity.AdminHomeActivity" />

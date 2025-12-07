@@ -196,7 +196,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:paddingBottom="16dp"
-                    tools:listitem="@layout/item_lesson_comment" />
+                    tools:listitem="@layout/item_student_lesson_comment" />
 
                 <!-- Empty State -->
                 <TextView
