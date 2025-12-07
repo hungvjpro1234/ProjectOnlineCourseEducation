@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -74,6 +75,11 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
     // keep reference to current listener so we can remove it properly
     private AbstractYouTubePlayerListener currentYouTubeListener;
 
+    // Keep reference to the actual YouTubePlayer instance so we can call loadVideo()
+    private YouTubePlayer youTubePlayerInstance = null;
+    // If user pressed Play before player ready, keep pending id
+    private String pendingPlayVideoId = null;
+
     // Lesson Info Section
     private TextView tvLessonName;
     private TextView tvDescription;
@@ -121,9 +127,12 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
                 youTubePlayerView.removeYouTubePlayerListener(currentYouTubeListener);
                 currentYouTubeListener = null;
             }
+            // release view (library manages resources)
             if (youTubePlayerView != null) {
                 youTubePlayerView.release();
             }
+            youTubePlayerInstance = null;
+            pendingPlayVideoId = null;
         } catch (Exception ignored) {}
     }
 
@@ -156,11 +165,26 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         btnPlayVideo.setOnClickListener(v -> {
-            // nếu có player, bật chế độ play (mục tiêu: demo)
-            if (lesson != null && youTubePlayerView != null) {
-                Toast.makeText(this, "Mở video: " + lesson.getTitle(), Toast.LENGTH_SHORT).show();
-                // YouTube player đã tự load video ở displayLessonData()
-                // Nếu muốn, có thể show fullscreen activity hoặc điều hướng sang StudentLessonVideoActivity
+            if (lesson == null) return;
+            String videoId = YouTubeUtils.extractVideoId(lesson.getVideoUrl());
+            if (videoId == null || videoId.isEmpty()) {
+                Toast.makeText(this, "Video không hợp lệ", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // If player instance ready -> load and autoplay
+            if (youTubePlayerInstance != null) {
+                youTubePlayerInstance.loadVideo(videoId, 0f); // autoplay
+                imgVideoThumbnail.setVisibility(View.GONE);
+                youTubePlayerView.setVisibility(View.VISIBLE);
+                btnPlayVideo.setVisibility(View.GONE);
+            } else {
+                // Player not ready yet: set pending id and show player view.
+                pendingPlayVideoId = videoId;
+                youTubePlayerView.setVisibility(View.VISIBLE);
+                imgVideoThumbnail.setVisibility(View.GONE);
+                btnPlayVideo.setVisibility(View.GONE);
+                Toast.makeText(this, "Đang tải player, sẽ tự động phát khi sẵn sàng...", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -264,7 +288,7 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
      * Behavior:
      * - Accepts a video URL or id. Extracts videoId with YouTubeUtils.
      * - If valid: set lesson.videoUrl = videoId, set duration = "Đang tính...", call lessonApi.updateLesson(...)
-     * - Rely on LessonApi implementation to compute actual duration and notify via LessonUpdateListener.
+     * - UI sẽ được cập nhật ngay (thumbnail, url, duration) và player sẽ load video mới (nếu ready) hoặc giữ pending id.
      */
     private void showEditVideoDialog() {
         if (lesson == null) return;
@@ -291,17 +315,48 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
             }
 
             // Update lesson locally and persist via API
-            lesson.setVideoUrl(videoId); // store videoId for consistency
+            // NOTE: we set lesson.videoUrl to videoId for consistency with your existing logic
+            lesson.setVideoUrl(videoId);
             lesson.setDuration("Đang tính..."); // placeholder — backend/fake sẽ tính và notify
 
+            // Persist to API
             Lesson updated = lessonApi.updateLesson(lesson.getId(), lesson);
+
             if (updated != null) {
-                // UI sẽ được cập nhật khi LessonApi notifys via listener, nhưng cập nhật sơ bộ ngay
-                tvVideoUrl.setText(videoId);
-                tvDuration.setText("Đang tính...");
-                // Preview thumbnail
-                String thumbUrl = "https://img.youtube.com/vi/" + videoId + "/hqdefault.jpg";
-                ImageLoader.getInstance().display(thumbUrl, imgVideoThumbnail, R.drawable.ic_image_placeholder);
+                // Update local lesson reference with server response (safer)
+                lesson = updated;
+
+                // Update UI immediately
+                runOnUiThread(() -> {
+                    tvVideoUrl.setText(lesson.getVideoUrl());
+                    tvDuration.setText(lesson.getDuration() != null ? lesson.getDuration() : "Đang tính...");
+
+                    // Update thumbnail
+                    String thumbUrl = "https://img.youtube.com/vi/" + videoId + "/hqdefault.jpg";
+                    ImageLoader.getInstance().display(thumbUrl, imgVideoThumbnail, R.drawable.ic_image_placeholder);
+
+                    // Ensure YouTube player is setup for the new video
+                    setupYouTubePlayerForLesson();
+
+                    // If player instance ready, load and autoplay the new id right away
+                    if (youTubePlayerInstance != null) {
+                        try {
+                            youTubePlayerInstance.loadVideo(videoId, 0f);
+                            youTubePlayerView.setVisibility(View.VISIBLE);
+                            imgVideoThumbnail.setVisibility(View.GONE);
+                            btnPlayVideo.setVisibility(View.GONE);
+                        } catch (Exception e) {
+                            // fallback: set pendingPlayVideoId so it will play when ready
+                            pendingPlayVideoId = videoId;
+                        }
+                    } else {
+                        // Player not ready yet -> set pending id and reveal player view
+                        pendingPlayVideoId = videoId;
+                        youTubePlayerView.setVisibility(View.VISIBLE);
+                        imgVideoThumbnail.setVisibility(View.GONE);
+                        btnPlayVideo.setVisibility(View.GONE);
+                    }
+                });
 
                 Toast.makeText(this, "Đã lưu URL video. Thời lượng sẽ được tính tự động.", Toast.LENGTH_SHORT).show();
             } else {
@@ -542,10 +597,22 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
         // Create and add new listener
         currentYouTubeListener = new AbstractYouTubePlayerListener() {
             @Override
-            public void onReady(YouTubePlayer youTubePlayer) {
+            public void onReady(@NonNull YouTubePlayer youTubePlayer) {
                 try {
-                    // cueVideo so it won't autoplay, just prepare for preview
-                    youTubePlayer.cueVideo(videoId, 0f);
+                    youTubePlayerInstance = youTubePlayer;
+
+                    if (pendingPlayVideoId != null && !pendingPlayVideoId.isEmpty()) {
+                        // If user requested play earlier, load and autoplay
+                        youTubePlayer.loadVideo(pendingPlayVideoId, 0f);
+                        pendingPlayVideoId = null;
+                        // ensure player visible (btnPlayVideo was hidden earlier)
+                        youTubePlayerView.setVisibility(View.VISIBLE);
+                        imgVideoThumbnail.setVisibility(View.GONE);
+                        btnPlayVideo.setVisibility(View.GONE);
+                    } else {
+                        // cue preview (no autoplay)
+                        youTubePlayer.cueVideo(videoId, 0f);
+                    }
                 } catch (Exception ignored) {}
             }
 

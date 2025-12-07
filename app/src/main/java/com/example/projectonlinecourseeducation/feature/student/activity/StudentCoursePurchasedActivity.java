@@ -135,6 +135,11 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 }
             };
             lessonProgressApi.addLessonProgressUpdateListener(lessonProgressListener);
+
+            // === NEW: initial sync immediately after re-registering listener ===
+            // This ensures we pick up any notifications/changes that happened while this Activity was stopped.
+            // We call the listener handler with null so it will refresh course lessons/progress.
+            lessonProgressListener.onLessonProgressChanged(null);
         }
 
         // Review listener: reload reviews when there is change from backend/fake

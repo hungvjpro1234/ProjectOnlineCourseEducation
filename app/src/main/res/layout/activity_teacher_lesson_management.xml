@@ -101,6 +101,13 @@
                             android:scaleType="centerCrop"
                             android:contentDescription="@string/app_name" />
 
+                        <!-- YouTube player view (mặc định ẩn) -->
+                        <com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+                            android:id="@+id/youtubePlayerView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:visibility="gone" />
+
                         <ImageButton
                             android:id="@+id/btnPlayVideo"
                             android:layout_width="56dp"

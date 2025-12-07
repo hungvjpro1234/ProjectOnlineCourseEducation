@@ -156,6 +156,11 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             };
 
             lessonProgressApi.addLessonProgressUpdateListener(lessonProgressListener);
+
+            // === NEW: initial sync immediately after re-registering listener ===
+            // Ensure UI is in sync if progress changed while this Activity was stopped.
+            // Call listener with current lessonId to refresh only this lesson's UI.
+            lessonProgressListener.onLessonProgressChanged(lessonId);
         }
     }
 
@@ -500,9 +505,6 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     /**
      * Gửi bình luận mới
      */
-    /**
-     * Gửi bình luận mới
-     */
     private void sendComment() {
         String content = edtCommentInput.getText().toString().trim();
 
@@ -555,11 +557,11 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
      */
     private void showDeleteCommentDialog(LessonComment comment) {
         new AlertDialog.Builder(this)
-            .setTitle(R.string.delete_comment)
-            .setMessage(R.string.delete_comment_confirm)
-            .setPositiveButton(R.string.delete, (dialog, which) -> deleteComment(comment))
-            .setNegativeButton(R.string.cancel, null)
-            .show();
+                .setTitle(R.string.delete_comment)
+                .setMessage(R.string.delete_comment_confirm)
+                .setPositiveButton(R.string.delete, (dialog, which) -> deleteComment(comment))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     /**
