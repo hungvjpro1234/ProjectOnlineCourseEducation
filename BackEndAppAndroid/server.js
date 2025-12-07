@@ -354,4 +354,168 @@ app.post("/auth/change-password", authMiddleware, async (req, res) => {
   }
 });
 
+
+// CREATE
+app.post("/course", upload.single('courseAvatar'), async (req, res) => {
+  try {
+    // FE gửi: id (opt), title, description, teacher, category, lectures, price, createdAt, rating, ratingCount, totalDurationMinutes, skills (array), requirements (array)
+    const payload = req.body || {};
+    const imgSrc = req.file ? `/uploads/${req.file.filename}` : (payload.imageUrl || '');
+
+    // required fields minimal: title and teacher (FE createCourse sets defaults at FE, but BE should check)
+    const { title, description, teacher, price } = payload;
+    if (!title || !description || !teacher) {
+      return res.send({ success: false, message: "Khong du thong tin: title/description/teacher required" });
+    }
+
+    // course_id: accept provided id or generate 'c' + nextval sequence
+    const courseId = payload.id && payload.id.trim() !== '' ? payload.id.trim() : `c${Date.now()}`;
+
+    // ensure arrays are JSON
+    const skills = payload.skills ? JSON.parse(payload.skills || '[]') : (payload.skillsArray || []);
+    const requirements = payload.requirements ? JSON.parse(payload.requirements || '[]') : (payload.requirementsArray || []);
+
+    const lectures = parseInt(payload.lectures || 0);
+    const students = parseInt(payload.students || 0); // normally 0 when created
+    const rating = parseFloat(payload.rating || 0);
+    const ratingCount = parseInt(payload.ratingCount || 0);
+    const totalDurationMinutes = parseInt(payload.totalDurationMinutes || 0);
+    const createdAt = payload.createdAt || new Date().toLocaleString('en-US', { month: '2-digit', year: 'numeric' });
+
+    const inserted = await db.one(
+      `INSERT INTO course(
+         course_id, title, description, teacher, imageUrl, category, lectures,
+         students, rating, price, createdAt, ratingCount, totalDurationMinutes,
+         skills, requirements
+       ) VALUES(
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+       ) RETURNING *`,
+      [
+        courseId, title, description, teacher, imgSrc, payload.category || '',
+        lectures, students, rating, price || 0, createdAt, ratingCount, totalDurationMinutes,
+        JSON.stringify(skills), JSON.stringify(requirements)
+      ]
+    );
+
+    res.send({ success: true, message: "Them moi thanh cong", data: inserted });
+  } catch (error) {
+    console.log(error);
+    res.send({ success: false, message: "Lỗi tạo khóa học" });
+  }
+});
+
+// READ list: allow filter by teacher (name) or return all
+app.get("/course", async (req, res) => {
+  try {
+    const { teacher } = req.query;
+    let rows;
+    if (teacher && teacher.trim() !== "") {
+      rows = await db.any("SELECT * FROM course WHERE teacher = $1", [teacher]);
+    } else {
+      rows = await db.any("SELECT * FROM course");
+    }
+    res.send({ success: true, data: rows });
+  } catch (err) {
+    console.log(err);
+    res.send({ success: false, message: "Lỗi lấy danh sách khóa học" });
+  }
+});
+
+// GET detail by id
+app.get("/course/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const course = await db.oneOrNone("SELECT * FROM course WHERE course_id = $1", [id]);
+    res.send({ success: true, data: course });
+  } catch (err) {
+    console.log(err);
+    res.send({ success: false, message: "Lỗi lấy chi tiết khóa học" });
+  }
+});
+
+// UPDATE
+app.patch("/course/:id", upload.single('courseAvatar'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payload = req.body || {};
+    const imgSrc = req.file ? `/uploads/${req.file.filename}` : (payload.imageUrl || null);
+
+    // require title + description minimal (same as FE validate)
+    if (!payload.title || !payload.description) {
+      return res.send({ success: false, message: "Khong du thong tin" });
+    }
+
+    // prepare values (keep existing values if not provided)
+    const existing = await db.oneOrNone("SELECT * FROM course WHERE course_id = $1", [id]);
+    if (!existing) return res.send({ success: false, message: "Course not found" });
+
+    const title = payload.title || existing.title;
+    const description = payload.description || existing.description;
+    const teacher = payload.teacher || existing.teacher;
+    const category = payload.category || existing.category;
+    const lectures = payload.lectures !== undefined ? parseInt(payload.lectures) : existing.lectures;
+    const students = payload.students !== undefined ? parseInt(payload.students) : existing.students;
+    const rating = payload.rating !== undefined ? parseFloat(payload.rating) : existing.rating;
+    const price = payload.price !== undefined ? payload.price : existing.price;
+    const createdAt = payload.createdAt || existing.createdAt;
+    const ratingCount = payload.ratingCount !== undefined ? parseInt(payload.ratingCount) : existing.ratingcount || existing.ratingCount || 0;
+    const totalDurationMinutes = payload.totalDurationMinutes !== undefined ? parseInt(payload.totalDurationMinutes) : existing.totaldurationminutes || existing.totalDurationMinutes || 0;
+
+    const skills = payload.skills ? JSON.stringify(JSON.parse(payload.skills)) : JSON.stringify(existing.skills || []);
+    const requirements = payload.requirements ? JSON.stringify(JSON.parse(payload.requirements)) : JSON.stringify(existing.requirements || []);
+    const imageFinal = imgSrc !== null ? imgSrc : existing.imageurl || existing.imageUrl;
+
+    // update (use same column names)
+    const updated = await db.one(
+      `UPDATE course SET
+         title=$1, description=$2, teacher=$3, category=$4, lectures=$5,
+         students=$6, rating=$7, price=$8, createdAt=$9, ratingCount=$10,
+         totalDurationMinutes=$11, skills=$12, requirements=$13, imageUrl=$14
+       WHERE course_id=$15 RETURNING *`,
+      [
+        title, description, teacher, category, lectures,
+        students, rating, price, createdAt, ratingCount,
+        totalDurationMinutes, skills, requirements, imageFinal, id
+      ]
+    );
+
+    res.send({ success: true, data: updated });
+  } catch (err) {
+    console.log(err);
+    res.send({ success: false, message: "Lỗi khi cập nhật khóa học" });
+  }
+});
+
+// DELETE
+app.delete("/course/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedCourse = await db.oneOrNone("DELETE FROM course WHERE course_id = $1 RETURNING *", [id]);
+    res.send({ success: true, data: deletedCourse });
+  } catch (err) {
+    console.log(err);
+    res.send({ success: false, message: "Lỗi khi xóa khóa học" });
+  }
+});
+
+// RECORD PURCHASE (increment students) - FE sẽ gọi khi có giao dịch thực
+app.post("/course/:id/purchase", async (req, res) => {
+  try {
+    const { id } = req.params;
+    // atomically increment students
+    const updated = await db.one(
+      `UPDATE course
+       SET students = COALESCE(students,0) + 1
+       WHERE course_id = $1
+       RETURNING *`,
+      [id]
+    );
+    res.send({ success: true, data: updated });
+  } catch (err) {
+    console.log(err);
+    res.send({ success: false, message: "Lỗi khi ghi nhận mua" });
+  }
+});
+
+
 app.listen(port, () => console.log(`Server listening on ${port}`));
