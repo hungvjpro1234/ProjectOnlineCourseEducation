@@ -156,10 +156,16 @@ app.post("/signup", async (req, res) => {
       }
     }
 
-    const roleRow = await db.one(
+    // ← ===  <-- Đặt đoạn roleRow ở ngay đây (trước khi hash và insert)
+    const roleRow = await db.oneOrNone(
       `SELECT role_id, role_name FROM role WHERE UPPER(role_name) = UPPER($1)`,
       [role]
     );
+
+    if (!roleRow) {
+      return res.send({ success: false, message: "Role không hợp lệ", data: null });
+    }
+    // === end roleRow
 
     // Hash password
     let pwToStore = password;
@@ -177,6 +183,8 @@ app.post("/signup", async (req, res) => {
        RETURNING user_id, username, email`,
       [username, email, pwToStore, roleRow.role_id]
     );
+
+    // ...
 
     const user = {
       id: row.user_id.toString(),
