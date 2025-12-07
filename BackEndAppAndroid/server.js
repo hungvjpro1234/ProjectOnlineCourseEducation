@@ -3,12 +3,11 @@ const express = require("express");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 const pgp = require("pg-promise")();
-
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
-const bcrypt = require("bcrypt"); // optional but recommended
+const bcrypt = require("bcrypt");
 
-require("dotenv").config(); // chạy local
+require("dotenv").config();
 
 const connection = {
   connectionString: (process.env.DATABASE_URL || "").trim(),
@@ -19,9 +18,20 @@ const connection = {
 
 const db = pgp(connection);
 
+// optional: test connect once at startup
+(async () => {
+  try {
+    const c = await db.connect();
+    console.log("pg-promise connected OK");
+    c.done();
+  } catch (err) {
+    console.error("pg-promise connect error", err);
+  }
+})();
+
 const app = express();
 const port = process.env.PORT || 3000;
-const secretKey = "apphoctap"; // move to env in prod
+const secretKey = process.env.JWT_SECRET || "apphoctap"; // move to env in prod
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -70,13 +80,11 @@ app.post("/login", async (req, res) => {
   }
 
   try {
-    // get user + role + hashed password (if you use hashing)
+    // Select according to schema (no full_name, no verified)
     const row = await db.oneOrNone(
       `SELECT u.user_id,
               u.username,
-              u.full_name,
               u.email,
-              u.verified,
               u.password,
               u.role_id,
               r.role_name
@@ -90,13 +98,11 @@ app.post("/login", async (req, res) => {
       return res.send({ success: false, message: "Sai tài khoản/mật khẩu", data: null });
     }
 
-    // If you store hashed passwords: use bcrypt.compare
     const hashed = row.password;
     let passwordOk = false;
     if (hashed && hashed.startsWith("$2b$")) {
       passwordOk = await bcrypt.compare(password, hashed);
     } else {
-      // fallback (legacy plaintext) — RECOMMEND migrate to hashed
       passwordOk = password === hashed;
     }
 
@@ -106,11 +112,12 @@ app.post("/login", async (req, res) => {
 
     const user = {
       id: String(row.user_id),
-      name: row.full_name || row.username,
+      // DB không có full_name -> dùng username
+      name: row.username,
       username: row.username,
       email: row.email,
       password: null,
-      verified: row.verified ?? true,
+      verified: true, // giả sử true vì DB không có cột
       avatar: null,
       role: String(row.role_name).toUpperCase()
     };
@@ -154,7 +161,7 @@ app.post("/signup", async (req, res) => {
       [role]
     );
 
-    // Hash password before saving (recommended)
+    // Hash password
     let pwToStore = password;
     try {
       const saltRounds = 10;
@@ -163,20 +170,22 @@ app.post("/signup", async (req, res) => {
       console.warn("bcrypt hashing failed, storing plaintext (not recommended):", e);
     }
 
+    // Insert according to current schema (no full_name, no verified)
     const row = await db.one(
-      `INSERT INTO appuser(username, email, password, full_name, verified, role_id, created_at)
-       VALUES($1, $2, $3, $4, $5, $6, NOW())
-       RETURNING user_id, username, full_name, email, verified`,
-      [username, email, pwToStore, name, true, roleRow.role_id]
+      `INSERT INTO appuser(username, email, password, role_id, created_at)
+       VALUES($1, $2, $3, $4, NOW())
+       RETURNING user_id, username, email`,
+      [username, email, pwToStore, roleRow.role_id]
     );
 
     const user = {
       id: row.user_id.toString(),
-      name: row.full_name,
+      // sử dụng username làm name vì DB hiện tại không có full_name
+      name: row.username,
       username: row.username,
       email: row.email,
       password: null,
-      verified: row.verified,
+      verified: true,
       avatar: null,
       role: roleRow.role_name.toUpperCase()
     };
@@ -199,6 +208,7 @@ app.post("/forgot-password-request", async (req, res) => {
     const token = uuidv4();
     await db.none("UPDATE appuser SET reset_token = $1 WHERE user_id = $2", [token, user.user_id]);
 
+    // NOTE: link demo, update host as needed
     const resetLink = `http://127.0.0.1:5500/forgot-password-confirm.html?token=${token}`;
 
     await sendEmail(email, "Quên mật khẩu", `Truy cập link để đổi mật khẩu:\n${resetLink}`);
@@ -218,7 +228,7 @@ app.post("/forgot-password-update", async (req, res) => {
     const user = await db.oneOrNone("SELECT user_id FROM appuser WHERE reset_token = $1", [token]);
     if (!user) return res.send({ success: false, message: "Token không hợp lệ hoặc đã hết hạn.", data: false });
 
-    // Hash new password before saving
+    // Hash new password
     let pwToStore = newPassword;
     try {
       const saltRounds = 10;
@@ -235,7 +245,6 @@ app.post("/forgot-password-update", async (req, res) => {
   }
 });
 
-
 // ============ New endpoints that FE may need ============
 
 // GET current user by token
@@ -243,7 +252,7 @@ app.get("/auth/me", authMiddleware, async (req, res) => {
   try {
     const uid = req.user.userId;
     const row = await db.oneOrNone(
-      `SELECT u.user_id, u.username, u.full_name, u.email, u.verified, r.role_name
+      `SELECT u.user_id, u.username, u.email, r.role_name
        FROM appuser u JOIN role r ON u.role_id = r.role_id
        WHERE u.user_id = $1`,
       [uid]
@@ -252,10 +261,10 @@ app.get("/auth/me", authMiddleware, async (req, res) => {
 
     const user = {
       id: String(row.user_id),
-      name: row.full_name,
+      name: row.username,
       username: row.username,
       email: row.email,
-      verified: row.verified,
+      verified: true,
       role: String(row.role_name).toUpperCase()
     };
     return res.send({ success: true, message: "OK", data: user });
@@ -282,17 +291,18 @@ app.put("/auth/profile", authMiddleware, async (req, res) => {
       return res.send({ success: false, message: "Email hoặc username đang được sử dụng bởi tài khoản khác.", data: null });
     }
 
+    // DB doesn't have full_name column, update username & email only
     const row = await db.one(
-      `UPDATE appuser SET full_name = $1, email = $2, username = $3 WHERE user_id = $4 RETURNING user_id, username, full_name, email, verified`,
-      [newName.trim(), newEmail.trim(), newUsername.trim(), uid]
+      `UPDATE appuser SET username = $1, email = $2 WHERE user_id = $3 RETURNING user_id, username, email`,
+      [newUsername.trim(), newEmail.trim(), uid]
     );
 
     const user = {
       id: String(row.user_id),
-      name: row.full_name,
+      name: row.username,
       username: row.username,
       email: row.email,
-      verified: row.verified
+      verified: true
     };
     return res.send({ success: true, message: "Cập nhật thông tin thành công.", data: user });
   } catch (err) {
@@ -335,6 +345,5 @@ app.post("/auth/change-password", authMiddleware, async (req, res) => {
     return res.send({ success: false, message: "Lỗi hệ thống", data: false });
   }
 });
-
 
 app.listen(port, () => console.log(`Server listening on ${port}`));
