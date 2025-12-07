@@ -2,9 +2,7 @@
 const express = require("express");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
-const pgp = require("pg-promise")({
-  ssl: { rejectUnauthorized: false }
-});
+const pgp = require("pg-promise")();
 
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
@@ -12,10 +10,14 @@ const bcrypt = require("bcrypt"); // optional but recommended
 
 require("dotenv").config(); // chạy local
 
-const db = pgp({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const connection = {
+  connectionString: (process.env.DATABASE_URL || "").trim(),
+  ssl: {
+    rejectUnauthorized: false
+  }
+};
+
+const db = pgp(connection);
 
 const app = express();
 const port = process.env.PORT || 3000;
