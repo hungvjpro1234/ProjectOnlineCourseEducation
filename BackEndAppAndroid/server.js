@@ -2,33 +2,20 @@
 const express = require("express");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
-const pgp = require("pg-promise")();
+const pgp = require("pg-promise")({
+  ssl: { rejectUnauthorized: false }
+});
+
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcrypt"); // optional but recommended
 
 require("dotenv").config(); // chạy local
-const db = pgp(process.env.DATABASE_URL);
 
-const { Pool } = require('pg');
-
-const connectionString = (process.env.DATABASE_URL || '').trim();
-const pool = new Pool({
-  connectionString: connectionString || undefined,
-  ssl: connectionString ? { rejectUnauthorized: false } : false
+const db = pgp({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
-
-// test connect
-(async () => {
-  try {
-    await pool.query('SELECT 1');
-    console.log('Postgres connected OK');
-  } catch (err) {
-    console.error('Postgres connect error:', err);
-  }
-})();
-module.exports = pool;
-
 
 const app = express();
 const port = process.env.PORT || 3000;
