@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@android:color/white"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="12dp">
+
+    <!-- Header: tên reviewer, rating, date -->
+    <LinearLayout
+        android:id="@+id/layoutReviewHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Reviewer Name -->
+        <TextView
+            android:id="@+id/tvReviewerName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Student One"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Rating -->
+        <RatingBar
+            android:id="@+id/rbRating"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:rating="4.5"
+            android:numStars="5"
+            android:stepSize="0.1"
+            android:isIndicator="true"
+            style="@style/Widget.AppCompat.RatingBar.Small" />
+
+        <!-- Review date -->
+        <TextView
+            android:id="@+id/tvReviewDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="05/12/2025"
+            android:textSize="11sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <!-- Student comment (always visible) -->
+    <TextView
+        android:id="@+id/tvReviewComment"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Khóa học rất hay, giảng viên dạy rất chi tiết..."
+        android:textSize="12sp"
+        android:lineSpacingExtra="3dp"
+        android:paddingTop="8dp"
+        android:textColor="@android:color/black" />
+</LinearLayout>

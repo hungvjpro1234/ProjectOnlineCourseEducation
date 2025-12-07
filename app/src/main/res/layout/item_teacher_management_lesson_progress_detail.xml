@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="6dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/tvLessonProgressTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Bài 1: Tiêu đề"
+        android:textSize="13sp" />
+
+    <ProgressBar
+        android:id="@+id/pbLessonProgress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="80dp"
+        android:layout_height="8dp"
+        android:progress="40" />
+
+    <TextView
+        android:id="@+id/tvLessonProgressPercent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="40%"
+        android:layout_marginStart="8dp"
+        android:textSize="12sp" />
+</LinearLayout>

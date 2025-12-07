@@ -79,7 +79,7 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
     @Override
     public CommentViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_lesson_comment, parent, false);
+                .inflate(R.layout.item_student_lesson_comment, parent, false);
         return new CommentViewHolder(view);
     }
 
@@ -102,6 +102,10 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
         private final TextView tvCommentTime;
         private final TextView tvCommentContent;
         private final ImageButton btnDeleteComment;
+        private final View layoutTeacherReply;
+        private final TextView tvTeacherName;
+        private final TextView tvReplyDate;
+        private final TextView tvTeacherReplyContent;
 
         public CommentViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -109,28 +113,49 @@ public class LessonCommentAdapter extends RecyclerView.Adapter<LessonCommentAdap
             tvCommentTime = itemView.findViewById(R.id.tvCommentTime);
             tvCommentContent = itemView.findViewById(R.id.tvCommentContent);
             btnDeleteComment = itemView.findViewById(R.id.btnDeleteComment);
+            layoutTeacherReply = itemView.findViewById(R.id.layoutTeacherReply);
+            tvTeacherName = itemView.findViewById(R.id.tvTeacherName);
+            tvReplyDate = itemView.findViewById(R.id.tvReplyDate);
+            tvTeacherReplyContent = itemView.findViewById(R.id.tvTeacherReplyContent);
         }
 
         public void bind(LessonComment comment) {
             // Hiển thị tên người dùng
             tvUserName.setText(comment.getUserName());
 
-            // Hiển thị nội dung bình luận
-            tvCommentContent.setText(comment.getContent());
-
             // Hiển thị thời gian (relative time: "2 giờ trước", "1 ngày trước")
             tvCommentTime.setText(getRelativeTime(comment.getCreatedAt()));
 
-            // Hiển thị nút xóa chỉ khi là bình luận của chính người dùng
-            if (currentUserId != null && currentUserId.equals(comment.getUserId())) {
-                btnDeleteComment.setVisibility(View.VISIBLE);
-                btnDeleteComment.setOnClickListener(v -> {
-                    if (actionListener != null) {
-                        actionListener.onDeleteComment(comment);
-                    }
-                });
+            // Hiển thị nội dung hoặc "[Bình luận đã bị xóa]"
+            if (comment.isDeleted()) {
+                tvCommentContent.setText("[Bình luận đã bị xóa]");
+                tvCommentContent.setTextColor(0xFF999999); // Gray color
+                btnDeleteComment.setVisibility(View.GONE); // Không cho xóa nếu đã bị xóa
             } else {
-                btnDeleteComment.setVisibility(View.GONE);
+                tvCommentContent.setText(comment.getContent());
+                tvCommentContent.setTextColor(0xFF000000); // Black color
+
+                // Hiển thị nút xóa chỉ khi là bình luận của chính người dùng
+                if (currentUserId != null && currentUserId.equals(comment.getUserId())) {
+                    btnDeleteComment.setVisibility(View.VISIBLE);
+                    btnDeleteComment.setOnClickListener(v -> {
+                        if (actionListener != null) {
+                            actionListener.onDeleteComment(comment);
+                        }
+                    });
+                } else {
+                    btnDeleteComment.setVisibility(View.GONE);
+                }
+            }
+
+            // Hiển thị teacher reply nếu có
+            if (comment.hasTeacherReply()) {
+                layoutTeacherReply.setVisibility(View.VISIBLE);
+                tvTeacherName.setText(comment.getTeacherReplyBy() != null ? comment.getTeacherReplyBy() : "Giảng viên");
+                tvTeacherReplyContent.setText(comment.getTeacherReplyContent());
+                tvReplyDate.setText(getRelativeTime(comment.getTeacherReplyAt()));
+            } else {
+                layoutTeacherReply.setVisibility(View.GONE);
             }
         }
 

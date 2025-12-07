@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.data.review;
+package com.example.projectonlinecourseeducation.data.coursereview;
 
 import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
 

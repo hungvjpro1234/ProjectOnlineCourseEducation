@@ -59,6 +59,56 @@
                 android:textColor="@color/text_primary"
                 android:lineSpacingMultiplier="1.2"
                 tools:text="Em chưa hiểu rõ phần cài đặt JDK, thầy có thể giải thích thêm không ạ?" />
+
+            <!-- Teacher Reply Section (visible when teacher replies) -->
+            <LinearLayout
+                android:id="@+id/layoutTeacherReply"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:layout_marginTop="12dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:background="#F5F5F5">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tvTeacherName"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Giảng viên"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black" />
+
+                    <TextView
+                        android:id="@+id/tvReplyDate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="@color/text_secondary"
+                        tools:text="1 ngày trước" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvTeacherReplyContent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_primary"
+                    android:lineSpacingMultiplier="1.2"
+                    tools:text="Cảm ơn bạn đã đặt câu hỏi. Phần này tôi sẽ giải thích chi tiết hơn..." />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Delete Button (visible only for own comments) -->

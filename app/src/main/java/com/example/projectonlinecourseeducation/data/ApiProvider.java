@@ -8,14 +8,18 @@ import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.course.CourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonFakeApiService;
-import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
-import com.example.projectonlinecourseeducation.data.lesson.LessonProgressFakeApiService;
-import com.example.projectonlinecourseeducation.data.review.ReviewApi;
-import com.example.projectonlinecourseeducation.data.review.ReviewFakeApiService;
+import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressFakeApiService;
+import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi;
+import com.example.projectonlinecourseeducation.data.coursereview.ReviewFakeApiService;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentFakeApiService;
+
+// NEW imports for CourseStudentApi
+import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;
+import com.example.projectonlinecourseeducation.data.course.CourseStudentFakeApiService;
 
 public class ApiProvider {
 
@@ -33,6 +37,10 @@ public class ApiProvider {
     // LessonCommentApi: quản lý bình luận bài học
     private static LessonCommentApi lessonCommentApi = LessonCommentFakeApiService.getInstance();
 
+    // -------- CourseStudentApi (NEW) --------
+    private static CourseStudentApi courseStudentApi = CourseStudentFakeApiService.getInstance();
+
+    // -------- Getters / Setters --------
     // -------- Auth --------
     public static AuthApi getAuthApi() {
         return authApi;
@@ -102,7 +110,7 @@ public class ApiProvider {
 
     /**
      * Sau này ở Application hoặc chỗ init Retrofit:
-     * ApiProvider.setMyCourseApi(new MyCourseRemoteApiService(retrofit));
+     * ApiProvider.setMyCourseApi(MyCourseRemoteApiService)
      */
     public static void setMyCourseApi(MyCourseApi api) {
         myCourseApi = api;
@@ -119,5 +127,17 @@ public class ApiProvider {
      */
     public static void setLessonCommentApi(LessonCommentApi api) {
         lessonCommentApi = api;
+    }
+
+    // -------- CourseStudentApi (NEW) --------
+    public static CourseStudentApi getCourseStudentApi() {
+        return courseStudentApi;
+    }
+
+    /**
+     * Khi có remote implementation, set ở Application.onCreate()
+     */
+    public static void setCourseStudentApi(CourseStudentApi api) {
+        courseStudentApi = api;
     }
 }

@@ -1,25 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/colorBackground"
-    tools:context=".feature.teacher.fragment.TeacherNotificationFragment">
+    android:orientation="vertical"
+    android:background="@android:color/white"
+    tools:context=".feature.teacher.fragment.TeacherManagementFragment">
 
+    <!-- Header (nút tạo mới đã được gỡ) -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:background="@android:color/white">
 
         <TextView
-            android:id="@+id/tvPlaceholder"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Teacher Management Fragment"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/black" />
+            android:text="Quản lý khóa học"
+            android:textSize="25sp"
+            android:textColor="@color/colorPrimaryVariant"
+            android:textStyle="bold" />
     </LinearLayout>
 
-</FrameLayout>
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@android:color/darker_gray" />
+
+    <!-- Courses List -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvTeacherCourses"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="12dp"
+        tools:listitem="@layout/item_teacher_management" />
+
+</LinearLayout>

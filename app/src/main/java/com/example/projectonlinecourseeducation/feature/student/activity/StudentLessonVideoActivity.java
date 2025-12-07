@@ -26,7 +26,7 @@ import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
 import com.example.projectonlinecourseeducation.data.network.SessionManager;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCommentAdapter;
@@ -144,8 +144,10 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
                     if (relevant) {
                         runOnUiThread(() -> {
-                            // Lấy progress mới (single source of truth) và cập nhật UI
-                            LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
+                            // Lấy progress mới (single source of truth) với studentId
+                            User currentUser = SessionManager.getInstance(StudentLessonVideoActivity.this).getCurrentUser();
+                            String studentId = currentUser != null ? currentUser.getId() : null;
+                            LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId, studentId);
                             updateProgressUI(progress);
                             updateNextButtonState(progress);
                         });
@@ -231,7 +233,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         // Lấy progress hiện tại (nếu có) để:
         //  - hiển thị %
         //  - resume lại vị trí đã xem dở
-        LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
+        User currentUser = SessionManager.getInstance(this).getCurrentUser();
+        String studentId = currentUser != null ? currentUser.getId() : null;
+        LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId, studentId);
         if (progress != null) {
             startSecond = progress.getCurrentSecond();
             updateProgressUI(progress);
@@ -321,11 +325,14 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
                 if (second - lastSavedSecond >= MIN_UPDATE_INTERVAL_SEC) {
                     lastSavedSecond = second;
 
-                    // Gọi API cập nhật tiến độ. UI sẽ được cập nhật via listener.
+                    // Gọi API cập nhật tiến độ với studentId. UI sẽ được cập nhật via listener.
+                    User currentUser = SessionManager.getInstance(StudentLessonVideoActivity.this).getCurrentUser();
+                    String studentId = currentUser != null ? currentUser.getId() : null;
                     lessonProgressApi.updateLessonProgress(
                             lessonId,
                             second,
-                            videoDurationSeconds
+                            videoDurationSeconds,
+                            studentId
                     );
 
                     // *** Không gọi getLessonProgress() + updateProgressUI trực tiếp ở đây ***
@@ -343,11 +350,14 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
                 videoDurationSeconds = duration;
 
-                // Cập nhật tổng thời lượng vào progress (nếu chưa có)
+                // Cập nhật tổng thời lượng vào progress (nếu chưa có) với studentId
+                User currentUser = SessionManager.getInstance(StudentLessonVideoActivity.this).getCurrentUser();
+                String studentId = currentUser != null ? currentUser.getId() : null;
                 lessonProgressApi.updateLessonProgress(
                         lessonId,
                         startSecond,
-                        videoDurationSeconds
+                        videoDurationSeconds,
+                        studentId
                 );
 
                 // *** Không gọi getLessonProgress() + updateProgressUI trực tiếp ở đây ***
@@ -362,9 +372,11 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
                 super.onStateChange(youTubePlayer, state);
 
                 if (state == PlayerConstants.PlayerState.ENDED) {
-                    // Đánh dấu bài học là hoàn thành
+                    // Đánh dấu bài học là hoàn thành với studentId
                     if (lesson != null) {
-                        lessonProgressApi.markLessonAsCompleted(lessonId);
+                        User currentUser = SessionManager.getInstance(StudentLessonVideoActivity.this).getCurrentUser();
+                        String studentId = currentUser != null ? currentUser.getId() : null;
+                        lessonProgressApi.markLessonAsCompleted(lessonId, studentId);
 
                         // *** Không gọi getLessonProgress() ở đây — listener sẽ nhận notify và cập nhật UI. ***
 
@@ -421,7 +433,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
         // Nút chuyển bài tiếp theo
         btnNextLesson.setOnClickListener(v -> {
-            LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId);
+            User currentUser = SessionManager.getInstance(this).getCurrentUser();
+            String studentId = currentUser != null ? currentUser.getId() : null;
+            LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId, studentId);
             boolean canGoNext = progress != null &&
                     (progress.isCompleted() || progress.getCompletionPercentage() >= 90);
 
@@ -486,6 +500,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     /**
      * Gửi bình luận mới
      */
+    /**
+     * Gửi bình luận mới
+     */
     private void sendComment() {
         String content = edtCommentInput.getText().toString().trim();
 
@@ -503,11 +520,10 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
         // Thêm bình luận qua API (không cần avatar)
         LessonComment newComment = lessonCommentApi.addComment(
-            lessonId,
-            currentUser.getId(),
-            currentUser.getName(),
-            null, // Avatar không được hiển thị
-            content
+                lessonId,
+                currentUser.getId(),
+                currentUser.getName(),
+                content
         );
 
         if (newComment != null) {

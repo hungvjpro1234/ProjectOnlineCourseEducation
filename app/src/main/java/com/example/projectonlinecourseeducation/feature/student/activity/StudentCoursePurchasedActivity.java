@@ -19,12 +19,14 @@ import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
+import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
+import com.example.projectonlinecourseeducation.data.network.SessionManager;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.data.lesson.LessonProgressApi;
-import com.example.projectonlinecourseeducation.data.review.ReviewApi;
+import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCardAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.google.android.material.button.MaterialButton;
@@ -284,8 +286,12 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
         boolean allPreviousCompleted = true;
 
+        // Lấy current user để query progress per-student
+        User currentUser = SessionManager.getInstance(this).getCurrentUser();
+        String studentId = currentUser != null ? currentUser.getId() : null;
+
         for (Lesson lesson : lessons) {
-            LessonProgress progress = lessonProgressApi.getLessonProgress(lesson.getId());
+            LessonProgress progress = lessonProgressApi.getLessonProgress(lesson.getId(), studentId);
 
             int percent = 0;
             boolean completed = false;
@@ -316,6 +322,8 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
      * Tính tổng tiến độ khóa học dựa trên lesson progress.
      * - Nếu mọi lesson có totalSecond > 0 => weighted-by-duration
      * - Ngược lại => dùng trung bình completionPercentage
+     *
+     * FIXED: Truyền studentId để lấy đúng progress của current user
      */
     private void updateCourseProgress(List<Lesson> lessons) {
         runOnUiThread(() -> {
@@ -325,9 +333,13 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 return;
             }
 
+            // Lấy current user để query progress per-student
+            User currentUser = SessionManager.getInstance(this).getCurrentUser();
+            String studentId = currentUser != null ? currentUser.getId() : null;
+
             boolean allHaveDuration = true;
             for (Lesson l : lessons) {
-                LessonProgress p = lessonProgressApi.getLessonProgress(l.getId());
+                LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
                 if (p == null || p.getTotalSecond() <= 0f) {
                     allHaveDuration = false;
                     break;
@@ -341,7 +353,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 double totalSecondsSum = 0.0;
                 double watchedSecondsSum = 0.0;
                 for (Lesson l : lessons) {
-                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId());
+                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
                     if (p != null) {
                         double t = p.getTotalSecond();
                         double c = Math.min(p.getCurrentSecond(), t);
@@ -359,7 +371,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 int sumPerc = 0;
                 int count = 0;
                 for (Lesson l : lessons) {
-                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId());
+                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
                     int cp = 0;
                     if (p != null) cp = p.getCompletionPercentage();
                     sumPerc += cp;
