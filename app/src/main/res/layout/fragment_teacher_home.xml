@@ -17,10 +17,10 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Khóa học của tôi"
+            android:text="Chỉnh sửa Khóa học"
             android:textSize="25sp"
             android:textStyle="bold"
-            android:textColor="@color/purple_800"
+            android:textColor="@color/blue_text_primary"
             android:layout_marginBottom="16dp" />
 
         <!-- RecyclerView danh sách khóa học -->

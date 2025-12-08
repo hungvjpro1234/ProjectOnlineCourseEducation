@@ -2,6 +2,10 @@ package com.example.projectonlinecourseeducation.data.lessoncomment;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -10,7 +14,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Fake implementation của LessonCommentApi
- * Lưu trữ bình luận trong bộ nhớ để test và phát triển frontend
+ * - Hỗ trợ seed từ JSON
+ * - Hỗ trợ teacher reply và soft delete
+ * - Thêm cơ chế listener để UI có thể đăng ký và nhận notify khi có thay đổi
+ *
+ * UPDATED: Implement addReply, deleteReply, markAsDeleted
  */
 public class LessonCommentFakeApiService implements LessonCommentApi {
 
@@ -22,9 +30,43 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
     // Danh sách lưu trữ tất cả bình luận
     private final List<LessonComment> allComments = new ArrayList<>();
 
+    // Registered listeners
+    private final List<LessonCommentApi.LessonCommentUpdateListener> listeners = new ArrayList<>();
+
+    // JSON seed
+    private static final String COMMENTS_JSON = "[\n" +
+            "  {\n" +
+            "    \"lessonId\": \"c1_l1\",\n" +
+            "    \"userId\": \"student1\",\n" +
+            "    \"userName\": \"Nguyễn Văn A\",\n" +
+            "    \"content\": \"Em chưa hiểu rõ phần cài đặt JDK, thầy có thể giải thích thêm không ạ?\",\n" +
+            "    \"createdAtOffsetMs\": -259200000\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"lessonId\": \"c1_l1\",\n" +
+            "    \"userId\": \"student2\",\n" +
+            "    \"userName\": \"Trần Thị B\",\n" +
+            "    \"content\": \"Video rất hay và dễ hiểu. Cảm ơn thầy!\",\n" +
+            "    \"createdAtOffsetMs\": -172800000\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"lessonId\": \"c1_l1\",\n" +
+            "    \"userId\": \"student3\",\n" +
+            "    \"userName\": \"Lê Văn C\",\n" +
+            "    \"content\": \"Cho em hỏi là sau khi cài JDK xong thì phải config biến môi trường như thế nào ạ?\",\n" +
+            "    \"createdAtOffsetMs\": -18000000\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"lessonId\": \"c1_l2\",\n" +
+            "    \"userId\": \"student1\",\n" +
+            "    \"userName\": \"Nguyễn Văn A\",\n" +
+            "    \"content\": \"Phần này khó quá, em cần xem lại nhiều lần.\",\n" +
+            "    \"createdAtOffsetMs\": -86400000\n" +
+            "  }\n" +
+            "]";
+
     private LessonCommentFakeApiService() {
-        // Seed một số bình luận mẫu
-        seedSampleComments();
+        seedFromJson();
     }
 
     public static synchronized LessonCommentFakeApiService getInstance() {
@@ -35,83 +77,43 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
     }
 
     /**
-     * Tạo dữ liệu bình luận mẫu cho một số bài học với thời gian khác nhau
+     * Seed từ JSON
      */
-    private void seedSampleComments() {
-        long now = System.currentTimeMillis();
-        long ONE_MINUTE = 60 * 1000;
-        long ONE_HOUR = 60 * ONE_MINUTE;
-        long ONE_DAY = 24 * ONE_HOUR;
+    private void seedFromJson() {
+        synchronized (this) {
+            allComments.clear();
+            commentIdCounter.set(1);
 
-        // Bình luận cho bài học "c1_l1" với thời gian đa dạng
-        addCommentWithTime("c1_l1", "student1", "Nguyễn Văn A",
-                  "https://i.pravatar.cc/150?img=1",
-                  "Em chưa hiểu rõ phần cài đặt JDK, thầy có thể giải thích thêm không ạ?",
-                  now - 3 * ONE_DAY); // 3 ngày trước
+            long now = System.currentTimeMillis();
 
-        addCommentWithTime("c1_l1", "student2", "Trần Thị B",
-                  "https://i.pravatar.cc/150?img=2",
-                  "Video rất hay và dễ hiểu. Cảm ơn thầy!",
-                  now - 2 * ONE_DAY); // 2 ngày trước
+            try {
+                JSONArray arr = new JSONArray(COMMENTS_JSON);
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject o = arr.getJSONObject(i);
 
-        addCommentWithTime("c1_l1", "student3", "Lê Văn C",
-                  "https://i.pravatar.cc/150?img=3",
-                  "Cho em hỏi là sau khi cài JDK xong thì phải config biến môi trường như thế nào ạ?",
-                  now - 5 * ONE_HOUR); // 5 giờ trước
+                    String lessonId = o.optString("lessonId", "");
+                    String userId = o.optString("userId", "");
+                    String userName = o.optString("userName", "");
+                    String content = o.optString("content", "");
+                    long offset = o.optLong("createdAtOffsetMs", 0);
+                    long createdAt = now + offset;
 
-        addCommentWithTime("c1_l1", "student4", "Phạm Thị D",
-                  "https://i.pravatar.cc/150?img=4",
-                  "Cảm ơn thầy, em đã hiểu rồi ạ!",
-                  now - 30 * ONE_MINUTE); // 30 phút trước
-
-        addCommentWithTime("c1_l1", "student5", "Hoàng Văn E",
-                  "https://i.pravatar.cc/150?img=5",
-                  "Bài giảng rất chi tiết, em rất thích!",
-                  now - 2 * ONE_MINUTE); // 2 phút trước (Vừa xong)
-
-        // Bình luận cho bài học "c1_l2"
-        addCommentWithTime("c1_l2", "student1", "Nguyễn Văn A",
-                  "https://i.pravatar.cc/150?img=1",
-                  "Phần này khó quá, em cần xem lại nhiều lần.",
-                  now - 1 * ONE_DAY); // 1 ngày trước
-
-        addCommentWithTime("c1_l2", "student2", "Trần Thị B",
-                  "https://i.pravatar.cc/150?img=2",
-                  "Thầy ơi, em làm theo hướng dẫn nhưng bị lỗi này thì sửa như thế nào ạ?",
-                  now - 8 * ONE_HOUR); // 8 giờ trước
-    }
-
-    /**
-     * Thêm bình luận với timestamp tùy chỉnh
-     */
-    private LessonComment addCommentWithTime(String lessonId, String userId, String userName,
-                                             String userAvatar, String content, long timestamp) {
-        if (content == null || content.trim().isEmpty()) {
-            return null;
+                    addCommentInternal(lessonId, userId, userName, content, createdAt);
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         }
-
-        String commentId = "comment_" + commentIdCounter.getAndIncrement();
-
-        LessonComment newComment = new LessonComment(
-            commentId,
-            lessonId,
-            userId,
-            userName,
-            userAvatar,
-            content.trim(),
-            timestamp // Sử dụng timestamp tùy chỉnh
-        );
-
-        allComments.add(newComment);
-        return newComment;
     }
+
+    // ----------------- IMPLEMENT LessonCommentApi -----------------
 
     @Override
-    public List<LessonComment> getCommentsForLesson(String lessonId) {
+    public synchronized List<LessonComment> getCommentsForLesson(String lessonId) {
         List<LessonComment> result = new ArrayList<>();
 
         for (LessonComment comment : allComments) {
-            if (comment.getLessonId().equals(lessonId)) {
+            if (comment.getLessonId() != null && comment.getLessonId().equals(lessonId)) {
                 result.add(comment);
             }
         }
@@ -128,63 +130,206 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
     }
 
     @Override
-    public LessonComment addComment(String lessonId, String userId, String userName,
-                                    String userAvatar, String content) {
-        if (content == null || content.trim().isEmpty()) {
-            return null;
+    public synchronized LessonComment addComment(String lessonId, String userId, String userName, String content) {
+        if (content == null || content.trim().isEmpty()) return null;
+
+        long ts = System.currentTimeMillis();
+
+        LessonComment added = addCommentInternal(lessonId, userId, userName, content.trim(), ts);
+
+        if (added != null) {
+            notifyCommentsChanged();
         }
 
+        return added;
+    }
+
+    @Override
+    public synchronized boolean deleteComment(String commentId, String userId) {
+        for (int i = 0; i < allComments.size(); i++) {
+            LessonComment comment = allComments.get(i);
+            if (comment.getId().equals(commentId)) {
+                if (comment.getUserId().equals(userId)) {
+                    allComments.remove(i);
+                    notifyCommentsChanged();
+                    return true;
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public synchronized LessonComment markCommentAsDeleted(String commentId) {
+        LessonComment found = findById(commentId);
+        if (found == null) return null;
+
+        // Tạo comment mới với isDeleted = true
+        LessonComment updated = new LessonComment(
+                found.getId(),
+                found.getLessonId(),
+                found.getUserId(),
+                found.getUserName(),
+                found.getContent(),
+                found.getCreatedAt(),
+                true, // isDeleted = true
+                found.getTeacherReplyContent(),
+                found.getTeacherReplyBy(),
+                found.getTeacherReplyAt()
+        );
+
+        // Replace trong list
+        replaceComment(found, updated);
+        notifyCommentsChanged();
+        return updated;
+    }
+
+    @Override
+    public synchronized LessonComment addReply(String commentId, String teacherName, String replyContent) {
+        LessonComment found = findById(commentId);
+        if (found == null) return null;
+        if (replyContent == null || replyContent.trim().isEmpty()) return null;
+
+        // Tạo comment mới với teacher reply
+        LessonComment updated = new LessonComment(
+                found.getId(),
+                found.getLessonId(),
+                found.getUserId(),
+                found.getUserName(),
+                found.getContent(),
+                found.getCreatedAt(),
+                found.isDeleted(),
+                replyContent.trim(),
+                teacherName,
+                System.currentTimeMillis() // reply timestamp
+        );
+
+        // Replace trong list
+        replaceComment(found, updated);
+        notifyCommentsChanged();
+        return updated;
+    }
+
+    @Override
+    public synchronized LessonComment deleteReply(String commentId) {
+        LessonComment found = findById(commentId);
+        if (found == null) return null;
+
+        // Tạo comment mới với reply = null
+        LessonComment updated = new LessonComment(
+                found.getId(),
+                found.getLessonId(),
+                found.getUserId(),
+                found.getUserName(),
+                found.getContent(),
+                found.getCreatedAt(),
+                found.isDeleted(),
+                null, // xóa reply
+                null,
+                null
+        );
+
+        // Replace trong list
+        replaceComment(found, updated);
+        notifyCommentsChanged();
+        return updated;
+    }
+
+    @Override
+    public synchronized int getCommentCount(String lessonId) {
+        int count = 0;
+        for (LessonComment comment : allComments) {
+            if (lessonId == null) continue;
+            if (lessonId.equals(comment.getLessonId())) count++;
+        }
+        return count;
+    }
+
+    // ----------------- Listener registration -----------------
+
+    @Override
+    public synchronized void addLessonCommentUpdateListener(LessonCommentApi.LessonCommentUpdateListener listener) {
+        if (listener == null) return;
+        if (!listeners.contains(listener)) listeners.add(listener);
+    }
+
+    @Override
+    public synchronized void removeLessonCommentUpdateListener(LessonCommentApi.LessonCommentUpdateListener listener) {
+        listeners.remove(listener);
+    }
+
+    private synchronized void notifyCommentsChanged() {
+        List<LessonCommentApi.LessonCommentUpdateListener> copy = new ArrayList<>(listeners);
+        for (LessonCommentApi.LessonCommentUpdateListener l : copy) {
+            try {
+                l.onCommentsChanged();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    // ----------------- Helpers -----------------
+
+    /**
+     * Internal helper để add comment với timestamp tùy chỉnh
+     */
+    private LessonComment addCommentInternal(String lessonId, String userId, String userName,
+                                             String content, long timestamp) {
+        if (content == null || content.trim().isEmpty()) return null;
+
         String commentId = "comment_" + commentIdCounter.getAndIncrement();
-        long timestamp = System.currentTimeMillis();
 
         LessonComment newComment = new LessonComment(
-            commentId,
-            lessonId,
-            userId,
-            userName,
-            userAvatar,
-            content.trim(),
-            timestamp
+                commentId,
+                lessonId,
+                userId,
+                userName,
+                content,
+                timestamp
         );
 
         allComments.add(newComment);
         return newComment;
     }
 
-    @Override
-    public boolean deleteComment(String commentId, String userId) {
-        for (int i = 0; i < allComments.size(); i++) {
-            LessonComment comment = allComments.get(i);
-            if (comment.getId().equals(commentId)) {
-                // Chỉ cho phép người tạo bình luận xóa
-                if (comment.getUserId().equals(userId)) {
-                    allComments.remove(i);
-                    return true;
-                }
-                // Không có quyền xóa
-                return false;
-            }
+    /**
+     * Tìm comment theo id
+     */
+    private LessonComment findById(String id) {
+        if (id == null) return null;
+        for (LessonComment c : allComments) {
+            if (id.equals(c.getId())) return c;
         }
-        // Không tìm thấy bình luận
-        return false;
-    }
-
-    @Override
-    public int getCommentCount(String lessonId) {
-        int count = 0;
-        for (LessonComment comment : allComments) {
-            if (comment.getLessonId().equals(lessonId)) {
-                count++;
-            }
-        }
-        return count;
+        return null;
     }
 
     /**
-     * Reset toàn bộ dữ liệu (dùng cho testing)
+     * Replace comment trong list (vì LessonComment immutable)
      */
-    public void clearAllComments() {
+    private void replaceComment(LessonComment oldComment, LessonComment newComment) {
+        for (int i = 0; i < allComments.size(); i++) {
+            if (allComments.get(i).getId().equals(oldComment.getId())) {
+                allComments.set(i, newComment);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Dùng cho testing: reset toàn bộ dữ liệu
+     */
+    public synchronized void clearAllComments() {
+        if (allComments.isEmpty()) return;
         allComments.clear();
         commentIdCounter.set(1);
+        notifyCommentsChanged();
+    }
+
+    /**
+     * Trả danh sách (copy) toàn bộ comments - tiện cho debug
+     */
+    public synchronized List<LessonComment> listAllComments() {
+        return new ArrayList<>(allComments);
     }
 }

@@ -32,7 +32,7 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.data.review.ReviewApi;
+import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
