@@ -5,7 +5,6 @@ import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.animation.RotateAnimation;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RatingBar;
@@ -47,6 +46,7 @@ import java.util.concurrent.Executors;
  * - CourseUpdateListener: không bỏ qua khi updatedCourseId == null -> coi là global update -> refresh cả course & students
  * - Thêm Log để debug notify events
  * - Khi nhận course update, cập nhật cả course metadata và fetch student list (đồng bộ số học viên từ CourseStudentApi)
+ * - Sửa animation rotate icon: dùng property animation (view.animate().rotation(...)) và đặt rotation ban đầu phù hợp
  */
 public class TeacherCourseManagementActivity extends AppCompatActivity {
 
@@ -311,11 +311,32 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
         imgStudentExpand = findViewById(R.id.imgStudentExpand);
         imgLessonExpand = findViewById(R.id.imgLessonExpand);
         imgReviewExpand = findViewById(R.id.imgReviewExpand);
+
+        // IMPORTANT: According to your requirement, initial state is "expanded" -> arrow should point UP.
+        // We'll set rotation = 180f as the "up" state. If the layout's drawable points down at rotation=0,
+        // setting 180f will visually point it up.
+        try {
+            if (imgStudentExpand != null) imgStudentExpand.setRotation(180f);
+            if (imgLessonExpand != null) imgLessonExpand.setRotation(180f);
+            if (imgReviewExpand != null) imgReviewExpand.setRotation(180f);
+        } catch (Exception ignored) {}
     }
 
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
-        btnEdit.setOnClickListener(v -> Toast.makeText(this, "Chỉnh sửa khóa học", Toast.LENGTH_SHORT).show());
+        btnEdit.setOnClickListener(v -> {
+            if (courseId == null && course != null) {
+                // fallback: lấy id từ object course nếu chưa set courseId
+                courseId = course.getId();
+            }
+            if (courseId == null) {
+                Toast.makeText(TeacherCourseManagementActivity.this, "Không có khóa học để chỉnh sửa", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intent = new Intent(TeacherCourseManagementActivity.this, TeacherCourseEditActivity.class);
+            intent.putExtra("course_id", courseId);
+            startActivity(intent);
+        });
 
         if (imgStudentExpand != null) imgStudentExpand.setOnClickListener(v -> toggleExpandable(rvStudents, imgStudentExpand));
         if (imgLessonExpand != null) imgLessonExpand.setOnClickListener(v -> toggleExpandable(rvLessons, imgLessonExpand));
@@ -644,21 +665,33 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
     private void toggleExpandable(View content, ImageView icon) {
         boolean isVisible = content.getVisibility() == View.VISIBLE;
         if (isVisible) {
+            // currently expanded -> collapse content
             content.setVisibility(View.GONE);
-            rotateIcon(icon, 180f, 0f);
+            // collapsed state should show arrow pointing DOWN (rotation = 0)
+            rotateIconTo(icon, 0f);
         } else {
+            // currently collapsed -> expand content
             content.setVisibility(View.VISIBLE);
-            rotateIcon(icon, 0f, 180f);
+            // expanded state should show arrow pointing UP (rotation = 180)
+            rotateIconTo(icon, 180f);
         }
     }
 
-    private void rotateIcon(ImageView icon, float from, float to) {
-        RotateAnimation rotate = new RotateAnimation(from, to,
-                RotateAnimation.RELATIVE_TO_SELF, 0.5f,
-                RotateAnimation.RELATIVE_TO_SELF, 0.5f);
-        rotate.setDuration(200);
-        rotate.setFillAfter(true);
-        icon.startAnimation(rotate);
+    /**
+     * Use property animation to set absolute rotation so the drawable direction always matches the content state.
+     */
+    private void rotateIconTo(ImageView icon, float to) {
+        if (icon == null) return;
+        try {
+            // cancel any running animation to avoid visual glitches
+            icon.animate().cancel();
+            icon.animate().rotation(to).setDuration(200).start();
+            // Also set the rotation property to the final value in case animation is interrupted
+            icon.setRotation(to);
+        } catch (Exception e) {
+            Log.w(TAG, "rotateIconTo failed: " + e.getMessage(), e);
+            try { icon.setRotation(to); } catch (Exception ignored) {}
+        }
     }
 
     /* -------------------- Cleanup -------------------- */

@@ -20,6 +20,7 @@ import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.feature.teacher.activity.TeacherCourseEditActivity;
 import com.example.projectonlinecourseeducation.feature.teacher.activity.TeacherCourseCreateActivity;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.HomeCourseAdapter;
+import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.List;
@@ -98,16 +99,22 @@ public class TeacherHomeFragment extends Fragment {
     }
 
     private void confirmDeleteCourse(Course course) {
-        new AlertDialog.Builder(getContext())
-                .setTitle("Xóa khóa học")
-                .setMessage("Bạn chắc chắn muốn xóa khóa học \"" + course.getTitle() + "\"?")
-                .setPositiveButton("Xóa", (dialog, which) -> {
+        if (getContext() == null) return;
+
+        DialogConfirmHelper.showConfirmDialog(
+                getContext(),
+                "Xóa khóa học",
+                "Bạn chắc chắn muốn xóa khóa học \"" + course.getTitle() + "\"?",
+                R.drawable.delete,     // icon delete.png của bạn
+                "Xóa",
+                "Hủy",
+                R.color.error_red,    // màu nút Xóa
+                () -> {
                     courseApi.deleteCourse(course.getId());
                     Toast.makeText(getContext(), "Xóa khóa học thành công", Toast.LENGTH_SHORT).show();
-                    loadCourses(); // Reload danh sách
-                })
-                .setNegativeButton("Hủy", (dialog, which) -> dialog.cancel())
-                .show();
+                    loadCourses();
+                }
+        );
     }
 
     @Override

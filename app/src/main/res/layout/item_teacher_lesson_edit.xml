@@ -62,7 +62,7 @@
             android:src="@drawable/ic_edit"
             android:contentDescription="@string/edit"
             android:scaleType="centerInside"
-            app:tint="@color/blue_700" />
+            app:tint="@color/purple_500" />
 
         <!-- Delete button -->
         <ImageButton

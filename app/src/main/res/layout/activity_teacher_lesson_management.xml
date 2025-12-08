@@ -5,27 +5,27 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    android:background="@color/colorBackground">
 
-    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:background="@android:color/white">
 
-        <!-- SỬA: dùng drawable public thay vì android:drawable/ic_menu_back (private) -->
         <ImageButton
             android:id="@+id/btnBack"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@android:drawable/ic_media_previous"
+            android:src="@drawable/ic_back"
             android:scaleType="centerInside"
-            android:background="?attr/selectableItemBackground"
-            android:contentDescription="@string/app_name" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/app_name"
+            app:tint="@color/blue_text_primary" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -39,7 +39,8 @@
                 android:layout_height="wrap_content"
                 android:text="Quản lý bài giảng"
                 android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:textColor="@color/blue_text_primary" />
 
             <TextView
                 android:id="@+id/tvLessonTitle"
@@ -47,17 +48,15 @@
                 android:layout_height="wrap_content"
                 android:text="Bài 1: Giới thiệu"
                 android:textSize="12sp"
-                android:textColor="@android:color/darker_gray" />
+                android:textColor="@color/text_secondary" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@android:color/darker_gray" />
+        android:background="@color/divider" />
 
-    <!-- Content -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -70,28 +69,27 @@
             android:orientation="vertical"
             android:paddingBottom="20dp">
 
-            <!-- ========== KHỐI 1: Video Section ========== -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="12dp"
-                android:layout_marginRight="12dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
                 android:layout_marginTop="12dp"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="4dp">
+                android:layout_marginBottom="8dp"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="6dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="12dp">
+                    android:padding="14dp">
 
-                    <!-- Video Preview -->
                     <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="200dp"
-                        android:background="@android:color/darker_gray">
+                        android:background="@color/blue_50"
+                        android:clipToPadding="false">
 
                         <ImageView
                             android:id="@+id/imgVideoThumbnail"
@@ -101,7 +99,6 @@
                             android:scaleType="centerCrop"
                             android:contentDescription="@string/app_name" />
 
-                        <!-- YouTube player view (mặc định ẩn) -->
                         <com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
                             android:id="@+id/youtubePlayerView"
                             android:layout_width="match_parent"
@@ -110,23 +107,23 @@
 
                         <ImageButton
                             android:id="@+id/btnPlayVideo"
-                            android:layout_width="56dp"
-                            android:layout_height="56dp"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
                             android:src="@android:drawable/ic_media_play"
                             android:scaleType="centerInside"
-                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:background="@drawable/rounded_circle"
                             android:layout_gravity="center"
-                            android:contentDescription="@string/app_name" />
+                            android:contentDescription="@string/app_name"
+                            app:tint="@color/white" />
                     </FrameLayout>
 
-                    <!-- Video Info -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
                         android:paddingTop="12dp"
-                        android:paddingBottom="12dp">
+                        android:paddingBottom="8dp">
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -139,7 +136,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Thời lượng"
                                 android:textSize="12sp"
-                                android:textColor="@android:color/darker_gray" />
+                                android:textColor="@color/text_secondary" />
 
                             <TextView
                                 android:id="@+id/tvDuration"
@@ -147,18 +144,24 @@
                                 android:layout_height="wrap_content"
                                 android:text="15 phút 32 giây"
                                 android:textSize="14sp"
-                                android:textStyle="bold" />
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
                         </LinearLayout>
 
                         <Button
                             android:id="@+id/btnEditVideo"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:minHeight="40dp"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
                             android:text="Đổi video"
-                            android:textSize="12sp" />
+                            android:textSize="12sp"
+                            android:textAllCaps="false"
+                            android:backgroundTint="@color/blue_800"
+                            android:textColor="@color/white" />
                     </LinearLayout>
 
-                    <!-- Video URL -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -171,7 +174,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="URL:"
-                            android:textSize="12sp" />
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
 
                         <TextView
                             android:id="@+id/tvVideoUrl"
@@ -179,8 +183,8 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                            android:textSize="11sp"
-                            android:textColor="@android:color/holo_blue_dark"
+                            android:textSize="12sp"
+                            android:textColor="@color/blue_800"
                             android:layout_marginStart="8dp"
                             android:ellipsize="end"
                             android:maxLines="1" />
@@ -188,22 +192,21 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- ========== KHỐI 2: Lesson Info Section ========== -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="12dp"
-                android:layout_marginRight="12dp"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="4dp">
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="6dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="12dp">
+                    android:padding="14dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -216,25 +219,31 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="Thông tin bài học"
-                            android:textSize="14sp"
-                            android:textStyle="bold" />
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/blue_700" />
 
                         <Button
                             android:id="@+id/btnEditInfo"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:minHeight="36dp"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
                             android:text="Chỉnh sửa"
-                            android:textSize="12sp" />
+                            android:textSize="12sp"
+                            android:textAllCaps="false"
+                            android:backgroundTint="@color/blue_800"
+                            android:textColor="@color/white" />
                     </LinearLayout>
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="@android:color/darker_gray"
+                        android:background="@color/divider"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="8dp" />
 
-                    <!-- Title -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -247,7 +256,7 @@
                             android:layout_height="wrap_content"
                             android:text="Tiêu đề"
                             android:textSize="12sp"
-                            android:textColor="@android:color/darker_gray" />
+                            android:textColor="@color/text_secondary" />
 
                         <TextView
                             android:id="@+id/tvLessonName"
@@ -255,10 +264,10 @@
                             android:layout_height="wrap_content"
                             android:text="Bài 1: Giới thiệu cơ bản"
                             android:textSize="13sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
                     </LinearLayout>
 
-                    <!-- Description -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -271,7 +280,7 @@
                             android:layout_height="wrap_content"
                             android:text="Mô tả"
                             android:textSize="12sp"
-                            android:textColor="@android:color/darker_gray" />
+                            android:textColor="@color/text_secondary" />
 
                         <TextView
                             android:id="@+id/tvDescription"
@@ -279,27 +288,27 @@
                             android:layout_height="wrap_content"
                             android:text="Bài giảng này sẽ giới thiệu những khái niệm cơ bản về lập trình Java, cách thiết lập môi trường phát triển và viết chương trình Hello World đầu tiên."
                             android:textSize="12sp"
-                            android:lineSpacingExtra="2dp" />
+                            android:lineSpacingExtra="2dp"
+                            android:textColor="@color/text_primary" />
                     </LinearLayout>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- ========== KHỐI 3: Comments Section ========== -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="12dp"
-                android:layout_marginRight="12dp"
-                android:layout_marginTop="12dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginTop="8dp"
                 android:layout_marginBottom="12dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="4dp">
+                app:cardCornerRadius="10dp"
+                app:cardElevation="6dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="12dp">
+                    android:padding="14dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -313,24 +322,25 @@
                             android:layout_weight="1"
                             android:text="💬 Bình luận (25)"
                             android:textSize="14sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/blue_700" />
 
                         <ImageView
                             android:id="@+id/imgCommentExpand"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@android:drawable/ic_menu_view"
-                            android:contentDescription="@string/app_name" />
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:src="@drawable/ic_expand"
+                            android:contentDescription="@string/app_name"
+                            app:tint="@color/blue_800" />
                     </LinearLayout>
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="@android:color/darker_gray"
+                        android:background="@color/divider"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="8dp" />
 
-                    <!-- Comments List -->
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rvComments"
                         android:layout_width="match_parent"
