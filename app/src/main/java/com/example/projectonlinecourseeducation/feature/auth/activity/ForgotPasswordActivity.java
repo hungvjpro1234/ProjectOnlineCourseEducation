@@ -10,6 +10,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.core.utils.Utils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
@@ -39,18 +40,34 @@ public class ForgotPasswordActivity extends AppCompatActivity {
                 return;
             }
 
-            AuthApi authApi = ApiProvider.getAuthApi();
-            ApiResult<String> res = authApi.requestPasswordResetLink(email);
+            // Use AsyncApiHelper to run API call on background thread
+            AsyncApiHelper.execute(
+                    // API call (runs on background thread)
+                    () -> ApiProvider.getAuthApi().requestPasswordResetLink(email),
 
-            Toast.makeText(this, res.getMessage(), Toast.LENGTH_SHORT).show();
-            if (res.isSuccess()) {
-                // Hiển thị link demo để dev có thể copy (mô phỏng inbox)
-                tvDebugLink.setVisibility(TextView.VISIBLE);
-                tvDebugLink.setText(
-                        "Demo link: " + res.getData()
-                                + "\n(Luồng thật: kiểm tra email của bạn)"
-                );
-            }
+                    // Callback (runs on main thread - can update UI)
+                    new AsyncApiHelper.ApiCallback<ApiResult<String>>() {
+                        @Override
+                        public void onSuccess(ApiResult<String> res) {
+                            Toast.makeText(ForgotPasswordActivity.this, res.getMessage(), Toast.LENGTH_SHORT).show();
+                            if (res.isSuccess()) {
+                                // Hiển thị link demo để dev có thể copy (mô phỏng inbox)
+                                tvDebugLink.setVisibility(TextView.VISIBLE);
+                                tvDebugLink.setText(
+                                        "Demo link: " + res.getData()
+                                                + "\n(Luồng thật: kiểm tra email của bạn)"
+                                );
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(ForgotPasswordActivity.this,
+                                    "Lỗi kết nối: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            );
         });
 
         btnBack.setOnClickListener(v -> finish());

@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.model.user.User.Role;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.core.utils.Utils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
@@ -75,17 +76,30 @@ public class RegisterActivity extends AppCompatActivity {
 
             Role role = rbTeacher.isChecked() ? Role.TEACHER : Role.STUDENT;
 
-            // ====== Gọi API qua AuthApi (Fake/Remote đều dùng chung) ======
-            AuthApi authApi = ApiProvider.getAuthApi();
+            // ====== Gọi API qua AuthApi với AsyncApiHelper (Fake/Remote đều dùng chung) ======
+            AsyncApiHelper.execute(
+                    // API call (runs on background thread)
+                    () -> ApiProvider.getAuthApi().register(name, username, email, password, role),
 
-            ApiResult<User> result =
-                    authApi.register(name, username, email, password, role);
+                    // Callback (runs on main thread - can update UI)
+                    new AsyncApiHelper.ApiCallback<ApiResult<User>>() {
+                        @Override
+                        public void onSuccess(ApiResult<User> result) {
+                            Toast.makeText(RegisterActivity.this, result.getMessage(), Toast.LENGTH_SHORT).show();
+                            if (result.isSuccess()) {
+                                // Đăng ký xong quay lại màn Login
+                                finish();
+                            }
+                        }
 
-            Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-            if (result.isSuccess()) {
-                // Đăng ký xong quay lại màn Login
-                finish();
-            }
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(RegisterActivity.this,
+                                    "Lỗi kết nối: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            );
         });
 
         btnBack.setOnClickListener(v -> finish());

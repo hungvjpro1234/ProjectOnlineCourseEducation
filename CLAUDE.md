@@ -11,11 +11,13 @@ This is an **Android Online Learning Platform (University Project)** - a video-b
 - **Development Approach:** Frontend and Backend developed in parallel by separate teams
 - **Goal:** Functional demo app that connects to real backend and runs smoothly without crashes
 
-**Current Status:**
-- FakeApiService implementations provide in-memory data for frontend development
-- Backend API exists but integration is in progress
-- All logic and features are tested and working with FakeApiService
-- Goal: Maintain same behavior and logic when switching to real backend
+**Current Status (Updated 2025-12-08):**
+- ✅ **Auth Module:** Fully integrated with backend (AuthRemoteApiService complete)
+- ⚠️ **Other Modules:** Still using FakeApiService (Course, Lesson, Cart, Review, etc.)
+- ⚠️ **AsyncApiHelper:** NOT YET CREATED - Critical blocker for testing RemoteApi
+- ⚠️ **Backend APIs:** Only Auth + Course endpoints exist, others pending
+- ✅ All logic and features tested and working with FakeApiService
+- 🎯 Goal: Complete backend integration for remaining 8 modules
 
 **Project Goals (NOT Production App):**
 - ✅ Connect to real backend APIs
@@ -112,13 +114,15 @@ The app follows a clean layered architecture pattern:
   ```
 
 **API Modules (data/):**
-- `AuthApi` - Authentication (login, register, password reset)
-- `CourseApi` - Course CRUD, filtering, search, sorting
-- `LessonApi` - Lesson CRUD with Observer pattern for updates
-- `CartApi` - Shopping cart management
-- `MyCourseApi` - Purchased courses tracking
-- `ReviewApi` - Course reviews and ratings
-- `LessonProgressApi` - Video progress tracking
+- `AuthApi` - Authentication (login, register, password reset) ✅ **Remote API Integrated**
+- `CourseApi` - Course CRUD, filtering, search, sorting ⏳ **Backend ready, App integration pending**
+- `LessonApi` - Lesson CRUD with Observer pattern for updates ❌ **Backend not ready**
+- `CartApi` - Shopping cart management ❌ **Backend not ready**
+- `MyCourseApi` - Purchased courses tracking ❌ **Backend not ready**
+- `ReviewApi` - Course reviews and ratings ❌ **Backend not ready**
+- `LessonProgressApi` - Video progress tracking ❌ **Backend not ready**
+- `LessonCommentApi` - Lesson comments (new module) ❌ **Backend not ready**
+- `CourseStudentApi` - Course student tracking (new module) ❌ **Backend not ready**
 
 **All APIs return `ApiResult<T>`:**
 ```java
@@ -184,9 +188,13 @@ Since frontend and backend are developed in parallel, FakeApiService allows fron
 - ✅ Logic tested - all features verified before backend integration
 
 **Current State:**
-- All FakeApiService implementations complete and tested
-- AuthRemoteApiService implemented and ready
-- Other RemoteApiServices to be implemented as backend features complete
+- ✅ All FakeApiService implementations complete and tested (9 modules)
+- ✅ AuthRemoteApiService implemented, tested, and working with backend
+- ❌ AsyncApiHelper NOT created yet (critical blocker)
+- ❌ MainActivity2 does not initialize RetrofitClient
+- ❌ No Activity/Fragment files use AsyncApiHelper pattern yet
+- ⏳ CourseRemoteApiService, LessonRemoteApiService, etc. - not implemented
+- ⏳ Backend only has Auth + Course endpoints (Lesson, Cart, Review pending)
 
 ## Backend Integration Guide
 
@@ -206,9 +214,9 @@ Since frontend and backend are developed in parallel, FakeApiService allows fron
 
 ### AsyncApiHelper Pattern
 
-Create this helper class once, use everywhere:
+⚠️ **CRITICAL:** This helper class does NOT exist yet and must be created before testing RemoteApiService.
 
-**File:** [core/utils/AsyncApiHelper.java](app/src/main/java/com/example/projectonlinecourseeducation/core/utils/AsyncApiHelper.java)
+**File to create:** [core/utils/AsyncApiHelper.java](app/src/main/java/com/example/projectonlinecourseeducation/core/utils/AsyncApiHelper.java)
 
 ```java
 package com.example.projectonlinecourseeducation.core.utils;
@@ -331,6 +339,8 @@ public class LoginActivity extends AppCompatActivity {
 
 ### Files That Need AsyncApiHelper
 
+⚠️ **STATUS:** None of these files have been updated yet. All still use synchronous API calls.
+
 When integrating RemoteApiService, wrap API calls in these files:
 
 **Auth Module (3 files):**
@@ -378,6 +388,10 @@ private static final String BASE_URL = "http://192.168.1.XXX:3000/";
 
 **3. Initialize RetrofitClient in MainActivity:**
 
+⚠️ **NOT YET DONE:** MainActivity2 does not currently initialize RetrofitClient.
+
+Add this code to MainActivity2.onCreate():
+
 ```java
 public class MainActivity2 extends AppCompatActivity {
     @Override
@@ -396,6 +410,8 @@ public class MainActivity2 extends AppCompatActivity {
 ```
 
 **4. Wrap API Calls with AsyncApiHelper:**
+
+⚠️ **NOT YET DONE:** LoginActivity, RegisterActivity, and all other files still use direct synchronous calls.
 
 In LoginActivity, RegisterActivity, etc., wrap all API calls:
 
@@ -446,12 +462,25 @@ Activity/Fragment receives result
 - Session persists across app restarts
 
 **Available Remote Endpoints:**
+
+Auth Module (✅ Integrated):
 - ✅ `loginByUsername()` → POST /login
 - ✅ `register()` → POST /signup
 - ✅ `requestPasswordResetLink()` → POST /forgot-password-request
 - ✅ `finalizeResetViaLink()` → POST /forgot-password-update
-- ⚠️ `updateCurrentUserProfile()` - Backend endpoint not implemented (local update only)
-- ⚠️ `changeCurrentUserPassword()` - Backend endpoint not implemented (local update only)
+- ⚠️ `updateCurrentUserProfile()` → PUT /auth/profile (exists in backend, not used in app)
+- ⚠️ `changeCurrentUserPassword()` → POST /auth/change-password (exists in backend, not used in app)
+
+Course Module (⏳ Backend ready, app not integrated):
+- ⏳ POST /course - Create course (with image upload)
+- ⏳ GET /course - List courses (with optional teacher filter)
+- ⏳ GET /course/:id - Get course detail
+- ⏳ PATCH /course/:id - Update course
+- ⏳ DELETE /course/:id - Delete course
+- ⏳ POST /course/:id/purchase - Record purchase
+
+Lesson, Cart, Review, Progress Modules (❌ Backend not ready):
+- ❌ No endpoints implemented yet
 
 ### Switching Between Fake and Remote API
 
@@ -621,32 +650,95 @@ app/src/main/java/com/example/projectonlinecourseeducation/
 
 ## Backend Integration Roadmap
 
+### Phase 0: Critical Blockers ⚠️ (MUST DO FIRST)
+**Status: 0/3 complete**
+- ❌ Create AsyncApiHelper.java utility class
+- ❌ Initialize RetrofitClient in MainActivity2
+- ❌ Wrap Auth activities with AsyncApiHelper (LoginActivity, RegisterActivity, ForgotPasswordActivity)
+- ❌ Test AuthRemoteApiService with AsyncApiHelper
+
+**Estimated Time:** 1-2 hours
+
 ### Phase 1: Auth Module ✅ (Complete)
+**Status: 4/4 complete**
 - ✅ AuthRemoteApiService implemented
 - ✅ Retrofit + OkHttp configured
 - ✅ JWT token management (SessionManager)
 - ✅ Login, Register, Password Reset endpoints
 
+**Note:** AsyncApiHelper not applied yet, so currently untestable without ANR
+
 ### Phase 2: Course Module (Next Priority)
-- ⏳ Implement CourseRemoteApiService
-- ⏳ Map backend responses to Course model
-- ⏳ Handle category differences (backend structure vs fixed list)
-- ⏳ Support search, filter, sort operations
+**Status: 0/5 complete - Backend ready, app not integrated**
+- ❌ Create CourseRemoteApiService class
+- ❌ Create CourseRetrofitService interface
+- ❌ Create Course DTOs (CourseDto, CreateCourseRequest, UpdateCourseRequest)
+- ❌ Map backend integer IDs to app string IDs
+- ❌ Wrap StudentHomeFragment, TeacherCourseEditActivity with AsyncApiHelper
 
-### Phase 3: Lesson Module
-- ⏳ Implement LessonRemoteApiService
-- ⏳ Implement LessonProgressRemoteApiService
-- ⏳ Handle Chapter → Lesson mapping
-- ⏳ Maintain Observer pattern for duration updates
+**Backend Status:** ✅ All Course endpoints available
+**Estimated Time:** 2-3 hours
 
-### Phase 4: Cart & Purchase
-- ⏳ Implement CartRemoteApiService
-- ⏳ Implement MyCourseRemoteApiService
-- ⏳ Payment flow integration
+### Phase 3: Lesson Module (BLOCKED - Backend Not Ready)
+**Status: 0/6 complete**
+- ❌ Backend: Implement Lesson CRUD endpoints (GET/POST/PATCH/DELETE /lesson)
+- ❌ Backend: Implement Chapter → Lesson relationship
+- ❌ App: Create LessonRemoteApiService
+- ❌ App: Create LessonProgressRemoteApiService
+- ❌ App: Handle Chapter → Lesson mapping (flatten or add Chapter model)
+- ❌ App: Wrap StudentCourseLessonActivity, StudentLessonVideoActivity with AsyncApiHelper
 
-### Phase 5: Review Module
-- ⏳ Implement ReviewRemoteApiService
-- ⏳ Rating calculation sync with backend
+**Backend Status:** ❌ No Lesson endpoints exist
+**Blocker:** Backend team must implement Lesson API first
+**Estimated Time:** 3-4 hours (after backend ready)
+
+### Phase 4: Cart & Purchase (BLOCKED - Backend Not Ready)
+**Status: 0/5 complete**
+- ❌ Backend: Implement Cart CRUD endpoints
+- ❌ Backend: Implement Purchase/Payment transaction endpoints
+- ❌ App: Create CartRemoteApiService
+- ❌ App: Create MyCourseRemoteApiService
+- ❌ App: Wrap StudentCartFragment, StudentCourseProductDetailActivity with AsyncApiHelper
+
+**Backend Status:** ❌ No Cart/Purchase endpoints exist (only POST /course/:id/purchase)
+**Blocker:** Backend team must implement Cart API first
+**Estimated Time:** 2-3 hours (after backend ready)
+
+### Phase 5: Review & Comments (BLOCKED - Backend Not Ready)
+**Status: 0/4 complete**
+- ❌ Backend: Implement Review CRUD endpoints
+- ❌ Backend: Implement LessonComment CRUD endpoints
+- ❌ App: Create ReviewRemoteApiService
+- ❌ App: Create LessonCommentRemoteApiService
+
+**Backend Status:** ❌ No Review/Comment endpoints exist
+**Estimated Time:** 2-3 hours (after backend ready)
+
+### Phase 6: Student Tracking (BLOCKED - Backend Not Ready)
+**Status: 0/2 complete**
+- ❌ Backend: Implement CourseStudent tracking endpoints
+- ❌ App: Create CourseStudentRemoteApiService
+
+**Backend Status:** ❌ No CourseStudent endpoints exist
+**Estimated Time:** 1-2 hours (after backend ready)
+
+---
+
+## Current Integration Status Summary
+
+| Module | App FakeApi | App RemoteApi | Backend API | Integration Status |
+|--------|------------|---------------|-------------|-------------------|
+| Auth | ✅ Complete | ✅ Complete | ✅ Complete | ⚠️ Needs AsyncApiHelper |
+| Course | ✅ Complete | ❌ Not created | ✅ Complete | 🔴 Next Priority |
+| Lesson | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+| LessonProgress | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+| Cart | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+| MyCourse | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+| Review | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+| LessonComment | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+| CourseStudent | ✅ Complete | ❌ Not created | ❌ Not ready | 🔴 Blocked by Backend |
+
+**Overall Progress:** 1/9 modules integrated (11%)
 
 **Integration Pattern for Each Module:**
 1. Create `XxxRemoteApiService implements XxxApi`
@@ -664,16 +756,22 @@ app/src/main/java/com/example/projectonlinecourseeducation/
 4. ✅ **AsyncApiHelper** - Simple ANR prevention without architecture overhaul
 
 **Minimal Integration Requirements:**
-- Create `AsyncApiHelper` utility class (1 file)
-- Wrap API calls in ~11 Activity/Fragment files
-- Initialize `RetrofitClient` in MainActivity
-- Swap `ApiProvider.setXxxApi()` when ready
+- ❌ Create `AsyncApiHelper` utility class (1 file) - **NOT DONE YET**
+- ❌ Wrap API calls in ~11 Activity/Fragment files - **NOT DONE YET**
+- ❌ Initialize `RetrofitClient` in MainActivity2 - **NOT DONE YET**
+- ⏳ Swap `ApiProvider.setXxxApi()` when ready - **Only Auth ready**
 
-**Result:**
+**Expected Result (when complete):**
 - App runs smoothly with real backend
 - No crashes from network operations
 - Same logic and features as FakeApiService
 - Suitable for university project demonstration
+
+**Current Gaps:**
+- AsyncApiHelper missing - cannot test RemoteApi without ANR risk
+- Only 1/9 modules have RemoteApiService (Auth only)
+- Backend missing 7/9 API modules (Lesson, Cart, Review, etc.)
+- No Activity/Fragment uses AsyncApiHelper yet
 
 **NOT Included (Beyond Scope):**
 - MVVM architecture refactoring

@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.core.utils.Utils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
@@ -50,37 +51,53 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
 
-            AuthApi authApi = ApiProvider.getAuthApi();
-            ApiResult<User> result = authApi.loginByUsername(username, password);
+            // Use AsyncApiHelper to run API call on background thread
+            AsyncApiHelper.execute(
+                    // API call (runs on background thread)
+                    () -> ApiProvider.getAuthApi().loginByUsername(username, password),
 
-            if (result.isSuccess()) {
-                User user = result.getData();
+                    // Callback (runs on main thread - can update UI)
+                    new AsyncApiHelper.ApiCallback<ApiResult<User>>() {
+                        @Override
+                        public void onSuccess(ApiResult<User> result) {
+                            if (result.isSuccess()) {
+                                User user = result.getData();
 
-                // ✅ LƯU USER VÀO SESSION để dùng trong app (bình luận, profile, etc.)
-                SessionManager.getInstance(this).saveSession("", user);
+                                // ✅ LƯU USER VÀO SESSION để dùng trong app (bình luận, profile, etc.)
+                                SessionManager.getInstance(LoginActivity.this).saveSession("", user);
 
-                Toast.makeText(
-                        this,
-                        "Đăng nhập thành công. Xin chào "
-                                + user.getName() + " (" + user.getRole().name() + ")",
-                        Toast.LENGTH_SHORT
-                ).show();
+                                Toast.makeText(
+                                        LoginActivity.this,
+                                        "Đăng nhập thành công. Xin chào "
+                                                + user.getName() + " (" + user.getRole().name() + ")",
+                                        Toast.LENGTH_SHORT
+                                ).show();
 
-                switch (user.getRole()) {
-                    case STUDENT:
-                        startActivity(new Intent(this, StudentHomeActivity.class));
-                        break;
-                    case TEACHER:
-                        startActivity(new Intent(this, TeacherHomeActivity.class));
-                        break;
-                    case ADMIN:
-                        startActivity(new Intent(this, AdminHomeActivity.class));
-                        break;
-                }
-                finish();
-            } else {
-                Toast.makeText(this, result.getMessage(), Toast.LENGTH_SHORT).show();
-            }
+                                switch (user.getRole()) {
+                                    case STUDENT:
+                                        startActivity(new Intent(LoginActivity.this, StudentHomeActivity.class));
+                                        break;
+                                    case TEACHER:
+                                        startActivity(new Intent(LoginActivity.this, TeacherHomeActivity.class));
+                                        break;
+                                    case ADMIN:
+                                        startActivity(new Intent(LoginActivity.this, AdminHomeActivity.class));
+                                        break;
+                                }
+                                finish();
+                            } else {
+                                Toast.makeText(LoginActivity.this, result.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(LoginActivity.this,
+                                    "Lỗi kết nối: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            );
         });
 
         btnBack.setOnClickListener(v -> finish());

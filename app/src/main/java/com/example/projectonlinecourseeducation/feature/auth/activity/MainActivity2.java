@@ -13,6 +13,9 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
+import com.example.projectonlinecourseeducation.data.auth.AuthRemoteApiService;
+import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 
 public class MainActivity2 extends AppCompatActivity {
 
@@ -29,6 +32,13 @@ public class MainActivity2 extends AppCompatActivity {
         }
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        // Initialize RetrofitClient for backend API calls
+        RetrofitClient.initialize(this);
+
+        // 🔥 ENABLE BACKEND: Switch to RemoteApiService for Auth module
+        // Comment this line to use FakeApiService (in-memory data)
+        ApiProvider.setAuthApi(new AuthRemoteApiService());
 
         btnLogin = findViewById(R.id.btnLogin);
         btnRegister = findViewById(R.id.btnRegister);
