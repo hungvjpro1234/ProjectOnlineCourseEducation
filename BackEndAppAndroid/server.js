@@ -18,6 +18,54 @@ const connection = {
 
 const db = pgp(connection);
 
+// --- Helper: normalize DB row to FE-friendly Course object ---
+function safeParseJson(input) {
+  if (!input) return [];
+  if (Array.isArray(input)) return input;
+  try {
+    // If database stored a JSON string
+    if (typeof input === 'string') {
+      return JSON.parse(input);
+    }
+    // already object
+    return input;
+  } catch (e) {
+    // If it's a CSV string like "a,b,c" or simple string, try fallback
+    if (typeof input === 'string') {
+      return input.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+    return [];
+  }
+}
+
+function transformCourseRow(row) {
+  if (!row) return null;
+  // Map DB columns (course_id) to FE shape (id), normalize casing
+  const r = {};
+  r.id = row.course_id || row.id || row.courseId || null;
+  r.title = row.title || '';
+  r.description = row.description || '';
+  r.teacher = row.teacher || '';
+  // imageUrl might come as imageurl or imageUrl
+  r.imageUrl = row.imageUrl || row.imageurl || '';
+  r.category = row.category || '';
+  r.lectures = Number.isFinite(Number(row.lectures)) ? parseInt(row.lectures) : 0;
+  r.students = Number.isFinite(Number(row.students)) ? parseInt(row.students) : 0;
+  r.rating = row.rating !== undefined ? parseFloat(row.rating) : 0;
+  r.price = row.price !== undefined ? parseFloat(row.price) : 0;
+  r.createdAt = row.createdAt || row.created_at || '';
+  r.ratingCount = row.ratingCount !== undefined ? parseInt(row.ratingCount) : (row.ratingcount !== undefined ? parseInt(row.ratingcount) : 0);
+  r.totalDurationMinutes = row.totalDurationMinutes !== undefined ? parseInt(row.totalDurationMinutes) : (row.totaldurationminutes !== undefined ? parseInt(row.totaldurationminutes) : 0);
+
+  // Parse skills/requirements (could be JSON-string, array, or CSV)
+  r.skills = safeParseJson(row.skills);
+  r.requirements = safeParseJson(row.requirements);
+
+  // Keep any other fields if needed
+  return r;
+}
+
+
 // optional: test connect once at startup
 (async () => {
   try {
@@ -462,8 +510,9 @@ app.post("/course", upload.single('courseAvatar'), async (req, res) => {
         JSON.stringify(skills), JSON.stringify(requirements)
       ]
     );
-
-    res.send({ success: true, message: "Them moi thanh cong", data: inserted });
+    // inside your try block, after const inserted = await db.one(...);
+    const result = transformCourseRow(inserted);
+    res.send({ success: true, message: "Them moi thanh cong", data: result });
   } catch (error) {
     console.log(error);
     res.send({ success: false, message: "Lỗi tạo khóa học" });
@@ -480,24 +529,31 @@ app.get("/course", async (req, res) => {
     } else {
       rows = await db.any("SELECT * FROM course");
     }
-    res.send({ success: true, data: rows });
+    // Transform each row
+    const data = rows.map(transformCourseRow);
+    res.send({ success: true, data });
   } catch (err) {
     console.log(err);
     res.send({ success: false, message: "Lỗi lấy danh sách khóa học" });
   }
 });
 
+
 // GET detail by id
 app.get("/course/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const course = await db.oneOrNone("SELECT * FROM course WHERE course_id = $1", [id]);
-    res.send({ success: true, data: course });
+    if (!course) {
+      return res.status(404).send({ success: false, message: "Course not found" });
+    }
+    res.send({ success: true, data: transformCourseRow(course) });
   } catch (err) {
     console.log(err);
     res.send({ success: false, message: "Lỗi lấy chi tiết khóa học" });
   }
 });
+
 
 // UPDATE
 app.patch("/course/:id", upload.single('courseAvatar'), async (req, res) => {
@@ -506,34 +562,32 @@ app.patch("/course/:id", upload.single('courseAvatar'), async (req, res) => {
     const payload = req.body || {};
     const imgSrc = req.file ? `/uploads/${req.file.filename}` : (payload.imageUrl || null);
 
-    // require title + description minimal (same as FE validate)
-    if (!payload.title || !payload.description) {
-      return res.send({ success: false, message: "Khong du thong tin" });
-    }
-
     // prepare values (keep existing values if not provided)
     const existing = await db.oneOrNone("SELECT * FROM course WHERE course_id = $1", [id]);
-    if (!existing) return res.send({ success: false, message: "Course not found" });
+    if (!existing) return res.status(404).send({ success: false, message: "Course not found" });
 
-    const title = payload.title || existing.title;
-    const description = payload.description || existing.description;
-    const teacher = payload.teacher || existing.teacher;
-    const category = payload.category || existing.category;
+    const title = payload.title !== undefined && payload.title !== '' ? payload.title : existing.title;
+    const description = payload.description !== undefined && payload.description !== '' ? payload.description : existing.description;
+    const teacher = payload.teacher !== undefined ? payload.teacher : existing.teacher;
+    const category = payload.category !== undefined ? payload.category : existing.category;
     const lectures = payload.lectures !== undefined ? parseInt(payload.lectures) : existing.lectures;
     const students = payload.students !== undefined ? parseInt(payload.students) : existing.students;
     const rating = payload.rating !== undefined ? parseFloat(payload.rating) : existing.rating;
     const price = payload.price !== undefined ? payload.price : existing.price;
-    const createdAt = payload.createdAt || existing.createdAt;
-    const ratingCount = payload.ratingCount !== undefined ? parseInt(payload.ratingCount) : existing.ratingcount || existing.ratingCount || 0;
-    const totalDurationMinutes = payload.totalDurationMinutes !== undefined ? parseInt(payload.totalDurationMinutes) : existing.totaldurationminutes || existing.totalDurationMinutes || 0;
+    const createdAt = payload.createdAt !== undefined ? payload.createdAt : existing.createdat || existing.createdAt;
+    const ratingCount = payload.ratingCount !== undefined ? parseInt(payload.ratingCount) : (existing.ratingcount || existing.ratingCount || 0);
+    const totalDurationMinutes = payload.totalDurationMinutes !== undefined ? parseInt(payload.totalDurationMinutes) : (existing.totaldurationminutes || existing.totalDurationMinutes || 0);
 
     const skillsArr = parseMaybeArrayField(payload.skills);
     const requirementsArr = parseMaybeArrayField(payload.requirements);
-    const skills = JSON.stringify(skillsArr.length ? skillsArr : (existing.skills || []));
-    const requirements = JSON.stringify(requirementsArr.length ? requirementsArr : (existing.requirements || []));
-    const imageFinal = imgSrc !== null ? imgSrc : existing.imageurl || existing.imageUrl;
+    // if parseMaybeArrayField returns empty but existing.skills may be a JSON string, ensure we use existing properly
+    const existingSkills = safeParseJson(existing.skills);
+    const existingRequirements = safeParseJson(existing.requirements);
+    const skills = JSON.stringify((skillsArr && skillsArr.length) ? skillsArr : existingSkills);
+    const requirements = JSON.stringify((requirementsArr && requirementsArr.length) ? requirementsArr : existingRequirements);
 
-    // update (use same column names)
+    const imageFinal = imgSrc !== null ? imgSrc : (existing.imageurl || existing.imageUrl || '');
+
     const updated = await db.one(
       `UPDATE course SET
          title=$1, description=$2, teacher=$3, category=$4, lectures=$5,
@@ -547,38 +601,46 @@ app.patch("/course/:id", upload.single('courseAvatar'), async (req, res) => {
       ]
     );
 
-    res.send({ success: true, data: updated });
+    res.send({ success: true, data: transformCourseRow(updated) });
   } catch (err) {
     console.log(err);
     res.send({ success: false, message: "Lỗi khi cập nhật khóa học" });
   }
 });
 
+
 // DELETE
 app.delete("/course/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deletedCourse = await db.oneOrNone("DELETE FROM course WHERE course_id = $1 RETURNING *", [id]);
-    res.send({ success: true, data: deletedCourse });
+    if (!deletedCourse) return res.status(404).send({ success: false, message: "Course not found" });
+    res.send({ success: true, data: transformCourseRow(deletedCourse) });
   } catch (err) {
     console.log(err);
     res.send({ success: false, message: "Lỗi khi xóa khóa học" });
   }
 });
 
+
 // RECORD PURCHASE (increment students) - FE sẽ gọi khi có giao dịch thực
 app.post("/course/:id/purchase", async (req, res) => {
   try {
     const { id } = req.params;
-    // atomically increment students
-    const updated = await db.one(
+    // atomically increment students; use oneOrNone to handle not-found gracefully
+    const updated = await db.oneOrNone(
       `UPDATE course
        SET students = COALESCE(students,0) + 1
        WHERE course_id = $1
        RETURNING *`,
       [id]
     );
-    res.send({ success: true, data: updated });
+
+    if (!updated) {
+      return res.status(404).send({ success: false, message: "Course not found" });
+    }
+
+    res.send({ success: true, data: transformCourseRow(updated) });
   } catch (err) {
     console.log(err);
     res.send({ success: false, message: "Lỗi khi ghi nhận mua" });
