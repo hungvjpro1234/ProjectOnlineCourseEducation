@@ -331,6 +331,16 @@ public class CourseFakeApiService implements CourseApi {
         // Important: when creating course in system (admin/teacher), initial students = 0
         newCourse.setStudents(0);
 
+        // FIX: Auto-set teacher name from current user (phân quyền courses theo teacher)
+        if (newCourse.getTeacher() == null || newCourse.getTeacher().trim().isEmpty()) {
+            User currentUser = ApiProvider.getAuthApi() != null
+                ? ApiProvider.getAuthApi().getCurrentUser()
+                : null;
+            if (currentUser != null && currentUser.getRole() == User.Role.TEACHER) {
+                newCourse.setTeacher(currentUser.getName());
+            }
+        }
+
         allCourses.add(newCourse);
 
         // Notify listeners about new course

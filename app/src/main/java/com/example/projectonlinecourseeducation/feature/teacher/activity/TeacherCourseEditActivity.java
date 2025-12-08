@@ -821,14 +821,9 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 lessonApi.deleteLesson(delId);
             }
 
-            DialogConfirmHelper.showSuccessDialog(
-                    this,
-                    "Thành công",
-                    "Lưu khóa học thành công",
-                    R.drawable.ic_check_success,
-                    "Đóng",
-                    () -> finish()
-            );
+            // NOTE: removed the success dialog. Show a short toast and finish instead.
+            Toast.makeText(this, "Lưu khóa học thành công", Toast.LENGTH_SHORT).show();
+            finish();
 
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Giá phải là một số hợp lệ", Toast.LENGTH_SHORT).show();

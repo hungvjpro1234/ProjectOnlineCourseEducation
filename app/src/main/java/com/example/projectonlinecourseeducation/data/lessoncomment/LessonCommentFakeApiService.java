@@ -114,7 +114,11 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
 
         for (LessonComment comment : allComments) {
             if (comment.getLessonId() != null && comment.getLessonId().equals(lessonId)) {
-                result.add(comment);
+                // FIX: Không hiển thị comment đã bị xóa (kể cả có reply)
+                // Khi teacher soft delete, comment sẽ bị ẩn hoàn toàn khỏi UI
+                if (!comment.isDeleted()) {
+                    result.add(comment);
+                }
             }
         }
 
@@ -191,7 +195,8 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
         if (found == null) return null;
         if (replyContent == null || replyContent.trim().isEmpty()) return null;
 
-        // Tạo comment mới với teacher reply
+        // FIX: Đơn giản hóa - chỉ 1 teacher (course owner) có thể reply
+        // Nếu đã có reply → update/replace (không append vì chỉ có 1 teacher)
         LessonComment updated = new LessonComment(
                 found.getId(),
                 found.getLessonId(),
@@ -200,9 +205,9 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
                 found.getContent(),
                 found.getCreatedAt(),
                 found.isDeleted(),
-                replyContent.trim(),
+                replyContent.trim(), // Replace reply content
                 teacherName,
-                System.currentTimeMillis() // reply timestamp
+                System.currentTimeMillis() // Update reply timestamp
         );
 
         // Replace trong list

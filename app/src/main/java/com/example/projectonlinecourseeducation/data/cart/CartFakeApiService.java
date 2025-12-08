@@ -1,9 +1,13 @@
 package com.example.projectonlinecourseeducation.data.cart;
 
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fake implementation cho CartApi.
@@ -13,6 +17,7 @@ import java.util.List;
  * CHANGES:
  * - Thêm cơ chế CartUpdateListener để UI có thể đăng ký và nhận notify tự động
  *   khi có thay đổi add/remove/clear.
+ * - FIX: Phân quyền giỏ hàng theo userId - mỗi user có giỏ hàng riêng
  */
 public class CartFakeApiService implements CartApi {
 
@@ -25,8 +30,8 @@ public class CartFakeApiService implements CartApi {
         return instance;
     }
 
-    // "Bảng" cart_courses trong RAM
-    private final List<Course> cartCourses = new ArrayList<>();
+    // "Bảng" cart_courses trong RAM - PER USER (key = userId)
+    private final Map<String, List<Course>> cartCoursesMap = new HashMap<>();
 
     // Registered listeners
     private final List<CartApi.CartUpdateListener> listeners = new ArrayList<>();
@@ -34,22 +39,47 @@ public class CartFakeApiService implements CartApi {
     private CartFakeApiService() {
     }
 
+    /**
+     * Helper: Lấy userId của user hiện tại
+     */
+    private String getCurrentUserId() {
+        User currentUser = ApiProvider.getAuthApi() != null
+            ? ApiProvider.getAuthApi().getCurrentUser()
+            : null;
+        if (currentUser == null || currentUser.getId() == null) {
+            return "_GUEST_"; // fallback for guest/unauthenticated users
+        }
+        return currentUser.getId();
+    }
+
+    /**
+     * Helper: Lấy giỏ hàng của user hiện tại
+     */
+    private List<Course> getCurrentUserCart() {
+        String userId = getCurrentUserId();
+        if (!cartCoursesMap.containsKey(userId)) {
+            cartCoursesMap.put(userId, new ArrayList<>());
+        }
+        return cartCoursesMap.get(userId);
+    }
+
     @Override
     public synchronized List<Course> getCartCourses() {
-        // trả bản copy để UI không chỉnh trực tiếp list bên trong
-        return new ArrayList<>(cartCourses);
+        // trả bản copy của giỏ hàng user hiện tại để UI không chỉnh trực tiếp list bên trong
+        return new ArrayList<>(getCurrentUserCart());
     }
 
     @Override
     public synchronized boolean addToCart(Course course) {
         if (course == null || course.getId() == null) return false;
+        List<Course> userCart = getCurrentUserCart();
         // Không cho trùng courseId
-        for (Course c : cartCourses) {
+        for (Course c : userCart) {
             if (course.getId().equals(c.getId())) {
                 return false; // đã có rồi
             }
         }
-        cartCourses.add(course);
+        userCart.add(course);
         notifyCartChanged();
         return true;
     }
@@ -57,9 +87,10 @@ public class CartFakeApiService implements CartApi {
     @Override
     public synchronized boolean removeFromCart(String courseId) {
         if (courseId == null) return false;
-        for (int i = 0; i < cartCourses.size(); i++) {
-            if (courseId.equals(cartCourses.get(i).getId())) {
-                cartCourses.remove(i);
+        List<Course> userCart = getCurrentUserCart();
+        for (int i = 0; i < userCart.size(); i++) {
+            if (courseId.equals(userCart.get(i).getId())) {
+                userCart.remove(i);
                 notifyCartChanged();
                 return true;
             }
@@ -69,15 +100,17 @@ public class CartFakeApiService implements CartApi {
 
     @Override
     public synchronized void clearCart() {
-        if (cartCourses.isEmpty()) return;
-        cartCourses.clear();
+        List<Course> userCart = getCurrentUserCart();
+        if (userCart.isEmpty()) return;
+        userCart.clear();
         notifyCartChanged();
     }
 
     @Override
     public synchronized boolean isInCart(String courseId) {
         if (courseId == null) return false;
-        for (Course c : cartCourses) {
+        List<Course> userCart = getCurrentUserCart();
+        for (Course c : userCart) {
             if (courseId.equals(c.getId())) return true;
         }
         return false;
@@ -85,13 +118,14 @@ public class CartFakeApiService implements CartApi {
 
     @Override
     public synchronized int getTotalItems() {
-        return cartCourses.size();
+        return getCurrentUserCart().size();
     }
 
     @Override
     public synchronized double getTotalPrice() {
         double total = 0;
-        for (Course c : cartCourses) {
+        List<Course> userCart = getCurrentUserCart();
+        for (Course c : userCart) {
             if (c != null) {
                 total += c.getPrice();
             }

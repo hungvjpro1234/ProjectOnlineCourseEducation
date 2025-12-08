@@ -76,10 +76,23 @@ public class TeacherManagementFragment extends Fragment {
     private void loadTeacherCourses() {
         courseApi = ApiProvider.getCourseApi();
 
-        // Try to get teacher name from fragment arguments; fallback to "Nguyễn A"
-        String teacherName = "Nguyễn A";
+        // FIX: Get current teacher's name (phân quyền courses theo teacher)
+        String teacherName = null;
+
+        // Try to get from arguments first (if passed from somewhere)
         if (getArguments() != null) {
-            teacherName = getArguments().getString("teacher_name", teacherName);
+            teacherName = getArguments().getString("teacher_name", null);
+        }
+
+        // If not in arguments, get from current user
+        if (teacherName == null) {
+            com.example.projectonlinecourseeducation.core.model.user.User currentUser =
+                ApiProvider.getAuthApi() != null ? ApiProvider.getAuthApi().getCurrentUser() : null;
+            if (currentUser != null) {
+                teacherName = currentUser.getName();
+            } else {
+                teacherName = ""; // fallback to empty (will show no courses)
+            }
         }
 
         List<Course> teacherCourses = courseApi.getCoursesByTeacher(teacherName);
