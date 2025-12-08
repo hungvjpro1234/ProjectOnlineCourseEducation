@@ -71,6 +71,32 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 // expose uploads static để client GET /uploads/filename
 app.use('/uploads', express.static(uploadDir));
+// ------------------ Helper để parse field có thể là JSON-array, CSV string, hoặc single value ------------------
+function parseMaybeArrayField(value) {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    // JSON array string like '["a","b"]'
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        // fallthrough to try CSV
+      }
+    }
+    // CSV: "A, B, C"
+    if (trimmed.indexOf(',') >= 0) {
+      return trimmed.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+    // Single value string
+    return trimmed.length ? [trimmed] : [];
+  }
+  // fallback
+  return [String(value)];
+}
+// ------------------ end helper ------------------
 
 // --- End paste ---
 
@@ -411,9 +437,9 @@ app.post("/course", upload.single('courseAvatar'), async (req, res) => {
     // course_id: accept provided id or generate 'c' + nextval sequence
     const courseId = payload.id && payload.id.trim() !== '' ? payload.id.trim() : `c${Date.now()}`;
 
-    // ensure arrays are JSON
-    const skills = payload.skills ? JSON.parse(payload.skills || '[]') : (payload.skillsArray || []);
-    const requirements = payload.requirements ? JSON.parse(payload.requirements || '[]') : (payload.requirementsArray || []);
+    // normalize skills/requirements từ nhiều dạng (array | JSON-string | CSV string | single string)
+    const skills = parseMaybeArrayField(payload.skills || payload.skillsArray);
+    const requirements = parseMaybeArrayField(payload.requirements || payload.requirementsArray);
 
     const lectures = parseInt(payload.lectures || 0);
     const students = parseInt(payload.students || 0); // normally 0 when created
@@ -501,8 +527,10 @@ app.patch("/course/:id", upload.single('courseAvatar'), async (req, res) => {
     const ratingCount = payload.ratingCount !== undefined ? parseInt(payload.ratingCount) : existing.ratingcount || existing.ratingCount || 0;
     const totalDurationMinutes = payload.totalDurationMinutes !== undefined ? parseInt(payload.totalDurationMinutes) : existing.totaldurationminutes || existing.totalDurationMinutes || 0;
 
-    const skills = payload.skills ? JSON.stringify(JSON.parse(payload.skills)) : JSON.stringify(existing.skills || []);
-    const requirements = payload.requirements ? JSON.stringify(JSON.parse(payload.requirements)) : JSON.stringify(existing.requirements || []);
+    const skillsArr = parseMaybeArrayField(payload.skills);
+    const requirementsArr = parseMaybeArrayField(payload.requirements);
+    const skills = JSON.stringify(skillsArr.length ? skillsArr : (existing.skills || []));
+    const requirements = JSON.stringify(requirementsArr.length ? requirementsArr : (existing.requirements || []));
     const imageFinal = imgSrc !== null ? imgSrc : existing.imageurl || existing.imageUrl;
 
     // update (use same column names)
