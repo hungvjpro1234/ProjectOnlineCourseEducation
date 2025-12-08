@@ -13,6 +13,51 @@
         android:orientation="vertical"
         android:paddingBottom="20dp">
 
+        <!-- ===== Header riêng, đặt trước KHỐI 1 (giữ Outer LinearLayout nguyên) ===== -->
+        <LinearLayout
+            android:id="@+id/headerContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:background="@color/blue_500"
+            android:elevation="6dp">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_back"
+                android:scaleType="centerInside"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/app_name"
+                app:tint="@color/white" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Chi tiết khóa học"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginStart="12dp"
+                android:textColor="@color/white" />
+
+            <ImageButton
+                android:id="@+id/btnEdit"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_edit"
+                android:scaleType="centerInside"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/app_name"
+                app:tint="@color/white" />
+        </LinearLayout>
+
         <!-- ========== KHỐI 1: Thông tin cơ bản khóa học ========== -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -24,42 +69,8 @@
             android:paddingBottom="16dp"
             android:background="@android:color/white">
 
-            <!-- Header Section -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <ImageButton
-                    android:id="@+id/btnBack"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:src="@android:drawable/ic_media_previous"
-                    android:scaleType="centerInside"
-                    android:background="?attr/selectableItemBackground"
-                    android:contentDescription="@string/app_name" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Chi tiết khóa học"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:layout_marginStart="12dp" />
-
-                <ImageButton
-                    android:id="@+id/btnEdit"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:src="@android:drawable/ic_menu_edit"
-                    android:scaleType="centerInside"
-                    android:background="?attr/selectableItemBackground"
-                    android:contentDescription="@string/app_name" />
-
-                <!-- NOTE: btnMore đã bị xóa theo yêu cầu -->
-            </LinearLayout>
+            <!-- Header đã được tách ra ngoài (headerContainer) -->
+            <!-- (Các phần còn lại của KHỐI 1 giữ nguyên) -->
 
             <!-- Divider -->
             <View
@@ -189,18 +200,16 @@
                             android:textStyle="bold" />
 
                         <!-- RatingBar: chỉnh thành 1 sao và màu vàng -->
+                        <!-- dùng AppCompat small style để stars nhỏ gọn -->
                         <RatingBar
                             android:id="@+id/rbRating"
+                            style="@style/Widget.AppCompat.RatingBar.Small"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:rating="1"
-                            android:numStars="1"
-                            android:stepSize="0.1"
+                            android:numStars="5"
+                            android:stepSize="0.5"
                             android:isIndicator="true"
-                            android:layout_marginStart="4dp"
-                            android:progressTint="#FFD700"
-                            android:indeterminateTint="#FFD700"
-                            android:secondaryProgressTint="#FFD700" />
+                            android:layout_marginStart="4dp" />
                     </LinearLayout>
 
                     <TextView
@@ -334,7 +343,7 @@
                     android:layout_height="wrap_content"
                     android:text="Kỹ năng sẽ học được:"
                     android:textSize="16sp"
-                    android:textColor="@color/black"
+                    android:textColor="@color/blue_500"
                     android:layout_marginTop="12dp"
                     android:layout_marginBottom="6dp" />
 
@@ -351,7 +360,7 @@
                     android:layout_height="wrap_content"
                     android:text="Yêu cầu:"
                     android:textSize="16sp"
-                    android:textColor="@color/black"
+                    android:textColor="@color/blue_500"
                     android:layout_marginTop="12dp"
                     android:layout_marginBottom="6dp" />
 
@@ -392,14 +401,15 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="📚 Quản lý học viên"
-                        android:textSize="16sp"
+                        android:textColor="@color/blue_text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                     <ImageView
                         android:id="@+id/imgStudentExpand"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_view"
+                        android:src="@drawable/ic_expand"
                         android:contentDescription="@string/app_name" />
                 </LinearLayout>
 
@@ -446,7 +456,8 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="🎬 Quản lý bài giảng"
-                        android:textSize="16sp"
+                        android:textColor="@color/blue_text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                     <!-- Bỏ nút thêm, thay bằng nút expand -->
@@ -454,7 +465,7 @@
                         android:id="@+id/imgLessonExpand"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_view"
+                        android:src="@drawable/ic_expand"
                         android:contentDescription="@string/app_name" />
                 </LinearLayout>
 
@@ -501,14 +512,15 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="⭐ Đánh giá khóa học"
-                        android:textSize="16sp"
+                        android:textColor="@color/blue_text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                     <ImageView
                         android:id="@+id/imgReviewExpand"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:src="@android:drawable/ic_menu_view"
+                        android:src="@drawable/ic_expand"
                         android:contentDescription="@string/app_name" />
                 </LinearLayout>
 

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/itemLessonCommentRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="8dp"
-    android:background="@android:color/white">
+    android:padding="10dp"
+    android:background="@color/white">
 
-    <!-- Header: avatar + user info + more -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -16,17 +16,18 @@
 
         <ImageView
             android:id="@+id/imgUserAvatar"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@android:drawable/ic_menu_gallery"
-            android:contentDescription="@string/app_name" />
+            android:contentDescription="@string/app_name"
+            android:scaleType="centerCrop" />
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="8dp">
+            android:layout_marginStart="10dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -41,7 +42,8 @@
                     android:layout_weight="1"
                     android:text="Student One"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
 
                 <TextView
                     android:id="@+id/tvUserRole"
@@ -49,12 +51,14 @@
                     android:layout_height="wrap_content"
                     android:text="Học viên"
                     android:textSize="10sp"
-                    android:textColor="@android:color/holo_blue_dark"
-                    android:paddingLeft="6dp"
-                    android:paddingRight="6dp"
-                    android:paddingTop="2dp"
-                    android:paddingBottom="2dp"
-                    android:background="@android:color/darker_gray" />
+                    android:textColor="@color/text_secondary"
+                    android:paddingLeft="8dp"
+                    android:paddingRight="8dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_role_badge"
+                    android:gravity="center" />
             </LinearLayout>
 
             <TextView
@@ -63,29 +67,33 @@
                 android:layout_height="wrap_content"
                 android:text="01/01/2024"
                 android:textSize="12sp"
-                android:textColor="@android:color/darker_gray" />
+                android:textColor="@color/text_secondary" />
         </LinearLayout>
 
         <ImageButton
             android:id="@+id/btnMore"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:src="@android:drawable/ic_menu_more"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/app_name" />
+            android:contentDescription="@string/app_name"
+            android:visibility="visible"
+            app:tint="@color/gray" />
     </LinearLayout>
 
-    <!-- Comment text -->
     <TextView
         android:id="@+id/tvCommentContent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Nội dung bình luận..."
         android:layout_marginTop="8dp"
-        android:padding="8dp"
-        android:textSize="13sp" />
+        android:padding="10dp"
+        android:textSize="13sp"
+        android:background="@color/blue_50"
+        android:textColor="@color/text_primary"
+        android:layout_marginEnd="4dp"
+        android:lineSpacingExtra="2dp" />
 
-    <!-- Teacher reply block (ẩn nếu không có) -->
     <LinearLayout
         android:id="@+id/layoutTeacherReply"
         android:layout_width="match_parent"
@@ -94,7 +102,7 @@
         android:visibility="gone"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
-        android:paddingLeft="44dp"> <!-- thụt vào so với avatar -->
+        android:paddingStart="54dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -104,8 +112,8 @@
 
             <ImageView
                 android:id="@+id/imgTeacherAvatar"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:src="@android:drawable/ic_menu_gallery"
                 android:contentDescription="@string/app_name" />
 
@@ -129,14 +137,15 @@
                         android:layout_weight="1"
                         android:text="Giảng viên"
                         android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Trả lời"
                         android:textSize="10sp"
-                        android:textColor="@android:color/holo_blue_dark"
+                        android:textColor="@color/blue_800"
                         android:paddingLeft="4dp" />
                 </LinearLayout>
 
@@ -146,16 +155,17 @@
                     android:layout_height="wrap_content"
                     android:text="3 ngày trước"
                     android:textSize="11sp"
-                    android:textColor="@android:color/darker_gray" />
+                    android:textColor="@color/text_secondary" />
             </LinearLayout>
 
             <ImageButton
                 android:id="@+id/btnDeleteReply"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
-                android:src="@android:drawable/ic_menu_delete"
+                android:src="@drawable/ic_delete"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/app_name" />
+                android:contentDescription="@string/app_name"
+                app:tint="@color/colorError" />
         </LinearLayout>
 
         <TextView
@@ -165,11 +175,11 @@
             android:text="Cảm ơn bạn vì phản hồi!"
             android:textSize="13sp"
             android:layout_marginTop="6dp"
-            android:padding="8dp"
-            android:background="@android:color/white" />
+            android:padding="10dp"
+            android:background="@color/white"
+            android:textColor="@color/text_primary" />
     </LinearLayout>
 
-    <!-- Actions -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -181,21 +191,32 @@
             android:id="@+id/btnReply"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Trả lời" />
+            android:minHeight="36dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="Trả lời"
+            android:textAllCaps="false"
+            android:backgroundTint="@color/blue_800"
+            android:textColor="@color/white" />
 
         <Button
             android:id="@+id/btnDelete"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Xóa"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="8dp"
+            android:minHeight="36dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:textAllCaps="false"
+            android:backgroundTint="@color/colorError"
+            android:textColor="@color/white" />
     </LinearLayout>
 
-    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="8dp"
-        android:background="@android:color/darker_gray" />
+        android:background="@color/divider" />
 
 </LinearLayout>

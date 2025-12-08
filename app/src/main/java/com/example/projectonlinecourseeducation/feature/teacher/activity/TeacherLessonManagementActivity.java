@@ -20,6 +20,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils; // dùng để extract videoId
 import com.example.projectonlinecourseeducation.data.ApiProvider;
@@ -45,6 +46,11 @@ import java.util.List;
  * - Thêm YouTube player để load video (tham khảo StudentLessonVideoActivity)
  * - Khi teacher chỉnh sửa video URL: validate/extract videoId -> update Lesson via LessonApi
  *   (thiết lập duration = "Đang tính..." và chờ LessonApi/Backend tính lại rồi notify về UI)
+ *
+ * SỬA: Thêm bước confirm bằng DialogConfirmHelper:
+ * - Confirm trước khi Lưu (video/info)
+ * - Confirm trước khi Xóa comment / Xóa reply; trước đây show success dialog sau khi xóa,
+ *   giờ đã bỏ thành success dialog cho thao tác xóa (chỉ toast + reload).
  */
 public class TeacherLessonManagementActivity extends AppCompatActivity {
 
@@ -289,6 +295,8 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
      * - Accepts a video URL or id. Extracts videoId with YouTubeUtils.
      * - If valid: set lesson.videoUrl = videoId, set duration = "Đang tính...", call lessonApi.updateLesson(...)
      * - UI sẽ được cập nhật ngay (thumbnail, url, duration) và player sẽ load video mới (nếu ready) hoặc giữ pending id.
+     *
+     * SỬA: trước khi thực hiện lưu -> showConfirmDialog; thực hiện lưu trong callback confirm.
      */
     private void showEditVideoDialog() {
         if (lesson == null) return;
@@ -308,60 +316,79 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
                 return;
             }
 
-            String videoId = YouTubeUtils.extractVideoId(newInput);
+            final String videoId = YouTubeUtils.extractVideoId(newInput);
             if (videoId == null || videoId.isEmpty()) {
                 Toast.makeText(this, "URL/ID video không hợp lệ", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Update lesson locally and persist via API
-            // NOTE: we set lesson.videoUrl to videoId for consistency with your existing logic
-            lesson.setVideoUrl(videoId);
-            lesson.setDuration("Đang tính..."); // placeholder — backend/fake sẽ tính và notify
+            // Show confirmation dialog before persisting
+            DialogConfirmHelper.showConfirmDialog(
+                    this,
+                    "Xác nhận lưu",
+                    "Bạn chắc chắn muốn lưu URL video mới cho bài học này?",
+                    R.drawable.video_confirm,
+                    "Lưu",
+                    "Hủy",
+                    R.color.blue_700,
+                    () -> {
+                        // Update lesson locally and persist via API
+                        lesson.setVideoUrl(videoId);
+                        lesson.setDuration("Đang tính..."); // placeholder — backend/fake sẽ tính và notify
 
-            // Persist to API
-            Lesson updated = lessonApi.updateLesson(lesson.getId(), lesson);
+                        // Persist to API
+                        Lesson updated = lessonApi.updateLesson(lesson.getId(), lesson);
 
-            if (updated != null) {
-                // Update local lesson reference with server response (safer)
-                lesson = updated;
+                        if (updated != null) {
+                            // Update local lesson reference with server response (safer)
+                            lesson = updated;
 
-                // Update UI immediately
-                runOnUiThread(() -> {
-                    tvVideoUrl.setText(lesson.getVideoUrl());
-                    tvDuration.setText(lesson.getDuration() != null ? lesson.getDuration() : "Đang tính...");
+                            // Update UI immediately
+                            runOnUiThread(() -> {
+                                tvVideoUrl.setText(lesson.getVideoUrl());
+                                tvDuration.setText(lesson.getDuration() != null ? lesson.getDuration() : "Đang tính...");
 
-                    // Update thumbnail
-                    String thumbUrl = "https://img.youtube.com/vi/" + videoId + "/hqdefault.jpg";
-                    ImageLoader.getInstance().display(thumbUrl, imgVideoThumbnail, R.drawable.ic_image_placeholder);
+                                // Update thumbnail
+                                String thumbUrl = "https://img.youtube.com/vi/" + videoId + "/hqdefault.jpg";
+                                ImageLoader.getInstance().display(thumbUrl, imgVideoThumbnail, R.drawable.ic_image_placeholder);
 
-                    // Ensure YouTube player is setup for the new video
-                    setupYouTubePlayerForLesson();
+                                // Ensure YouTube player is setup for the new video
+                                setupYouTubePlayerForLesson();
 
-                    // If player instance ready, load and autoplay the new id right away
-                    if (youTubePlayerInstance != null) {
-                        try {
-                            youTubePlayerInstance.loadVideo(videoId, 0f);
-                            youTubePlayerView.setVisibility(View.VISIBLE);
-                            imgVideoThumbnail.setVisibility(View.GONE);
-                            btnPlayVideo.setVisibility(View.GONE);
-                        } catch (Exception e) {
-                            // fallback: set pendingPlayVideoId so it will play when ready
-                            pendingPlayVideoId = videoId;
+                                // If player instance ready, load and autoplay the new id right away
+                                if (youTubePlayerInstance != null) {
+                                    try {
+                                        youTubePlayerInstance.loadVideo(videoId, 0f);
+                                        youTubePlayerView.setVisibility(View.VISIBLE);
+                                        imgVideoThumbnail.setVisibility(View.GONE);
+                                        btnPlayVideo.setVisibility(View.GONE);
+                                    } catch (Exception e) {
+                                        // fallback: set pendingPlayVideoId so it will play when ready
+                                        pendingPlayVideoId = videoId;
+                                    }
+                                } else {
+                                    // Player not ready yet -> set pending id and reveal player view
+                                    pendingPlayVideoId = videoId;
+                                    youTubePlayerView.setVisibility(View.VISIBLE);
+                                    imgVideoThumbnail.setVisibility(View.GONE);
+                                    btnPlayVideo.setVisibility(View.GONE);
+                                }
+                            });
+
+                            // Show success dialog
+                            DialogConfirmHelper.showSuccessDialog(
+                                    this,
+                                    "Thành công",
+                                    "Đã lưu URL video. Thời lượng sẽ được tính tự động.",
+                                    R.drawable.ic_check_success,
+                                    "Đóng",
+                                    null
+                            );
+                        } else {
+                            Toast.makeText(this, "Lỗi khi lưu URL video", Toast.LENGTH_SHORT).show();
                         }
-                    } else {
-                        // Player not ready yet -> set pending id and reveal player view
-                        pendingPlayVideoId = videoId;
-                        youTubePlayerView.setVisibility(View.VISIBLE);
-                        imgVideoThumbnail.setVisibility(View.GONE);
-                        btnPlayVideo.setVisibility(View.GONE);
                     }
-                });
-
-                Toast.makeText(this, "Đã lưu URL video. Thời lượng sẽ được tính tự động.", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Lỗi khi lưu URL video", Toast.LENGTH_SHORT).show();
-            }
+            );
         });
 
         builder.setNegativeButton("Hủy", null);
@@ -370,6 +397,8 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
 
     /**
      * Dialog để chỉnh sửa thông tin bài học (title + description)
+     *
+     * SỬA: hiện confirm trước khi update; show success dialog sau khi update thành công.
      */
     private void showEditLessonInfoDialog() {
         if (lesson == null) return;
@@ -398,25 +427,49 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
         builder.setView(layout);
 
         builder.setPositiveButton("Lưu", (dialog, which) -> {
-            String newTitle = inputTitle.getText().toString().trim();
-            String newDescription = inputDescription.getText().toString().trim();
+            final String newTitle = inputTitle.getText().toString().trim();
+            final String newDescription = inputDescription.getText().toString().trim();
 
             if (newTitle.isEmpty()) {
                 Toast.makeText(this, "Tiêu đề không được để trống", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Update lesson via API
-            lesson.setTitle(newTitle);
-            lesson.setDescription(newDescription);
-            lessonApi.updateLesson(lesson.getId(), lesson);
+            // Confirm before saving
+            DialogConfirmHelper.showConfirmDialog(
+                    this,
+                    "Xác nhận lưu",
+                    "Bạn chắc chắn muốn lưu thay đổi thông tin bài học?",
+                    R.drawable.info_check,
+                    "Lưu",
+                    "Hủy",
+                    R.color.blue_text_primary,
+                    () -> {
+                        // Update lesson via API
+                        lesson.setTitle(newTitle);
+                        lesson.setDescription(newDescription);
+                        Lesson updated = lessonApi.updateLesson(lesson.getId(), lesson);
 
-            // Update UI
-            tvLessonTitle.setText(newTitle);
-            tvLessonName.setText(newTitle);
-            tvDescription.setText(newDescription);
+                        if (updated != null) {
+                            lesson = updated;
+                            // Update UI
+                            tvLessonTitle.setText(newTitle);
+                            tvLessonName.setText(newTitle);
+                            tvDescription.setText(newDescription);
 
-            Toast.makeText(this, "Đã cập nhật thông tin bài học", Toast.LENGTH_SHORT).show();
+                            DialogConfirmHelper.showSuccessDialog(
+                                    this,
+                                    "Thành công",
+                                    "Đã cập nhật thông tin bài học",
+                                    R.drawable.ic_check_success,
+                                    "Đóng",
+                                    null
+                            );
+                        } else {
+                            Toast.makeText(this, "Lỗi khi lưu thông tin bài học", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            );
         });
 
         builder.setNegativeButton("Hủy", null);
@@ -425,6 +478,8 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
 
     /**
      * Dialog để teacher trả lời comment
+     *
+     * (không thay đổi: gửi reply ngay khi bấm Gửi)
      */
     private void showReplyDialog(LessonComment comment) {
         if (comment == null) return;
@@ -458,8 +513,14 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
             LessonComment updated = lessonCommentApi.addReply(comment.getId(), teacherName, replyContent);
 
             if (updated != null) {
-                Toast.makeText(this, "Đã trả lời bình luận", Toast.LENGTH_SHORT).show();
-                loadCommentsFromApi(); // Refresh comments
+                DialogConfirmHelper.showSuccessDialog(
+                        this,
+                        "Thành công",
+                        "Đã trả lời bình luận",
+                        R.drawable.ic_check_success,
+                        "Đóng",
+                        () -> loadCommentsFromApi()
+                );
             } else {
                 Toast.makeText(this, "Lỗi khi trả lời bình luận", Toast.LENGTH_SHORT).show();
             }
@@ -470,49 +531,59 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
     }
 
     /**
-     * Dialog xác nhận xóa comment
+     * Dialog xác nhận xóa comment -> sử dụng DialogConfirmHelper
+     * Sau khi xóa thành công: hiện Toast và reload comments (KHÔNG show success dialog).
      */
     private void showDeleteCommentDialog(LessonComment comment) {
         if (comment == null) return;
 
-        new AlertDialog.Builder(this)
-                .setTitle("Xóa bình luận")
-                .setMessage("Bạn chắc chắn muốn xóa bình luận này? Bình luận sẽ được đánh dấu là '[Bình luận đã bị xóa]'.")
-                .setPositiveButton("Xóa", (dialog, which) -> {
+        DialogConfirmHelper.showConfirmDialog(
+                this,
+                "Xóa bình luận",
+                "Bạn chắc chắn muốn xóa bình luận này? Bình luận sẽ được đánh dấu là '[Bình luận đã bị xóa]'.",
+                R.drawable.delete_check,
+                "Xóa",
+                "Hủy",
+                R.color.blue_700,
+                () -> {
                     LessonComment updated = lessonCommentApi.markCommentAsDeleted(comment.getId());
 
                     if (updated != null) {
                         Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
-                        loadCommentsFromApi(); // Refresh comments
+                        loadCommentsFromApi();
                     } else {
                         Toast.makeText(this, "Lỗi khi xóa bình luận", Toast.LENGTH_SHORT).show();
                     }
-                })
-                .setNegativeButton("Hủy", null)
-                .show();
+                }
+        );
     }
 
     /**
-     * Dialog xác nhận xóa reply của teacher
+     * Dialog xác nhận xóa reply của teacher -> sử dụng DialogConfirmHelper
+     * Sau khi xóa thành công: hiện Toast và reload comments (KHÔNG show success dialog).
      */
     private void showDeleteReplyDialog(LessonComment comment) {
         if (comment == null) return;
 
-        new AlertDialog.Builder(this)
-                .setTitle("Xóa trả lời")
-                .setMessage("Bạn chắc chắn muốn xóa câu trả lời của bạn?")
-                .setPositiveButton("Xóa", (dialog, which) -> {
+        DialogConfirmHelper.showConfirmDialog(
+                this,
+                "Xóa trả lời",
+                "Bạn chắc chắn muốn xóa câu trả lời của bạn?",
+                R.drawable.delete_check,
+                "Xóa",
+                "Hủy",
+                R.color.blue_700,
+                () -> {
                     LessonComment updated = lessonCommentApi.deleteReply(comment.getId());
 
                     if (updated != null) {
                         Toast.makeText(this, "Đã xóa trả lời", Toast.LENGTH_SHORT).show();
-                        loadCommentsFromApi(); // Refresh comments
+                        loadCommentsFromApi();
                     } else {
                         Toast.makeText(this, "Lỗi khi xóa trả lời", Toast.LENGTH_SHORT).show();
                     }
-                })
-                .setNegativeButton("Hủy", null)
-                .show();
+                }
+        );
     }
 
     /**

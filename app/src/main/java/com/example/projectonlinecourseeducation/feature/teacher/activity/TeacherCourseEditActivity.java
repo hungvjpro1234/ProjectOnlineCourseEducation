@@ -3,7 +3,7 @@ package com.example.projectonlinecourseeducation.feature.teacher.activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
 import android.text.InputType;
-import android.view.View; // <--- THÊM IMPORT NÀY (quan trọng)
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -12,6 +12,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,8 +20,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
-import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils; // <-- dùng YouTubeUtils thay VideoDurationHelper
+import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
@@ -36,10 +38,10 @@ import java.util.Set;
 /**
  * Activity chỉnh sửa khóa học dành cho teacher.
  *
- * Sửa logic:
- * - Tách biệt "staged" changes (local) và "persist" changes (gọi API) chỉ khi user bấm Save.
- * - Activity chỉ giao tiếp với LessonApi (interface). Không gọi các phương thức dev-specific.
- * - Đăng ký listener qua LessonApi để nhận update (duration được cập nhật).
+ * Các điểm chính trong bản này:
+ * - Tách staged state (local) và persist (gọi API) chỉ khi user xác nhận Lưu.
+ * - Dùng OnBackPressedCallback để xử lý back gesture theo AndroidX.
+ * - Dùng DialogConfirmHelper cho tất cả dialog confirm (back/save/delete).
  */
 public class TeacherCourseEditActivity extends AppCompatActivity {
 
@@ -60,12 +62,12 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     private LessonEditAdapter lessonAdapter;
 
     // --- Local staged state (chưa persist) ---
-    private String stagedImageUrl = null;        // url user confirmed to preview (but not saved)
-    private List<String> stagedCategoryTags = new ArrayList<>(); // multi-tag staged
+    private String stagedImageUrl = null; // url user confirmed to preview (but not saved)
+    private final List<String> stagedCategoryTags = new ArrayList<>(); // multi-tag staged (final is fine)
     private List<Lesson> localLessons = new ArrayList<>(); // deep-ish copy used for UI + edit
     private Map<String, Lesson> originalLessonsMap = new HashMap<>(); // original snapshot to detect deletes/updates
 
-    // Fixed category list (the one you requested). You can extend later.
+    // Fixed category list
     private static final String[] FIXED_CATEGORIES = new String[]{
             "Java","JavaScript","Python","C","C++","C#","PHP","SQL","HTML","CSS","TypeScript",
             "Go","Kotlin","Backend","Frontend","Data / AI","Mobile","System","DevOps","Swift",
@@ -76,18 +78,15 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     private final LessonApi.LessonUpdateListener lessonUpdateListener = new LessonApi.LessonUpdateListener() {
         @Override
         public void onLessonUpdated(String lessonId, Lesson updatedLesson) {
-            // Ensure update affects current course
             if (updatedLesson == null) return;
             if (courseId == null) return;
             if (!courseId.equals(updatedLesson.getCourseId())) return;
 
-            // Update localLessons on UI thread
             runOnUiThread(() -> {
                 boolean found = false;
                 for (int i = 0; i < localLessons.size(); i++) {
                     Lesson l = localLessons.get(i);
                     if (l.getId() != null && l.getId().equals(lessonId)) {
-                        // update fields that may have changed (e.g. duration)
                         l.setTitle(updatedLesson.getTitle());
                         l.setDescription(updatedLesson.getDescription());
                         l.setVideoUrl(updatedLesson.getVideoUrl());
@@ -98,10 +97,8 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                     }
                 }
                 if (!found) {
-                    // If local list doesn't contain it (maybe created by API), add it and reindex
                     localLessons.add(updatedLesson);
                 }
-                // Reindex orders to keep UI consistent
                 for (int i = 0; i < localLessons.size(); i++) {
                     localLessons.get(i).setOrder(i + 1);
                 }
@@ -120,7 +117,14 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         initViews();
         setupListeners();
 
-        // Register listener on LessonApi (UI doesn't care whether the provider is fake or remote)
+        // Register back-gesture aware callback (AndroidX)
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackWithConfirm();
+            }
+        });
+
         try {
             lessonApi.addLessonUpdateListener(lessonUpdateListener);
         } catch (Throwable ignored) {}
@@ -134,30 +138,12 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Remove listener
         try {
             lessonApi.removeLessonUpdateListener(lessonUpdateListener);
         } catch (Throwable ignored) {}
     }
 
-    /**
-     * Helper: attempt to detect debug build at runtime without referencing BuildConfig symbol
-     * directly. This avoids "Cannot resolve symbol BuildConfig" in weird module setups.
-     *
-     * It tries to load {package}.BuildConfig and read the static boolean DEBUG field.
-     * If anything fails, returns false.
-     */
-    private boolean isDebugBuild() {
-        try {
-            Class<?> bc = Class.forName(getPackageName() + ".BuildConfig");
-            return bc.getField("DEBUG").getBoolean(null);
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
     private void initApis() {
-        // CHANGED: use ApiProvider so we can swap implementations later (fake vs remote)
         courseApi = ApiProvider.getCourseApi();
         lessonApi = ApiProvider.getLessonApi();
     }
@@ -179,23 +165,35 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         rvLessons = findViewById(R.id.rvLessons);
         tvNoLessons = findViewById(R.id.tvNoLessons);
 
-        // Setup lessons RecyclerView
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
         lessonAdapter = new LessonEditAdapter();
         rvLessons.setAdapter(lessonAdapter);
     }
 
     private void setupListeners() {
-        btnBack.setOnClickListener(v -> finish());
-        btnSave.setOnClickListener(v -> saveCourse());
+        // UI back button
+        btnBack.setOnClickListener(v -> handleBackWithConfirm());
+
+        // Save button shows confirm first
+        btnSave.setOnClickListener(v -> {
+            DialogConfirmHelper.showConfirmDialog(
+                    TeacherCourseEditActivity.this,
+                    "Xác nhận lưu",
+                    "Bạn chắc chắn muốn lưu các thay đổi cho khóa học?",
+                    R.drawable.save_check,
+                    "Lưu",
+                    "Hủy",
+                    R.color.blue_700,
+                    () -> performSaveCourse()
+            );
+        });
+
         btnAddSkill.setOnClickListener(v -> showAddSkillDialog());
         btnAddRequirement.setOnClickListener(v -> showAddRequirementDialog());
         btnAddLesson.setOnClickListener(v -> showLessonDialog(null, -1));
 
-        // Edit image overlay
         btnEditImageUrl.setOnClickListener(v -> showEditImageUrlDialog());
 
-        // Category click -> open checklist
         etCategory.setOnClickListener(v -> showCategorySelectDialog());
 
         lessonAdapter.setOnLessonActionListener(new LessonEditAdapter.OnLessonActionListener() {
@@ -206,9 +204,57 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
 
             @Override
             public void onDeleteLesson(Lesson lesson, int position) {
-                confirmDeleteLessonLocal(lesson, position);
+                DialogConfirmHelper.showConfirmDialog(
+                        TeacherCourseEditActivity.this,
+                        "Xóa bài học",
+                        "Bạn chắc chắn muốn xóa bài học này? Lưu ý: thao tác sẽ được áp dụng sau khi bấm Lưu.",
+                        R.drawable.delete_check,
+                        "Xóa",
+                        "Hủy",
+                        R.color.blue_text_primary,
+                        () -> {
+                            if (position >= 0 && position < localLessons.size()) {
+                                localLessons.remove(position);
+                            } else {
+                                for (int i = 0; i < localLessons.size(); i++) {
+                                    Lesson l = localLessons.get(i);
+                                    if ((l.getId() != null && l.getId().equals(lesson.getId())) || l == lesson) {
+                                        localLessons.remove(i);
+                                        break;
+                                    }
+                                }
+                            }
+                            lessonAdapter.submitList(new ArrayList<>(localLessons));
+                            updateLessonsVisibility();
+                            Toast.makeText(TeacherCourseEditActivity.this, "Đã xóa cục bộ. Bấm Lưu để áp dụng.", Toast.LENGTH_SHORT).show();
+                        }
+                );
             }
         });
+    }
+
+    /**
+     * Xử lý khi user bấm back (UI hoặc gesture). Nếu có thay đổi chưa lưu -> show confirm.
+     * Nếu xác nhận, finish(); nếu không thì ở lại.
+     */
+    private void handleBackWithConfirm() {
+        if (hasUnsavedChanges()) {
+            DialogConfirmHelper.showConfirmDialog(
+                    this,
+                    "Thoát mà không lưu?",
+                    "Bạn có thay đổi chưa lưu. Nếu thoát, các thay đổi sẽ không được lưu lại.",
+                    R.drawable.back_warning_purple,
+                    "Thoát",
+                    "Hủy",
+                    R.color.purple_500,
+                    () -> {
+                        // user confirmed discard -> finish
+                        finish();
+                    }
+            );
+        } else {
+            finish();
+        }
     }
 
     private void loadCourseData() {
@@ -219,15 +265,11 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
             return;
         }
 
-        // Load course basic info
-        // Use placeholder if image invalid — ImageLoader returns placeholder if URL broken (we set placeholder first)
         ImageLoader.getInstance().display(currentCourse.getImageUrl(), imgCourse, R.drawable.ic_image_placeholder);
-        // stagedImageUrl null ban đầu (người dùng chưa confirm edit). Khi Save, sẽ set vào currentCourse.
         stagedImageUrl = null;
 
         etTitle.setText(currentCourse.getTitle());
         etCategory.setText(currentCourse.getCategory());
-        // initialize stagedCategoryTags from existing course category split by ','
         stagedCategoryTags.clear();
         if (currentCourse.getCategory() != null && !currentCourse.getCategory().trim().isEmpty()) {
             String[] parts = currentCourse.getCategory().split(",");
@@ -239,17 +281,14 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         etPrice.setText(String.valueOf((long) currentCourse.getPrice()));
         etDescription.setText(currentCourse.getDescription());
 
-        // Load skills & requirements into UI (these are EditText rows)
         populateSkills(currentCourse.getSkills());
         populateRequirements(currentCourse.getRequirements());
 
-        // Load lessons — BUT create local copy; DO NOT modify global API until Save
         List<Lesson> loaded = lessonApi.getLessonsForCourse(courseId);
         localLessons.clear();
         originalLessonsMap.clear();
         if (loaded != null) {
             for (Lesson l : loaded) {
-                // create a shallow copy of lesson object (we want local mutability)
                 Lesson copy = new Lesson(
                         l.getId(),
                         l.getCourseId(),
@@ -306,7 +345,20 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
         btn.setText("X");
-        btn.setOnClickListener(v -> skillsContainer.removeView(itemLayout));
+
+        // Confirm before removing skill row
+        btn.setOnClickListener(v -> {
+            DialogConfirmHelper.showConfirmDialog(
+                    TeacherCourseEditActivity.this,
+                    "Xóa kỹ năng",
+                    "Bạn có chắc chắn muốn xóa kỹ năng này?",
+                    R.drawable.delete_check,
+                    "Xóa",
+                    "Hủy",
+                    R.color.blue_text_primary,
+                    () -> skillsContainer.removeView(itemLayout)
+            );
+        });
 
         itemLayout.addView(et);
         itemLayout.addView(btn);
@@ -334,7 +386,20 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
         btn.setText("X");
-        btn.setOnClickListener(v -> requirementsContainer.removeView(itemLayout));
+
+        // Confirm before removing requirement row
+        btn.setOnClickListener(v -> {
+            DialogConfirmHelper.showConfirmDialog(
+                    TeacherCourseEditActivity.this,
+                    "Xóa yêu cầu",
+                    "Bạn có chắc chắn muốn xóa yêu cầu này?",
+                    R.drawable.delete_check,
+                    "Xóa",
+                    "Hủy",
+                    R.color.blue_text_primary,
+                    () -> requirementsContainer.removeView(itemLayout)
+            );
+        });
 
         itemLayout.addView(et);
         itemLayout.addView(btn);
@@ -342,7 +407,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     }
 
     private void loadLessons() {
-        // localLessons already loaded in loadCourseData()
         lessonAdapter.submitList(new ArrayList<>(localLessons));
         updateLessonsVisibility();
     }
@@ -397,7 +461,7 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
 
     /**
      * Show dialog to input image URL. When user confirms -> we preview it using ImageLoader
-     * but we DO NOT persist to courseApi until main Save clicked.
+     * but we DO NOT persist to courseApi until main Save confirmed.
      */
     private void showEditImageUrlDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -411,7 +475,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         builder.setPositiveButton("Xác nhận & Xem thử", (dialog, which) -> {
             String url = input.getText().toString().trim();
             if (!url.isEmpty()) {
-                // Stage the image url and preview it
                 stagedImageUrl = url;
                 ImageLoader.getInstance().display(url, imgCourse, R.drawable.ic_image_placeholder);
                 Toast.makeText(this, "Ảnh đã được tải xem trước. Bấm Lưu để lưu thay đổi.", Toast.LENGTH_SHORT).show();
@@ -430,7 +493,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
      */
     private void showCategorySelectDialog() {
         boolean[] checked = new boolean[FIXED_CATEGORIES.length];
-        // pre-check stagedCategoryTags
         for (int i = 0; i < FIXED_CATEGORIES.length; i++) {
             checked[i] = stagedCategoryTags.contains(FIXED_CATEGORIES[i]);
         }
@@ -461,11 +523,7 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
 
     /**
      * Show dialog to create or edit a lesson.
-     * IMPORTANT: changes are applied to localLessons only (no API call here).
-     *
-     * NOTE: Duration input removed — duration will be computed by the backend / fake API.
-     * We set a placeholder "Đang tính..." locally and rely on LessonApi implementation
-     * to compute and push the real duration via LessonUpdateListener.
+     * Changes are applied to localLessons only (no API call here).
      */
     private void showLessonDialog(Lesson lesson, int position) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -486,8 +544,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         if (lesson != null) etVideoUrl.setText(lesson.getVideoUrl());
         layout.addView(etVideoUrl);
 
-        // Remove editable duration input (we compute it automatically)
-        // Instead, show a small helper TextView to inform user.
         TextView tvDurationNote = new TextView(this);
         tvDurationNote.setText("Thời lượng sẽ được tính tự động sau khi lưu (backend sẽ trả).");
         tvDurationNote.setPadding(0, 12, 0, 12);
@@ -511,7 +567,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 return;
             }
 
-            // CHUẨN HÓA: extract videoId từ input (id hoặc url)
             String videoId = YouTubeUtils.extractVideoId(videoInput);
             if (videoId == null) {
                 Toast.makeText(TeacherCourseEditActivity.this, "URL/ID video không hợp lệ", Toast.LENGTH_SHORT).show();
@@ -519,30 +574,25 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
             }
 
             if (lesson == null) {
-                // Create new local lesson (id null => indicates new)
                 int newOrder = (localLessons == null) ? 1 : (localLessons.size() + 1);
                 Lesson newLesson = new Lesson(
                         null, // id null until persisted
                         courseId,
                         title,
                         description,
-                        videoId, // store videoId (not full url)
-                        "Đang tính...", // placeholder duration — will be updated by API later
+                        videoId,
+                        "Đang tính...", // placeholder
                         newOrder
                 );
                 if (localLessons == null) localLessons = new ArrayList<>();
                 localLessons.add(newLesson);
             } else {
-                // Update existing local lesson (mutable)
                 lesson.setTitle(title);
-                lesson.setVideoUrl(videoId); // update to videoId
-                // don't allow manual duration change — reset to placeholder to trigger recompute later
+                lesson.setVideoUrl(videoId);
                 lesson.setDuration("Đang tính...");
                 lesson.setDescription(description);
-                // order kept as current position — we will reindex on Save
             }
 
-            // Update adapter immediately so user sees the placeholder state
             lessonAdapter.submitList(new ArrayList<>(localLessons));
             updateLessonsVisibility();
             Toast.makeText(TeacherCourseEditActivity.this,
@@ -556,18 +606,21 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     }
 
     /**
-     * Xóa lesson ở local (không gọi lessonApi.deleteLesson ở đây).
-     * Việc xóa sẽ được sync lên API khi bấm Save.
+     * Convenience confirm wrapper if needed elsewhere.
      */
     private void confirmDeleteLessonLocal(Lesson lesson, int position) {
-        new AlertDialog.Builder(this)
-                .setTitle("Xóa bài học")
-                .setMessage("Bạn chắc chắn muốn xóa bài học này? Lưu ý: thao tác sẽ được áp dụng sau khi bấm Lưu.")
-                .setPositiveButton("Xóa", (dialog, which) -> {
+        DialogConfirmHelper.showConfirmDialog(
+                this,
+                "Xóa bài học",
+                "Bạn chắc chắn muốn xóa bài học này? Lưu ý: thao tác sẽ được áp dụng sau khi bấm Lưu.",
+                R.drawable.delete_check,
+                "Xóa",
+                "Hủy",
+                R.color.blue_text_primary,
+                () -> {
                     if (position >= 0 && position < localLessons.size()) {
                         localLessons.remove(position);
                     } else {
-                        // fallback: remove by id or reference
                         for (int i = 0; i < localLessons.size(); i++) {
                             Lesson l = localLessons.get(i);
                             if ((l.getId() != null && l.getId().equals(lesson.getId())) || l == lesson) {
@@ -579,18 +632,92 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                     lessonAdapter.submitList(new ArrayList<>(localLessons));
                     updateLessonsVisibility();
                     Toast.makeText(TeacherCourseEditActivity.this, "Đã xóa cục bộ. Bấm Lưu để áp dụng.", Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Hủy", (dialog, which) -> dialog.cancel())
-                .show();
+                }
+        );
     }
 
     /**
-     * Save tất cả thay đổi: course fields, staged image, staged categories, skills/requirements,
-     * và sync lesson changes (create/update/delete + reorder).
+     * Kiểm tra thay đổi chưa lưu (so sánh cơ bản các trường được edit)
      */
-    private void saveCourse() {
+    private boolean hasUnsavedChanges() {
+        if (currentCourse == null) return false;
+
+        if (!safeString(etTitle.getText().toString()).equals(safeString(currentCourse.getTitle()))) return true;
+
+        String stagedCategoryJoined = String.join(", ", stagedCategoryTags);
+        if (!safeString(stagedCategoryJoined).equals(safeString(currentCourse.getCategory()))) return true;
+
+        if (!safeString(etDescription.getText().toString()).equals(safeString(currentCourse.getDescription()))) return true;
+
+        try {
+            double enteredPrice = Double.parseDouble(etPrice.getText().toString().trim());
+            if (enteredPrice != currentCourse.getPrice()) return true;
+        } catch (Exception ignored) {}
+
+        if (stagedImageUrl != null && !stagedImageUrl.equals(currentCourse.getImageUrl())) return true;
+
+        List<String> curSkills = currentCourse.getSkills() != null ? currentCourse.getSkills() : new ArrayList<>();
+        List<String> curReqs = currentCourse.getRequirements() != null ? currentCourse.getRequirements() : new ArrayList<>();
+
+        List<String> uiSkills = new ArrayList<>();
+        for (int i = 0; i < skillsContainer.getChildCount(); i++) {
+            View child = skillsContainer.getChildAt(i);
+            if (child instanceof LinearLayout) {
+                LinearLayout row = (LinearLayout) child;
+                for (int j = 0; j < row.getChildCount(); j++) {
+                    View subChild = row.getChildAt(j);
+                    if (subChild instanceof EditText) {
+                        String text = ((EditText) subChild).getText().toString().trim();
+                        if (!text.isEmpty()) uiSkills.add(text);
+                    }
+                }
+            }
+        }
+        if (uiSkills.size() != curSkills.size()) return true;
+        for (int i = 0; i < uiSkills.size(); i++) {
+            if (!uiSkills.get(i).equals(curSkills.get(i))) return true;
+        }
+
+        List<String> uiReqs = new ArrayList<>();
+        for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
+            View child = requirementsContainer.getChildAt(i);
+            if (child instanceof LinearLayout) {
+                LinearLayout row = (LinearLayout) child;
+                for (int j = 0; j < row.getChildCount(); j++) {
+                    View subChild = row.getChildAt(j);
+                    if (subChild instanceof EditText) {
+                        String text = ((EditText) subChild).getText().toString().trim();
+                        if (!text.isEmpty()) uiReqs.add(text);
+                    }
+                }
+            }
+        }
+        if (uiReqs.size() != curReqs.size()) return true;
+        for (int i = 0; i < uiReqs.size(); i++) {
+            if (!uiReqs.get(i).equals(curReqs.get(i))) return true;
+        }
+
+        Set<String> origIds = new HashSet<>(originalLessonsMap.keySet());
+        Set<String> curIds = new HashSet<>();
+        for (Lesson l : localLessons) {
+            if (l.getId() != null) curIds.add(l.getId());
+            else curIds.add("NEW#" + l.getOrder() + "#" + l.getTitle());
+        }
+        if (!origIds.equals(curIds)) return true;
+
+        return false;
+    }
+
+    private String safeString(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    /**
+     * Tách ra thực hiện lưu (gọi API). Được gọi khi người dùng confirm ở dialog.
+     */
+    private void performSaveCourse() {
         String title = etTitle.getText().toString().trim();
-        String category = etCategory.getText().toString().trim(); // staged text already set
+        String category = etCategory.getText().toString().trim();
         String priceStr = etPrice.getText().toString().trim();
         String description = etDescription.getText().toString().trim();
 
@@ -602,7 +729,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         try {
             double price = Double.parseDouble(priceStr);
 
-            // Collect skills
             List<String> skills = new ArrayList<>();
             for (int i = 0; i < skillsContainer.getChildCount(); i++) {
                 View child = skillsContainer.getChildAt(i);
@@ -620,7 +746,6 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 }
             }
 
-            // Collect requirements
             List<String> requirements = new ArrayList<>();
             for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
                 View child = requirementsContainer.getChildAt(i);
@@ -638,9 +763,7 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 }
             }
 
-            // -------------- Update Course object (in-memory) ----------------
             currentCourse.setTitle(title);
-            // Category: use stagedCategoryTags (more reliable than free text)
             String joinedCategories = String.join(", ", stagedCategoryTags);
             currentCourse.setCategory(joinedCategories);
             currentCourse.setPrice(price);
@@ -648,19 +771,14 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
             currentCourse.setSkills(skills);
             currentCourse.setRequirements(requirements);
 
-            // If user staged a new image url, persist it now
             if (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty()) {
                 currentCourse.setImageUrl(stagedImageUrl);
             }
 
-            // -------------- Sync Lessons ----------------
-            // 1) Reindex localLessons order sequentially 1..n
             for (int i = 0; i < localLessons.size(); i++) {
                 localLessons.get(i).setOrder(i + 1);
             }
 
-            // 2) Build maps to detect create/update/delete
-            // originalLessonsMap contains snapshot from loadCourseData (ids present)
             Set<String> originalIds = new HashSet<>(originalLessonsMap.keySet());
             Set<String> newIds = new HashSet<>();
             List<Lesson> toCreate = new ArrayList<>();
@@ -668,32 +786,26 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
 
             for (Lesson l : localLessons) {
                 if (l.getId() == null || l.getId().trim().isEmpty()) {
-                    // new lesson -> create
                     toCreate.add(l);
                 } else {
                     newIds.add(l.getId());
-                    // we consider update for any lesson that exists in original (simple approach)
                     if (originalLessonsMap.containsKey(l.getId())) {
                         toUpdate.add(l);
                     } else {
-                        // Id present but not in original snapshot -> also treat as create for safety
                         toCreate.add(l);
                     }
                 }
             }
 
-            // Deleted ids = originalIds - newIds
             Set<String> toDeleteIds = new HashSet<>(originalIds);
             toDeleteIds.removeAll(newIds);
 
-            // 3) Persist changes to API (course + lessons)
-            // Note: Course update first so course exists (in case createLesson requires course)
+            // Update course first
             courseApi.updateCourse(courseId, currentCourse);
 
-            // Create new lessons via lessonApi.createLesson -> important: lessonApi will assign id if needed
+            // Create new lessons
             for (Lesson c : toCreate) {
                 Lesson created = lessonApi.createLesson(c);
-                // update local object id if API returned assigned id
                 if (created != null && created.getId() != null) {
                     c.setId(created.getId());
                 }
@@ -704,13 +816,19 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 lessonApi.updateLesson(u.getId(), u);
             }
 
-            // Delete lessons removed
+            // Delete removed lessons
             for (String delId : toDeleteIds) {
                 lessonApi.deleteLesson(delId);
             }
 
-            Toast.makeText(this, "Lưu khóa học thành công", Toast.LENGTH_SHORT).show();
-            finish();
+            DialogConfirmHelper.showSuccessDialog(
+                    this,
+                    "Thành công",
+                    "Lưu khóa học thành công",
+                    R.drawable.ic_check_success,
+                    "Đóng",
+                    () -> finish()
+            );
 
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Giá phải là một số hợp lệ", Toast.LENGTH_SHORT).show();

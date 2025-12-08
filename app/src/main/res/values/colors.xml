@@ -61,4 +61,6 @@
     <color name="hint_text">#999999</color>
     <color name="error_red">#E53935</color>
 
+    <color name="purple_blue_mix">#2F3CA6</color>
+
 </resources>
