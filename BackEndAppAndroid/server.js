@@ -36,10 +36,11 @@ async function getEnumValues(enumName = "course_payment_status_enum") {
 }
 
 // Allowed transitions (logical). Nếu enum DB khác tên, hơi thay đổi map này.
+
 const allowedTransitions = {
-    unpaid: ["added_to_cart", "paid"],
-    added_to_cart: ["unpaid", "paid"],
-    paid: [],
+  NOT_PURCHASED: ['IN_CART', 'PURCHASED'],
+  IN_CART: ['NOT_PURCHASED', 'PURCHASED'], // ← thêm 'PURCHASED' ở đây
+  PURCHASED: []
 };
 
 /**
