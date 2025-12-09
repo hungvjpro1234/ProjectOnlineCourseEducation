@@ -1153,7 +1153,8 @@ app.post("/cart/remove", async (req, res) => {
                 .status(404)
                 .send({ success: false, message: "Không tìm thấy record" });
 
-        if (rec.status === "IN_CART")
+        // Nếu đã PURCHASED -> không thể remove khỏi giỏ (đã mua rồi)
+        if (rec.status === "PURCHASED")
             return res
                 .status(400)
                 .send({
@@ -1161,8 +1162,8 @@ app.post("/cart/remove", async (req, res) => {
                     message: "Không thể remove khóa học đã thanh toán",
                 });
 
+        // Nếu đang ở IN_CART -> revert về NOT_PURCHASED (giữ record để lưu price_snapshot nếu cần)
         if (rec.status === "IN_CART") {
-            // revert to NOT_PURCHASED (giữ record, vì có thể muốn keep price_snapshot)
             const updated = await upsertCartStatus(
                 userId,
                 courseId,
@@ -1171,16 +1172,17 @@ app.post("/cart/remove", async (req, res) => {
             );
             return res.send({
                 success: true,
-                message: "Đã remove khỏi giỏ ",
+                message: "Đã remove khỏi giỏ",
                 data: updated,
             });
-        } else {
-            return res.send({
-                success: true,
-                message: "Khóa học không nằm trong giỏ",
-                data: rec,
-            });
         }
+
+        // Các trạng thái khác (ví dụ NOT_PURCHASED) -> không có gì để remove
+        return res.send({
+            success: true,
+            message: "Khóa học không nằm trong giỏ",
+            data: rec,
+        });
     } catch (err) {
         console.error("POST /cart/remove error", err);
         return res
@@ -1188,6 +1190,7 @@ app.post("/cart/remove", async (req, res) => {
             .send({ success: false, message: "Lỗi server khi remove" });
     }
 });
+
 
 // Checkout (thanh toán) - chuyển status -> PURCHASED cho list khóa học
 // POST /cart/checkout  body: { userId, courseIds: [1,2,3] }
