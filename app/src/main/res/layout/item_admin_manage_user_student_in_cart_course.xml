@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <!-- Course Avatar -->
+        <ImageView
+            android:id="@+id/imgCourseAvatar"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@drawable/ava_teacher"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/app_name"
+            android:layout_marginEnd="12dp" />
+
+        <!-- Course Info -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- Course Name -->
+            <TextView
+                android:id="@+id/tvCourseName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lập trình Android Nâng cao"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_dark"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <!-- Course Details -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp">
+
+                <!-- Rating -->
+                <TextView
+                    android:id="@+id/tvRating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⭐ 4.8"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:layout_marginEnd="8dp" />
+
+                <!-- Student Count -->
+                <TextView
+                    android:id="@+id/tvStudentCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="👥 1.2K"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Price -->
+        <TextView
+            android:id="@+id/tvPrice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="299.000 VNĐ"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="@color/orange_main"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

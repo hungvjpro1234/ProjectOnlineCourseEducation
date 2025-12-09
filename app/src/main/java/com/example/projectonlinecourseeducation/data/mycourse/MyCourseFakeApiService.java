@@ -97,4 +97,27 @@ public class MyCourseFakeApiService implements MyCourseApi {
         List<Course> userMyCourses = getCurrentUserMyCourses();
         userMyCourses.clear();
     }
+
+    // ------------------ ADMIN: Get data for specific user ------------------
+
+    @Override
+    public synchronized List<Course> getMyCoursesForUser(String userId) {
+        if (userId == null) return new ArrayList<>();
+        if (!myCoursesMap.containsKey(userId)) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(myCoursesMap.get(userId));
+    }
+
+    @Override
+    public synchronized boolean isPurchasedForUser(String courseId, String userId) {
+        if (courseId == null || userId == null) return false;
+        List<Course> userCourses = getMyCoursesForUser(userId);
+        for (Course c : userCourses) {
+            if (c != null && courseId.equals(c.getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

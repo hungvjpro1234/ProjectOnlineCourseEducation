@@ -301,4 +301,11 @@ public class AuthRemoteApiService implements AuthApi {
             role
         );
     }
+
+    @Override
+    public java.util.List<User> getAllUsersByRole(User.Role role) {
+        // Backend chưa có endpoint tương ứng — trả về danh sách rỗng để không bị lỗi
+        Log.w(TAG, "getAllUsersByRole: backend endpoint not implemented, returning empty list for role=" + role);
+        return new java.util.ArrayList<>();
+    }
 }
