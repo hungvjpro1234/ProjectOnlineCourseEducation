@@ -1066,12 +1066,12 @@ app.post("/cart/add", async (req, res) => {
 
     try {
         const enumVals = await getEnumValues();
-        if (!enumVals.includes("added_to_cart")) {
+        if (!enumVals.includes("IN_CART")) {
             return res
                 .status(500)
                 .send({
                     success: false,
-                    message: "Enum không có added_to_cart",
+                    message: "Enum không có IN_CART",
                 });
         }
 
@@ -1080,7 +1080,7 @@ app.post("/cart/add", async (req, res) => {
             const created = await upsertCartStatus(
                 userId,
                 courseId,
-                "added_to_cart",
+                "IN_CART",
                 { price_snapshot, course_name }
             );
             return res.send({
@@ -1090,7 +1090,7 @@ app.post("/cart/add", async (req, res) => {
             });
         }
 
-        if (rec.status === "paid") {
+        if (rec.status === "PURCHASED") {
             return res
                 .status(400)
                 .send({
@@ -1098,27 +1098,27 @@ app.post("/cart/add", async (req, res) => {
                     message: "Đã thanh toán, không thể add",
                 });
         }
-        if (rec.status === "added_to_cart") {
+        if (rec.status === "IN_CART") {
             return res.send({
                 success: true,
                 message: "Đã có trong giỏ",
                 data: rec,
             });
         }
-        // từ unpaid -> added_to_cart
+        // từ NOT_PURCHASED -> IN_CART
         if (
             allowedTransitions[rec.status] &&
-            allowedTransitions[rec.status].includes("added_to_cart")
+            allowedTransitions[rec.status].includes("IN_CART")
         ) {
             const updated = await upsertCartStatus(
                 userId,
                 courseId,
-                "added_to_cart",
+                "IN_CART",
                 { price_snapshot, course_name }
             );
             return res.send({
                 success: true,
-                message: "Chuyển sang added_to_cart",
+                message: "Chuyển sang IN_CART",
                 data: updated,
             });
         } else {
@@ -1126,7 +1126,7 @@ app.post("/cart/add", async (req, res) => {
                 .status(400)
                 .send({
                     success: false,
-                    message: `Không thể chuyển ${rec.status} -> added_to_cart`,
+                    message: `Không thể chuyển ${rec.status} -> IN_CART`,
                 });
         }
     } catch (err) {
@@ -1137,7 +1137,7 @@ app.post("/cart/add", async (req, res) => {
     }
 });
 
-// Remove from cart (revert về NOT_PAID)
+// Remove from cart (revert về NOT_PURCHASED)
 // POST /cart/remove  body: { userId, courseId }
 app.post("/cart/remove", async (req, res) => {
     const { userId, courseId } = req.body;
@@ -1153,7 +1153,7 @@ app.post("/cart/remove", async (req, res) => {
                 .status(404)
                 .send({ success: false, message: "Không tìm thấy record" });
 
-        if (rec.status === "added_to_cart")
+        if (rec.status === "IN_CART")
             return res
                 .status(400)
                 .send({
@@ -1162,11 +1162,11 @@ app.post("/cart/remove", async (req, res) => {
                 });
 
         if (rec.status === "IN_CART") {
-            // revert to NOT_PAID (giữ record, vì có thể muốn keep price_snapshot)
+            // revert to NOT_PURCHASED (giữ record, vì có thể muốn keep price_snapshot)
             const updated = await upsertCartStatus(
                 userId,
                 courseId,
-                "unpaid",
+                "NOT_PURCHASED",
                 {}
             );
             return res.send({
@@ -1189,7 +1189,7 @@ app.post("/cart/remove", async (req, res) => {
     }
 });
 
-// Checkout (thanh toán) - chuyển status -> PAID cho list khóa học
+// Checkout (thanh toán) - chuyển status -> PURCHASED cho list khóa học
 // POST /cart/checkout  body: { userId, courseIds: [1,2,3] }
 app.post("/cart/checkout", async (req, res) => {
     const { userId, courseIds } = req.body;
@@ -1200,10 +1200,10 @@ app.post("/cart/checkout", async (req, res) => {
 
     try {
         const enumVals = await getEnumValues();
-        if (!enumVals.includes("paid")) {
+        if (!enumVals.includes("PURCHASED")) {
             return res
                 .status(500)
-                .send({ success: false, message: "Enum không có PAID" });
+                .send({ success: false, message: "Enum không có PURCHASED" });
         }
 
         // Dùng tx để atomic
@@ -1216,39 +1216,39 @@ app.post("/cart/checkout", async (req, res) => {
                     [userId, cid]
                 );
                 if (!rec) {
-                    // insert mới với PAID (mua trực tiếp)
+                    // insert mới với PURCHASED (mua trực tiếp)
                     const ins = await t.one(
                         `INSERT INTO course_payment_status (user_id, course_id, status) VALUES($1,$2,$3) RETURNING *`,
-                        [userId, cid, "paid"]
+                        [userId, cid, "PURCHASED"]
                     );
                     out.push({
                         courseId: cid,
-                        note: "Inserted as PAID",
+                        note: "Inserted as PURCHASED",
                         item: ins,
                     });
                     continue;
                 }
-                if (rec.status === "paid") {
+                if (rec.status === "PURCHASED") {
                     out.push({
                         courseId: cid,
-                        note: "Already PAID",
+                        note: "Already PURCHASED",
                         item: rec,
                     });
                     continue;
                 }
                 if (
                     allowedTransitions[rec.status] &&
-                    allowedTransitions[rec.status].includes("paid")
+                    allowedTransitions[rec.status].includes("PURCHASED")
                 ) {
                     const upd = await t.one(
                         `UPDATE course_payment_status SET status=$1 WHERE user_id=$2 AND course_id=$3 RETURNING *`,
-                        ["paid", userId, cid]
+                        ["PURCHASED", userId, cid]
                     );
-                    out.push({ courseId: cid, note: "Set to PAID", item: upd });
+                    out.push({ courseId: cid, note: "Set to PURCHASED", item: upd });
                 } else {
                     out.push({
                         courseId: cid,
-                        note: `Cannot transition ${rec.status} -> PAID`,
+                        note: `Cannot transition ${rec.status} -> PURCHASED`,
                         item: rec,
                     });
                 }
@@ -1265,15 +1265,15 @@ app.post("/cart/checkout", async (req, res) => {
     }
 });
 
-// Lấy trạng thái 1 course cho 1 user (dùng FE hiển thị: NOT_PAID / IN_CART / PAID)
+// Lấy trạng thái 1 course cho 1 user (dùng FE hiển thị: NOT_PURCHASED / IN_CART / PURCHASED)
 // GET /course/:userId/:courseId/status
 app.get("/course/:userId/:courseId/status", async (req, res) => {
     const { userId, courseId } = req.params;
     try {
         const rec = await getCartRecord(userId, courseId);
         if (!rec) {
-            // không có record -> coi như NOT_PAID
-            return res.send({ success: true, status: "unpaid" });
+            // không có record -> coi như NOT_PURCHASED
+            return res.send({ success: true, status: "NOT_PURCHASED" });
         }
         return res.send({ success: true, status: rec.status, item: rec });
     } catch (err) {
