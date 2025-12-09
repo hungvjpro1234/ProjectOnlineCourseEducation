@@ -32,24 +32,23 @@ async function getEnumValues(enumName = "course_payment_status_enum") {
       ORDER BY e.enumsortorder;
     `;
     const rows = await db.any(sql, [enumName]);
-    return rows.map(r => r.enumlabel);
+    return rows.map((r) => r.enumlabel);
 }
 
 // Allowed transitions (logical). Nếu enum DB khác tên, hơi thay đổi map này.
 const allowedTransitions = {
-    unpaid: ['added_to_cart', 'paid'],
-    added_to_cart: ['unpaid', 'paid'],
-    paid: []
+    unpaid: ["added_to_cart", "paid"],
+    added_to_cart: ["unpaid", "paid"],
+    paid: [],
 };
 
-
 /**
- * Lấy record cart_courses cho user+course
+ * Lấy record course_payment_status cho user+course
  */
 async function getCartRecord(userId, courseId) {
     return await db.oneOrNone(
-      'SELECT * FROM cart_courses WHERE user_id = $1 AND course_id = $2 LIMIT 1',
-      [userId, courseId]
+        "SELECT * FROM course_payment_status WHERE user_id = $1 AND course_id = $2 LIMIT 1",
+        [userId, courseId]
     );
 }
 
@@ -60,24 +59,36 @@ async function getCartRecord(userId, courseId) {
 async function upsertCartStatus(userId, courseId, status, extras = {}) {
     // Try update
     const updated = await db.oneOrNone(
-      `UPDATE cart_courses
+        `UPDATE course_payment_status
        SET status=$1, price_snapshot = COALESCE($3, price_snapshot), course_name = COALESCE($4, course_name)
        WHERE user_id=$2 AND course_id=$5
        RETURNING *`,
-      [status, userId, extras.price_snapshot || null, extras.course_name || null, courseId]
+        [
+            status,
+            userId,
+            extras.price_snapshot || null,
+            extras.course_name || null,
+            courseId,
+        ]
     );
     if (updated) return updated;
 
     // Insert
     const inserted = await db.one(
-      `INSERT INTO cart_courses (user_id, course_id, status, price_snapshot, quantity, course_name)
+        `INSERT INTO course_payment_status (user_id, course_id, status, price_snapshot, quantity, course_name)
        VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [userId, courseId, status, extras.price_snapshot || null, extras.quantity || 1, extras.course_name || null]
+        [
+            userId,
+            courseId,
+            status,
+            extras.price_snapshot || null,
+            extras.quantity || 1,
+            extras.course_name || null,
+        ]
     );
     return inserted;
 }
 // ----------------- end cart helpers -----------------
-
 
 // --- Helper: normalize DB row to FE-friendly Course object ---
 function safeParseJson(input) {
@@ -262,13 +273,11 @@ function authMiddleware(req, res, next) {
         req.user = payload; // contains userId, role
         next();
     } catch (err) {
-        return res
-            .status(401)
-            .send({
-                success: false,
-                message: "Token không hợp lệ/đã hết hạn",
-                data: null,
-            });
+        return res.status(401).send({
+            success: false,
+            message: "Token không hợp lệ/đã hết hạn",
+            data: null,
+        });
     }
 }
 
@@ -726,13 +735,11 @@ app.post("/course", upload.single("courseAvatar"), async (req, res) => {
         // required fields
         const { title, description, teacher } = payload;
         if (!title || !description || !teacher) {
-            return res
-                .status(400)
-                .send({
-                    success: false,
-                    message:
-                        "Khong du thong tin: title/description/teacher required",
-                });
+            return res.status(400).send({
+                success: false,
+                message:
+                    "Khong du thong tin: title/description/teacher required",
+            });
         }
 
         // parse numeric fields safely
@@ -1023,118 +1030,227 @@ app.post("/course/:id/purchase", async (req, res) => {
 
 // Lấy toàn bộ giỏ hàng của user
 // GET /cart/:userId
-app.get('/cart/:userId', async (req, res) => {
+app.get("/cart/:userId", async (req, res) => {
     const userId = req.params.userId;
     try {
         const enumVals = await getEnumValues();
         if (!enumVals || enumVals.length === 0) {
-            return res.status(500).send({ success: false, message: "Enum course_payment_status_enum không tồn tại" });
+            return res
+                .status(500)
+                .send({
+                    success: false,
+                    message: "Enum course_payment_status_enum không tồn tại",
+                });
         }
-        const items = await db.any('SELECT * FROM cart_courses WHERE user_id=$1 ORDER BY created_at DESC', [userId]);
+        const items = await db.any(
+            "SELECT * FROM course_payment_status WHERE user_id=$1 ORDER BY created_at DESC",
+            [userId]
+        );
         return res.send({ success: true, data: items, enumValues: enumVals });
     } catch (err) {
         console.error("GET /cart error", err);
-        return res.status(500).send({ success: false, message: "Lỗi lấy giỏ hàng" });
+        return res
+            .status(500)
+            .send({ success: false, message: "Lỗi lấy giỏ hàng" });
     }
 });
 
 // Add to cart (thêm vào giỏ bật trạng thái IN_CART)
 // POST /cart/add  body: { userId, courseId, price_snapshot?, course_name? }
-app.post('/cart/add', async (req, res) => {
+app.post("/cart/add", async (req, res) => {
     const { userId, courseId, price_snapshot, course_name } = req.body;
-    if (!userId || !courseId) return res.status(400).send({ success: false, message: 'userId và courseId bắt buộc' });
+    if (!userId || !courseId)
+        return res
+            .status(400)
+            .send({ success: false, message: "userId và courseId bắt buộc" });
 
     try {
         const enumVals = await getEnumValues();
-        if (!enumVals.includes('added_to_cart')) {
-            return res.status(500).send({ success: false, message: "Enum không có added_to_cart" });
+        if (!enumVals.includes("added_to_cart")) {
+            return res
+                .status(500)
+                .send({
+                    success: false,
+                    message: "Enum không có added_to_cart",
+                });
         }
 
         const rec = await getCartRecord(userId, courseId);
         if (!rec) {
-            const created = await upsertCartStatus(userId, courseId, 'added_to_cart', { price_snapshot, course_name });
-            return res.send({ success: true, message: 'Added to cart', data: created });
+            const created = await upsertCartStatus(
+                userId,
+                courseId,
+                "added_to_cart",
+                { price_snapshot, course_name }
+            );
+            return res.send({
+                success: true,
+                message: "Added to cart",
+                data: created,
+            });
         }
 
-        if (rec.status === 'paid') {
-            return res.status(400).send({ success: false, message: 'Đã thanh toán, không thể add' });
+        if (rec.status === "paid") {
+            return res
+                .status(400)
+                .send({
+                    success: false,
+                    message: "Đã thanh toán, không thể add",
+                });
         }
-        if (rec.status === 'added_to_cart') {
-            return res.send({ success: true, message: 'Đã có trong giỏ', data: rec });
+        if (rec.status === "added_to_cart") {
+            return res.send({
+                success: true,
+                message: "Đã có trong giỏ",
+                data: rec,
+            });
         }
         // từ unpaid -> added_to_cart
-        if (allowedTransitions[rec.status] && allowedTransitions[rec.status].includes('added_to_cart')) {
-            const updated = await upsertCartStatus(userId, courseId, 'added_to_cart', { price_snapshot, course_name });
-            return res.send({ success: true, message: 'Chuyển sang added_to_cart', data: updated });
+        if (
+            allowedTransitions[rec.status] &&
+            allowedTransitions[rec.status].includes("added_to_cart")
+        ) {
+            const updated = await upsertCartStatus(
+                userId,
+                courseId,
+                "added_to_cart",
+                { price_snapshot, course_name }
+            );
+            return res.send({
+                success: true,
+                message: "Chuyển sang added_to_cart",
+                data: updated,
+            });
         } else {
-            return res.status(400).send({ success: false, message: `Không thể chuyển ${rec.status} -> added_to_cart` });
+            return res
+                .status(400)
+                .send({
+                    success: false,
+                    message: `Không thể chuyển ${rec.status} -> added_to_cart`,
+                });
         }
-
     } catch (err) {
         console.error("POST /cart/add error", err);
-        return res.status(500).send({ success: false, message: 'Lỗi server khi add' });
+        return res
+            .status(500)
+            .send({ success: false, message: "Lỗi server khi add" });
     }
 });
 
-
 // Remove from cart (revert về NOT_PAID)
 // POST /cart/remove  body: { userId, courseId }
-app.post('/cart/remove', async (req, res) => {
+app.post("/cart/remove", async (req, res) => {
     const { userId, courseId } = req.body;
-    if (!userId || !courseId) return res.status(400).send({ success: false, message: 'userId và courseId bắt buộc' });
+    if (!userId || !courseId)
+        return res
+            .status(400)
+            .send({ success: false, message: "userId và courseId bắt buộc" });
 
     try {
         const rec = await getCartRecord(userId, courseId);
-        if (!rec) return res.status(404).send({ success: false, message: 'Không tìm thấy record' });
+        if (!rec)
+            return res
+                .status(404)
+                .send({ success: false, message: "Không tìm thấy record" });
 
-        if (rec.status === 'added_to_cart') return res.status(400).send({ success: false, message: 'Không thể remove khóa học đã thanh toán' });
+        if (rec.status === "added_to_cart")
+            return res
+                .status(400)
+                .send({
+                    success: false,
+                    message: "Không thể remove khóa học đã thanh toán",
+                });
 
-        if (rec.status === 'IN_CART') {
+        if (rec.status === "IN_CART") {
             // revert to NOT_PAID (giữ record, vì có thể muốn keep price_snapshot)
-            const updated = await upsertCartStatus(userId, courseId, 'unpaid', {});
-            return res.send({ success: true, message: 'Đã remove khỏi giỏ ', data: updated });
+            const updated = await upsertCartStatus(
+                userId,
+                courseId,
+                "unpaid",
+                {}
+            );
+            return res.send({
+                success: true,
+                message: "Đã remove khỏi giỏ ",
+                data: updated,
+            });
         } else {
-            return res.send({ success: true, message: 'Khóa học không nằm trong giỏ', data: rec });
+            return res.send({
+                success: true,
+                message: "Khóa học không nằm trong giỏ",
+                data: rec,
+            });
         }
     } catch (err) {
         console.error("POST /cart/remove error", err);
-        return res.status(500).send({ success: false, message: 'Lỗi server khi remove' });
+        return res
+            .status(500)
+            .send({ success: false, message: "Lỗi server khi remove" });
     }
 });
 
 // Checkout (thanh toán) - chuyển status -> PAID cho list khóa học
 // POST /cart/checkout  body: { userId, courseIds: [1,2,3] }
-app.post('/cart/checkout', async (req, res) => {
+app.post("/cart/checkout", async (req, res) => {
     const { userId, courseIds } = req.body;
-    if (!userId || !Array.isArray(courseIds) || courseIds.length === 0) return res.status(400).send({ success: false, message: 'userId và courseIds bắt buộc' });
+    if (!userId || !Array.isArray(courseIds) || courseIds.length === 0)
+        return res
+            .status(400)
+            .send({ success: false, message: "userId và courseIds bắt buộc" });
 
     try {
         const enumVals = await getEnumValues();
-        if (!enumVals.includes('paid')) {
-            return res.status(500).send({ success: false, message: "Enum không có PAID" });
+        if (!enumVals.includes("paid")) {
+            return res
+                .status(500)
+                .send({ success: false, message: "Enum không có PAID" });
         }
 
         // Dùng tx để atomic
-        const results = await db.tx(async t => {
+        const results = await db.tx(async (t) => {
             const out = [];
             for (const cid of courseIds) {
                 // lock bằng SELECT FOR UPDATE equivalent không trực tiếp trên pg-promise; ta dùng SELECT + UPDATE trong tx
-                const rec = await t.oneOrNone('SELECT * FROM cart_courses WHERE user_id=$1 AND course_id=$2', [userId, cid]);
+                const rec = await t.oneOrNone(
+                    "SELECT * FROM course_payment_status WHERE user_id=$1 AND course_id=$2",
+                    [userId, cid]
+                );
                 if (!rec) {
                     // insert mới với PAID (mua trực tiếp)
-                    const ins = await t.one(`INSERT INTO cart_courses (user_id, course_id, status) VALUES($1,$2,$3) RETURNING *`, [userId, cid, 'paid']);
-                    out.push({ courseId: cid, note: 'Inserted as PAID', item: ins });
+                    const ins = await t.one(
+                        `INSERT INTO course_payment_status (user_id, course_id, status) VALUES($1,$2,$3) RETURNING *`,
+                        [userId, cid, "paid"]
+                    );
+                    out.push({
+                        courseId: cid,
+                        note: "Inserted as PAID",
+                        item: ins,
+                    });
                     continue;
                 }
-                if (rec.status === 'paid') {
-                    out.push({ courseId: cid, note: 'Already PAID', item: rec });
+                if (rec.status === "paid") {
+                    out.push({
+                        courseId: cid,
+                        note: "Already PAID",
+                        item: rec,
+                    });
                     continue;
                 }
-                if (allowedTransitions[rec.status] && allowedTransitions[rec.status].includes('paid')) {
-                    const upd = await t.one(`UPDATE cart_courses SET status=$1 WHERE user_id=$2 AND course_id=$3 RETURNING *`, ['paid', userId, cid]);
-                    out.push({ courseId: cid, note: 'Set to PAID', item: upd });
+                if (
+                    allowedTransitions[rec.status] &&
+                    allowedTransitions[rec.status].includes("paid")
+                ) {
+                    const upd = await t.one(
+                        `UPDATE course_payment_status SET status=$1 WHERE user_id=$2 AND course_id=$3 RETURNING *`,
+                        ["paid", userId, cid]
+                    );
+                    out.push({ courseId: cid, note: "Set to PAID", item: upd });
                 } else {
-                    out.push({ courseId: cid, note: `Cannot transition ${rec.status} -> PAID`, item: rec });
+                    out.push({
+                        courseId: cid,
+                        note: `Cannot transition ${rec.status} -> PAID`,
+                        item: rec,
+                    });
                 }
             }
             return out;
@@ -1143,27 +1259,28 @@ app.post('/cart/checkout', async (req, res) => {
         return res.send({ success: true, results });
     } catch (err) {
         console.error("POST /cart/checkout error", err);
-        return res.status(500).send({ success: false, message: 'Lỗi khi thanh toán' });
+        return res
+            .status(500)
+            .send({ success: false, message: "Lỗi khi thanh toán" });
     }
 });
 
 // Lấy trạng thái 1 course cho 1 user (dùng FE hiển thị: NOT_PAID / IN_CART / PAID)
 // GET /course/:userId/:courseId/status
-app.get('/course/:userId/:courseId/status', async (req, res) => {
+app.get("/course/:userId/:courseId/status", async (req, res) => {
     const { userId, courseId } = req.params;
     try {
         const rec = await getCartRecord(userId, courseId);
         if (!rec) {
             // không có record -> coi như NOT_PAID
-            return res.send({ success: true, status: 'unpaid' });
+            return res.send({ success: true, status: "unpaid" });
         }
         return res.send({ success: true, status: rec.status, item: rec });
     } catch (err) {
         console.error("GET /course/:userId/:courseId/status error", err);
-        return res.status(500).send({ success: false, message: 'Lỗi server' });
+        return res.status(500).send({ success: false, message: "Lỗi server" });
     }
 });
 // ----------------- end cart endpoints -----------------
-
 
 app.listen(port, () => console.log(`Server listening on ${port}`));
