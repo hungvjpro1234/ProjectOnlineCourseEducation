@@ -21,7 +21,7 @@ import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
-import com.example.projectonlinecourseeducation.feature.admin.activity.AdminManageTeacherDetailActivity;
+import com.example.projectonlinecourseeducation.feature.admin.activity.AdminManageUserTeacherDetailActivity;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.UserTeacherAdapter;
 import com.example.projectonlinecourseeducation.feature.admin.model.TeacherStats;
 
@@ -84,7 +84,7 @@ public class AdminUserManagementTeacherFragment extends Fragment {
     private void setupAdapter() {
         adapter = new UserTeacherAdapter(teacherStats -> {
             // Chuyển tới activity chi tiết
-            Intent intent = new Intent(getContext(), AdminManageTeacherDetailActivity.class);
+            Intent intent = new Intent(getContext(), AdminManageUserTeacherDetailActivity.class);
             intent.putExtra("userId", teacherStats.getUser().getId());
             intent.putExtra("userName", teacherStats.getUser().getName());
             startActivity(intent);

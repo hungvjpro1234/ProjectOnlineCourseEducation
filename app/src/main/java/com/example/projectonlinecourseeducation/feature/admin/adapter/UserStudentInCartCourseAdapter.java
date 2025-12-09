@@ -1,5 +1,7 @@
 package com.example.projectonlinecourseeducation.feature.admin.adapter;
 
+import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
@@ -12,6 +14,9 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
+// Import activity để compiler resolve được tên lớp
+import com.example.projectonlinecourseeducation.feature.admin.activity.AdminManageCourseDetailActivity;
 
 /**
  * Adapter hiển thị danh sách khóa học trong giỏ hàng của student (admin view)
@@ -90,6 +95,23 @@ public class UserStudentInCartCourseAdapter extends RecyclerView.Adapter<UserStu
             } else {
                 imgCourseAvatar.setImageResource(R.drawable.ic_image_placeholder);
             }
+
+            // Open course management detail when clicking the item
+            itemView.setOnClickListener(v -> {
+                try {
+                    Context ctx = itemView.getContext();
+                    Intent intent = new Intent(ctx, AdminManageCourseDetailActivity.class);
+                    if (course != null) {
+                        intent.putExtra("courseId", course.getId());
+                        intent.putExtra("courseTitle", course.getTitle());
+                    }
+                    // Nếu context không phải Activity, thêm flag để tránh crash
+                    if (!(ctx instanceof android.app.Activity)) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    }
+                    ctx.startActivity(intent);
+                } catch (Exception ignored) {}
+            });
         }
 
         private String formatStudentCount(int count) {

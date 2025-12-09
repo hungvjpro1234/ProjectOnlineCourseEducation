@@ -21,7 +21,7 @@ import java.util.Locale;
 /**
  * Activity hiển thị chi tiết teacher: courses owned
  */
-public class AdminManageTeacherDetailActivity extends AppCompatActivity {
+public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
     private RecyclerView rvOwnedCourses;
@@ -81,11 +81,16 @@ public class AdminManageTeacherDetailActivity extends AppCompatActivity {
     private void setupAdapter() {
         // Setup owned courses adapter (with click listener for course details)
         ownedCourseAdapter = new UserTeacherOwnedCourseAdapter(course -> {
-            // Demo: show toast when clicking view details
+            // Keep the callback (optional) — you can remove or change this if you don't need the toast.
             Toast.makeText(this,
-                "Xem chi tiết khóa học: " + course.getTitle(),
-                Toast.LENGTH_SHORT).show();
-            // TODO: Navigate to StudentCourseProductDetailActivity or similar
+                    "Xem chi tiết khóa học: " + course.getTitle(),
+                    Toast.LENGTH_SHORT).show();
+
+            // Optionally you could navigate from here instead of adapter.
+            // Intent intent = new Intent(this, AdminCourseManagementDetailActivity.class);
+            // intent.putExtra("courseId", course.getId());
+            // intent.putExtra("courseTitle", course.getTitle());
+            // startActivity(intent);
         });
         rvOwnedCourses.setLayoutManager(new LinearLayoutManager(this));
         rvOwnedCourses.setAdapter(ownedCourseAdapter);
@@ -131,7 +136,7 @@ public class AdminManageTeacherDetailActivity extends AppCompatActivity {
             avgRating = sumRating / ownedCourses.size();
         }
         tvAverageRating.setText(String.format(Locale.getDefault(),
-            "Rating TB: %.1f ⭐", avgRating));
+                "Rating TB: %.1f ⭐", avgRating));
 
         // Set courses to adapter
         ownedCourseAdapter.setCourses(ownedCourses);

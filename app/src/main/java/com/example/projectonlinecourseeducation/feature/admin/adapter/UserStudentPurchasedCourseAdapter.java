@@ -1,5 +1,7 @@
 package com.example.projectonlinecourseeducation.feature.admin.adapter;
 
+import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +25,9 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.feature.admin.model.CourseProgressStats;
+
+// <-- IMPORTANT: import Activity so compiler can resolve the symbol
+import com.example.projectonlinecourseeducation.feature.admin.activity.AdminManageCourseDetailActivity;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -227,9 +232,26 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
                 imgCourseAvatar.setImageResource(R.drawable.ic_image_placeholder);
             }
 
-            // View details button
+            // View details button -> open AdminManageCourseDetailActivity
             btnViewDetails.setOnClickListener(v -> {
+                // first call callback if provided
                 if (listener != null) listener.onViewDetailsClick(stats);
+
+                // then open course detail activity
+                try {
+                    Context ctx = itemView.getContext();
+                    // Using imported class directly
+                    Intent intent = new Intent(ctx, AdminManageCourseDetailActivity.class);
+                    if (stats.getCourse() != null) {
+                        intent.putExtra("courseId", stats.getCourse().getId());
+                        intent.putExtra("courseTitle", stats.getCourse().getTitle());
+                    }
+                    // If context isn't an Activity, ensure NEW_TASK flag is set to avoid crash
+                    if (!(ctx instanceof android.app.Activity)) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    }
+                    ctx.startActivity(intent);
+                } catch (Exception ignored) {}
             });
 
             // Preload lesson progress only if adapter already empty and expanded

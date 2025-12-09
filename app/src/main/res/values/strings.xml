@@ -71,4 +71,16 @@
     <string name="edit">Sửa</string>
     <string name="delete">Xóa</string>
     <string name="course_image">Ảnh khóa học</string>
+
+    <!-- Thêm cho Admin Course Management -->
+    <string name="select_category">Chọn chuyên mục</string>
+    <string name="select_sort">Sắp xếp</string>
+
+    !-- New strings for Admin Course Management -->
+    <string name="teacher">Giáo viên</string>
+    <string name="revenue">Doanh thu</string>
+    <string name="date">Ngày tạo</string>
+    <string name="total_revenue">Tổng doanh thu</string>
+    <string name="course_price">Giá khóa học</string>
+    <string name="teacher_name">Tên giáo viên</string>
 </resources>
