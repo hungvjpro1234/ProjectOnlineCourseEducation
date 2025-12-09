@@ -42,4 +42,21 @@ public interface MyCourseApi {
      * Chủ yếu phục vụ test/clear trong FakeApi.
      */
     void clearMyCourses();
+
+    // ------------------ ADMIN: Get data for specific user ------------------
+
+    /**
+     * (ADMIN) Lấy danh sách khóa học đã mua của user cụ thể
+     * @param userId ID của user cần xem
+     * @return Danh sách courses đã mua
+     */
+    List<Course> getMyCoursesForUser(String userId);
+
+    /**
+     * (ADMIN) Kiểm tra user cụ thể đã mua khóa học chưa
+     * @param courseId ID khóa học
+     * @param userId ID của user cần check
+     * @return true nếu đã mua, false nếu chưa
+     */
+    boolean isPurchasedForUser(String courseId, String userId);
 }

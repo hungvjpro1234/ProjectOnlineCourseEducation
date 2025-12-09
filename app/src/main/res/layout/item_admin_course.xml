@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- item_admin_course.xml (giao diện cải tiến)
+     - Hình ảnh ở trái, phần thông tin ở giữa, nút xóa nhỏ ở phải
+     - Hiển thị: title, teacher, rating (icon), students (icon), price, total revenue (icon)
+     - Dùng màu từ colors.xml để đồng bộ
+-->
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    card_view:cardCornerRadius="12dp"
+    card_view:cardElevation="6dp"
+    android:layout_marginBottom="10dp"
+    android:layout_marginStart="6dp"
+    android:layout_marginEnd="6dp"
+    android:foreground="?attr/selectableItemBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="10dp"
+        android:gravity="center_vertical">
+
+        <!-- Image -->
+        <ImageView
+            android:id="@+id/img_course"
+            android:layout_width="100dp"
+            android:layout_height="70dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/course_placeholder"
+            android:contentDescription="course image"
+            android:background="@drawable/image_rounded_bg" />
+
+        <!-- Info column -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="10dp">
+
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Course title"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tv_teacher"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="By Teacher"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="2dp"/>
+
+            <!-- small stats row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical">
+
+                <!-- rating -->
+                <ImageView
+                    android:id="@+id/ic_star"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_star"
+                    android:contentDescription="rating star" />
+
+                <TextView
+                    android:id="@+id/tv_rating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="4.9"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="12dp"/>
+
+                <!-- students -->
+                <ImageView
+                    android:id="@+id/ic_students"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_students"
+                    android:contentDescription="students icon" />
+
+                <TextView
+                    android:id="@+id/tv_students"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1 học viên"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginStart="4dp"/>
+
+            </LinearLayout>
+
+            <!-- price + revenue row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tv_price"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₫199,000"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/purple_900"/>
+
+                <ImageView
+                    android:id="@+id/ic_revenue"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_revenue"
+                    android:contentDescription="revenue icon"
+                    android:layout_marginStart="12dp"/>
+
+                <TextView
+                    android:id="@+id/tv_total_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Doanh thu: ₫0"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginStart="6dp"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- right: rating big + delete button -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="end|center">
+
+            <TextView
+                android:id="@+id/tv_rating_big"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="4.6"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="@color/blue_text_primary"
+                android:layout_marginBottom="8dp"/>
+
+            <ImageButton
+                android:id="@+id/btn_delete"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_delete"
+                android:contentDescription="Xóa khóa học"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

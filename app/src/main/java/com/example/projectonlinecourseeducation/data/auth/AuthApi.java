@@ -53,4 +53,12 @@ public interface AuthApi {
      */
     ApiResult<Boolean> changeCurrentUserPassword(String oldPassword,
                                                  String newPassword);
+
+    // ====== ADMIN: Lấy danh sách users theo role ======
+    /**
+     * Lấy tất cả users theo role (dành cho admin)
+     * @param role Role cần lọc (STUDENT, TEACHER, ADMIN)
+     * @return Danh sách users có role tương ứng
+     */
+    java.util.List<User> getAllUsersByRole(Role role);
 }

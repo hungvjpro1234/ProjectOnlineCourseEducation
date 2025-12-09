@@ -42,6 +42,12 @@
 
         <!-- ADMIN -->
         <activity android:name=".feature.admin.activity.AdminHomeActivity" />
+        <activity android:name=".feature.admin.activity.AdminManageUserStudentDetailActivity"
+            android:exported="false" />
+        <activity android:name=".feature.admin.activity.AdminManageUserTeacherDetailActivity"
+            android:exported="false" />
+        <activity android:name=".feature.admin.activity.AdminManageCourseDetailActivity"
+            android:exported="false" />
 
         <!-- MAIN LAUNCHER -->
         <activity

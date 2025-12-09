@@ -157,4 +157,28 @@ public class CartFakeApiService implements CartApi {
             }
         }
     }
+
+    // ------------------ ADMIN: Get data for specific user ------------------
+
+    @Override
+    public synchronized List<Course> getCartCoursesForUser(String userId) {
+        if (userId == null) return new ArrayList<>();
+        if (!cartCoursesMap.containsKey(userId)) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(cartCoursesMap.get(userId));
+    }
+
+    @Override
+    public synchronized double getTotalPriceForUser(String userId) {
+        if (userId == null) return 0;
+        List<Course> userCart = getCartCoursesForUser(userId);
+        double total = 0;
+        for (Course c : userCart) {
+            if (c != null) {
+                total += c.getPrice();
+            }
+        }
+        return total;
+    }
 }
