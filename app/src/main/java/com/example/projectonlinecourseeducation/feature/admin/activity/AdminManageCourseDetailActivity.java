@@ -1,5 +1,7 @@
 package com.example.projectonlinecourseeducation.feature.admin.activity;
 
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.util.Log;
@@ -10,6 +12,7 @@ import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,6 +22,7 @@ import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 import com.example.projectonlinecourseeducation.core.model.course.CourseStudent;
+import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
@@ -33,7 +37,6 @@ import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminCours
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminCourseRequirementAdapter;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminCourseSkillAdapter;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -51,9 +54,6 @@ import java.util.concurrent.Executors;
  * - AdminCourseReviewAdapter (thay ManagementCourseReviewAdapter)
  * - AdminCourseSkillAdapter (thay ManagementCourseSkillAdapter)
  * - AdminCourseRequirementAdapter (thay ManagementCourseRequirementAdapter)
- *
- * Lưu ý: Không chỉnh sửa API — nếu AuthApi không có getAllUsers(), dùng reflection để phát hiện
- * và tránh lỗi biên dịch / runtime.
  */
 public class AdminManageCourseDetailActivity extends AppCompatActivity {
 
@@ -100,6 +100,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
     private ImageView imgReviewExpand;
 
     private com.example.projectonlinecourseeducation.data.coursereview.ReviewApi reviewApi;
+    private com.example.projectonlinecourseeducation.data.cart.CartApi cartApi; // NEW
 
     // Listeners
     private CourseApi.CourseUpdateListener courseUpdateListener;
@@ -107,6 +108,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
     private LessonProgressApi.LessonProgressUpdateListener lessonProgressUpdateListener;
     private CourseStudentApi.StudentUpdateListener courseStudentListener;
     private com.example.projectonlinecourseeducation.data.coursereview.ReviewApi.ReviewUpdateListener reviewUpdateListener;
+    private com.example.projectonlinecourseeducation.data.cart.CartApi.CartUpdateListener cartUpdateListener; // NEW
 
     private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
@@ -133,6 +135,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         registerLessonProgressListener();
         registerCourseStudentListener();
         registerReviewUpdateListener();
+        registerCartUpdateListener(); // NEW
 
         fetchCourseDetail();
         fetchLessonsFromApi();
@@ -145,82 +148,77 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
 
     /**
      * NEW: Đếm số lượng users đang có course này trong giỏ hàng
-     * LƯU Ý: Không giả định AuthApi có getAllUsers() — sử dụng reflection để kiểm tra.
      */
     private void fetchCartCountFromApi() {
         final com.example.projectonlinecourseeducation.data.cart.CartApi cartApi =
                 ApiProvider.getCartApi();
 
-        // đảm bảo tvCartCount không null
         if (tvCartCount == null) {
-            Log.w(TAG, "tvCartCount is null when fetching cart count");
+            Log.w(TAG, "tvCartCount is null");
+            return;
         }
 
         if (cartApi == null || courseId == null) {
-            runOnUiThread(() -> {
-                if (tvCartCount != null) tvCartCount.setText("0");
-            });
+            runOnUiThread(() -> tvCartCount.setText("0"));
             return;
         }
 
         bgExecutor.execute(() -> {
             int count = 0;
             try {
-                // Lấy AuthApi
+                // Lấy tất cả users từ AuthApi
                 com.example.projectonlinecourseeducation.data.auth.AuthApi authApi =
                         ApiProvider.getAuthApi();
 
-                if (authApi == null) {
-                    Log.w(TAG, "AuthApi is null — cannot fetch users for cart count");
-                } else {
-                    // DÙNG REFLECTION: gọi getAllUsers nếu tồn tại
+                if (authApi != null) {
+                    // Lấy tất cả users (STUDENT + TEACHER)
+                    java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> allUsers =
+                            new java.util.ArrayList<>();
+
+                    // Lấy students
                     try {
-                        Method getAllUsersMethod = null;
+                        java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> students =
+                                authApi.getAllUsersByRole(
+                                        com.example.projectonlinecourseeducation.core.model.user.User.Role.STUDENT
+                                );
+                        if (students != null) allUsers.addAll(students);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Error getting students: " + e.getMessage());
+                    }
+
+                    // Lấy teachers (có thể cũng mua khóa học)
+                    try {
+                        java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> teachers =
+                                authApi.getAllUsersByRole(
+                                        com.example.projectonlinecourseeducation.core.model.user.User.Role.TEACHER
+                                );
+                        if (teachers != null) allUsers.addAll(teachers);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Error getting teachers: " + e.getMessage());
+                    }
+
+                    Log.d(TAG, "Total users to check cart: " + allUsers.size());
+
+                    // Đếm số user có course này trong giỏ
+                    for (com.example.projectonlinecourseeducation.core.model.user.User user : allUsers) {
+                        if (user == null || user.getId() == null) continue;
+
                         try {
-                            getAllUsersMethod = authApi.getClass().getMethod("getAllUsers");
-                        } catch (NoSuchMethodException nsme) {
-                            // phương thức không tồn tại
-                            getAllUsersMethod = null;
-                        }
+                            java.util.List<com.example.projectonlinecourseeducation.core.model.course.Course> userCart =
+                                    cartApi.getCartCoursesForUser(user.getId());
 
-                        List<com.example.projectonlinecourseeducation.core.model.user.User> allUsers = null;
-
-                        if (getAllUsersMethod != null) {
-                            Object res = null;
-                            try {
-                                res = getAllUsersMethod.invoke(authApi);
-                            } catch (IllegalAccessException | InvocationTargetException ite) {
-                                Log.w(TAG, "Error invoking AuthApi.getAllUsers(): " + ite.getMessage(), ite);
-                            }
-                            if (res instanceof List) {
-                                //noinspection unchecked
-                                allUsers = (List<com.example.projectonlinecourseeducation.core.model.user.User>) res;
-                            }
-                        } else {
-                            // Nếu phương thức không tồn tại, log ra để dev biết.
-                            Log.w(TAG, "AuthApi.getAllUsers() method not found via reflection");
-                        }
-
-                        if (allUsers == null || allUsers.isEmpty()) {
-                            Log.d(TAG, "No users returned from AuthApi (or method absent)");
-                        } else {
-                            for (com.example.projectonlinecourseeducation.core.model.user.User user : allUsers) {
-                                if (user == null || user.getId() == null) continue;
-
-                                List<com.example.projectonlinecourseeducation.core.model.course.Course> userCart =
-                                        cartApi.getCartCoursesForUser(user.getId());
-                                if (userCart == null || userCart.isEmpty()) continue;
-
+                            if (userCart != null) {
                                 for (com.example.projectonlinecourseeducation.core.model.course.Course c : userCart) {
                                     if (c != null && courseId.equals(c.getId())) {
                                         count++;
-                                        break; // mỗi user chỉ đếm 1 lần
+                                        Log.d(TAG, "Found course in cart of user: " + user.getName());
+                                        break; // Đếm mỗi user 1 lần
                                     }
                                 }
                             }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error checking cart for user " + user.getId() + ": " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        Log.w(TAG, "Error while iterating users for cart count: " + e.getMessage(), e);
                     }
                 }
             } catch (Exception e) {
@@ -228,9 +226,8 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
             }
 
             final int finalCount = count;
-            runOnUiThread(() -> {
-                if (tvCartCount != null) tvCartCount.setText(String.valueOf(finalCount));
-            });
+            Log.d(TAG, "Cart count result: " + finalCount);
+            runOnUiThread(() -> tvCartCount.setText(String.valueOf(finalCount)));
         });
     }
 
@@ -282,7 +279,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
 
                 final List<Lesson> finalLessons = lessons;
                 runOnUiThread(() -> {
-                    if (lessonAdapter != null) lessonAdapter.setLessons(finalLessons);
+                    lessonAdapter.setLessons(finalLessons);
                     if (course != null) {
                         tvLectureCount.setText(String.valueOf(finalLessons.size()));
                     }
@@ -301,7 +298,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         if (csApi == null) {
             runOnUiThread(() -> {
                 if (studentAdapter != null) studentAdapter.setStudents(new ArrayList<>());
-                if (tvStudentCount != null) tvStudentCount.setText("0");
+                tvStudentCount.setText("0");
                 if (course != null) {
                     updateTotalRevenue(0);
                 }
@@ -370,7 +367,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
             final int studentCount = students.size();
             runOnUiThread(() -> {
                 if (studentAdapter != null) studentAdapter.setStudents(items);
-                if (tvStudentCount != null) tvStudentCount.setText(String.valueOf(studentCount));
+                tvStudentCount.setText(String.valueOf(studentCount));
 
                 if (course != null) {
                     double revenue = course.getPrice() * studentCount;
@@ -421,6 +418,109 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         });
     }
 
+    /* ==================== XÓA REVIEW: DIALOG + HÀM XÓA ==================== */
+
+    /**
+     * Hiển thị dialog xác nhận xoá review và thực hiện xoá nếu xác nhận.
+     * Phù hợp với nhiều tên phương thức xóa khác nhau trong ReviewApi (deleteReview, removeReview, delete, ...)
+     */
+    private void showDeleteReviewConfirmDialog(CourseReview review) {
+        if (review == null) return;
+
+        String reviewerName = null;
+        try {
+            reviewerName = review.getStudentName();
+        } catch (Exception ignored) {}
+
+        if (reviewerName == null) {
+            try {
+                // thử getter khác nếu có
+                reviewerName = review.getStudentName();
+            } catch (Exception ignored) {
+            }
+        }
+        if (reviewerName == null) reviewerName = "Người dùng";
+
+        String message = "Bạn có chắc muốn xóa đánh giá của " + reviewerName + "?";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Xác nhận xóa")
+                .setMessage(message)
+                .setNegativeButton("Hủy", (dialog, which) -> dialog.dismiss())
+                .setPositiveButton("Xóa", (dialog, which) -> {
+                    dialog.dismiss();
+                    // Thực hiện xóa trên background
+                    bgExecutor.execute(() -> {
+                        boolean deleted = false;
+                        try {
+                            if (reviewApi == null) reviewApi = ApiProvider.getReviewApi();
+                            if (reviewApi == null) {
+                                runOnUiThread(() -> Toast.makeText(AdminManageCourseDetailActivity.this,
+                                        "Không thể kết nối Review API", Toast.LENGTH_SHORT).show());
+                                return;
+                            }
+
+                            String reviewId = null;
+                            try {
+                                reviewId = review.getId();
+                            } catch (Exception ignored) {}
+
+                            // Một số API trả về boolean, một số trả void, tên phương thức có thể khác.
+                            // Thử gọi thông thường nếu có method deleteReview(String)
+                            try {
+                                Method m = reviewApi.getClass().getMethod("deleteReview", String.class);
+                                Object res = m.invoke(reviewApi, reviewId);
+                                if (res == null) {
+                                    // void method -> coi là thành công
+                                    deleted = true;
+                                } else if (res instanceof Boolean) {
+                                    deleted = (Boolean) res;
+                                } else {
+                                    deleted = true; // giả định thành công nếu không ném lỗi
+                                }
+                            } catch (NoSuchMethodException ignored) {
+                                // thử tên khác
+                                String[] altNames = {"removeReviewById", "removeReview", "delete", "deleteById"};
+                                for (String name : altNames) {
+                                    if (deleted) break;
+                                    try {
+                                        Method m2 = reviewApi.getClass().getMethod(name, String.class);
+                                        Object res2 = m2.invoke(reviewApi, reviewId);
+                                        if (res2 == null) {
+                                            deleted = true;
+                                        } else if (res2 instanceof Boolean) {
+                                            deleted = (Boolean) res2;
+                                        } else {
+                                            deleted = true;
+                                        }
+                                    } catch (NoSuchMethodException ignored2) {
+                                        // tiếp tục thử tên khác
+                                    }
+                                }
+                            }
+
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error deleting review (reflection): " + e.getMessage(), e);
+                            // Không set deleted = true => sẽ hiển thị lỗi ở UI
+                        }
+
+                        final boolean finalDeleted = deleted;
+                        runOnUiThread(() -> {
+                            if (finalDeleted) {
+                                Toast.makeText(AdminManageCourseDetailActivity.this,
+                                        "Xóa đánh giá thành công", Toast.LENGTH_SHORT).show();
+                                fetchReviewsFromApi();
+                            } else {
+                                Toast.makeText(AdminManageCourseDetailActivity.this,
+                                        "Không thể xóa đánh giá. Thử lại sau.", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    });
+                })
+                .setCancelable(true)
+                .show();
+    }
+
     /* ==================== INIT / UI ==================== */
 
     private void initViews() {
@@ -442,9 +542,6 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         tvCreatedAt = findViewById(R.id.tvCreatedAt);
         tvCartCount = findViewById(R.id.tvCartCount); // NEW
 
-        // default text so UI doesn't show null while loading
-        if (tvCartCount != null) tvCartCount.setText("0");
-
         rvSkills = findViewById(R.id.rvSkills);
         rvRequirements = findViewById(R.id.rvRequirements);
         rvStudents = findViewById(R.id.rvStudents);
@@ -463,9 +560,9 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        if (btnBack != null) btnBack.setOnClickListener(v -> finish());
+        btnBack.setOnClickListener(v -> finish());
 
-        if (btnEdit != null) btnEdit.setOnClickListener(v -> {
+        btnEdit.setOnClickListener(v -> {
             if (courseId == null && course != null) {
                 courseId = course.getId();
             }
@@ -497,16 +594,27 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
 
         // ===== ADMIN LESSON ADAPTER (MỚI) =====
         lessonAdapter = new AdminCourseLessonAdapter(lesson -> {
-            Toast.makeText(AdminManageCourseDetailActivity.this,
-                    "Xem bài học: " + lesson.getTitle(), Toast.LENGTH_SHORT).show();
+            // Open AdminLessonDetailActivity
+            Intent intent = new Intent(AdminManageCourseDetailActivity.this,
+                    AdminLessonDetailActivity.class);
+            intent.putExtra("lesson_id", lesson.getId());
+            startActivity(intent);
         });
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
         rvLessons.setAdapter(lessonAdapter);
 
         // ===== ADMIN REVIEW ADAPTER (MỚI) =====
-        reviewAdapter = new AdminCourseReviewAdapter(review -> {
-            // Click review - có thể mở detail nếu cần
-        });
+        reviewAdapter = new AdminCourseReviewAdapter(
+                // Click review
+                review -> {
+                    // Click thường - không làm gì hoặc xem detail
+                },
+                // Long click review - DELETE
+                review -> {
+                    showDeleteReviewConfirmDialog(review);
+                    return true;
+                }
+        );
         rvReviews.setLayoutManager(new LinearLayoutManager(this));
         rvReviews.setAdapter(reviewAdapter);
 
@@ -538,7 +646,7 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         }
 
         tvDescription.setText(safe(course.getDescription()));
-        if (tvStudentCount != null) tvStudentCount.setText(String.valueOf(course.getStudents()));
+        tvStudentCount.setText(String.valueOf(course.getStudents()));
 
         double revenue = course.getPrice() * course.getStudents();
         updateTotalRevenue(revenue);
@@ -729,6 +837,25 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * NEW: Đăng ký listener để tự động refresh cart count khi có thay đổi
+     */
+    private void registerCartUpdateListener() {
+        try {
+            cartApi = ApiProvider.getCartApi();
+            if (cartApi == null) return;
+
+            cartUpdateListener = () -> {
+                // Khi cart thay đổi (add/remove), refresh cart count
+                Log.d(TAG, "Cart changed, refreshing cart count");
+                runOnUiThread(() -> fetchCartCountFromApi());
+            };
+            cartApi.addCartUpdateListener(cartUpdateListener);
+        } catch (Exception e) {
+            Log.w(TAG, "registerCartUpdateListener failed: " + e.getMessage(), e);
+        }
+    }
+
     /* ==================== EXPAND / ANIMATION ==================== */
 
     private void toggleExpandable(View content, ImageView icon) {
@@ -793,6 +920,12 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         try {
             if (reviewUpdateListener != null && reviewApi != null) {
                 reviewApi.removeReviewUpdateListener(reviewUpdateListener);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (cartUpdateListener != null && cartApi != null) {
+                cartApi.removeCartUpdateListener(cartUpdateListener);
             }
         } catch (Exception ignored) {}
 

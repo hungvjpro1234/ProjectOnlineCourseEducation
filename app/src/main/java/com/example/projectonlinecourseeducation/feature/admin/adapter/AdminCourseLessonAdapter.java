@@ -17,18 +17,31 @@ import java.util.List;
 
 /**
  * Admin Lesson Adapter - Giao diện đẹp hơn với CardView và màu sắc phân biệt
+ * + Long-click để xóa lesson
  */
 public class AdminCourseLessonAdapter extends RecyclerView.Adapter<AdminCourseLessonAdapter.LessonViewHolder> {
 
     private List<LessonItem> lessons = new ArrayList<>();
-    private OnLessonClickListener listener;
+    private OnLessonClickListener clickListener;
+    private OnLessonLongClickListener longClickListener;
 
     public interface OnLessonClickListener {
         void onLessonClick(Lesson lesson);
     }
 
-    public AdminCourseLessonAdapter(OnLessonClickListener listener) {
-        this.listener = listener;
+    public interface OnLessonLongClickListener {
+        boolean onLessonLongClick(Lesson lesson);
+    }
+
+    public AdminCourseLessonAdapter(OnLessonClickListener clickListener,
+                                    OnLessonLongClickListener longClickListener) {
+        this.clickListener = clickListener;
+        this.longClickListener = longClickListener;
+    }
+
+    // Backward compatibility constructor
+    public AdminCourseLessonAdapter(OnLessonClickListener clickListener) {
+        this(clickListener, null);
     }
 
     public void setLessons(List<Lesson> lessonList) {
@@ -76,11 +89,21 @@ public class AdminCourseLessonAdapter extends RecyclerView.Adapter<AdminCourseLe
             tvDuration = itemView.findViewById(R.id.tvDuration);
             tvLessonType = itemView.findViewById(R.id.tvLessonType);
 
+            // Click listener
             cardLesson.setOnClickListener(v -> {
-                if (listener != null && getBindingAdapterPosition() != RecyclerView.NO_POSITION) {
+                if (clickListener != null && getBindingAdapterPosition() != RecyclerView.NO_POSITION) {
                     Lesson lesson = lessons.get(getBindingAdapterPosition()).lesson;
-                    listener.onLessonClick(lesson);
+                    clickListener.onLessonClick(lesson);
                 }
+            });
+
+            // Long-click listener
+            cardLesson.setOnLongClickListener(v -> {
+                if (longClickListener != null && getBindingAdapterPosition() != RecyclerView.NO_POSITION) {
+                    Lesson lesson = lessons.get(getBindingAdapterPosition()).lesson;
+                    return longClickListener.onLessonLongClick(lesson);
+                }
+                return false;
             });
         }
 

@@ -23,22 +23,35 @@ import java.util.Locale;
 
 /**
  * Admin Course Review Adapter - Thiết kế card đẹp với avatar, rating, và verified badge
+ * + Long-click để xóa review
  */
 public class AdminCourseReviewAdapter extends RecyclerView.Adapter<AdminCourseReviewAdapter.ReviewViewHolder> {
 
     private List<CourseReview> reviews = new ArrayList<>();
-    private OnReviewClickListener listener;
+    private OnReviewClickListener clickListener;
+    private OnReviewLongClickListener longClickListener;
 
     public interface OnReviewClickListener {
         void onReviewClick(CourseReview review);
     }
 
-    public AdminCourseReviewAdapter(OnReviewClickListener listener) {
-        this.listener = listener;
+    public interface OnReviewLongClickListener {
+        boolean onReviewLongClick(CourseReview review);
+    }
+
+    public AdminCourseReviewAdapter(OnReviewClickListener clickListener,
+                                    OnReviewLongClickListener longClickListener) {
+        this.clickListener = clickListener;
+        this.longClickListener = longClickListener;
+    }
+
+    // Backward compatibility constructors
+    public AdminCourseReviewAdapter(OnReviewClickListener clickListener) {
+        this(clickListener, null);
     }
 
     public AdminCourseReviewAdapter() {
-        this(null);
+        this(null, null);
     }
 
     public void setReviews(List<CourseReview> reviewList) {
@@ -92,12 +105,24 @@ public class AdminCourseReviewAdapter extends RecyclerView.Adapter<AdminCourseRe
             tvReviewComment = itemView.findViewById(R.id.tvReviewComment);
             tvHelpfulCount = itemView.findViewById(R.id.tvHelpfulCount);
 
-            if (listener != null) {
+            // Click listener
+            if (clickListener != null) {
                 cardReview.setOnClickListener(v -> {
                     int pos = getBindingAdapterPosition();
                     if (pos != RecyclerView.NO_POSITION) {
-                        listener.onReviewClick(reviews.get(pos));
+                        clickListener.onReviewClick(reviews.get(pos));
                     }
+                });
+            }
+
+            // Long-click listener
+            if (longClickListener != null) {
+                cardReview.setOnLongClickListener(v -> {
+                    int pos = getBindingAdapterPosition();
+                    if (pos != RecyclerView.NO_POSITION) {
+                        return longClickListener.onReviewLongClick(reviews.get(pos));
+                    }
+                    return false;
                 });
             }
         }
