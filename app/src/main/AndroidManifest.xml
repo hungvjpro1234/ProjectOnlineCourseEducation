@@ -48,12 +48,15 @@
             android:exported="false" />
         <activity android:name=".feature.admin.activity.AdminManageCourseDetailActivity"
             android:exported="false" />
-        <!-- NEW: Admin Lesson Detail -->
         <activity
             android:name=".feature.admin.activity.AdminLessonDetailActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".feature.admin.activity.AdminCoursePreviewActivity"
+            android:exported="false" />
+        <activity android:name=".feature.admin.activity.AdminLessonVideoPreviewActivity"
+            android:exported="false" />
 
         <!-- MAIN LAUNCHER -->
         <activity

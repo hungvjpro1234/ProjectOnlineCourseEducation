@@ -22,6 +22,8 @@ import java.util.List;
 /**
  * Adapter hiển thị courses đang chờ phê duyệt
  * Hỗ trợ 3 loại: INITIAL, EDIT, DELETE
+ *
+ * UPDATED: Added Preview button for INITIAL type
  */
 public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPendingCourseAdapter.PendingCourseViewHolder> {
 
@@ -31,6 +33,7 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
     private final OnApproveListener onApprove;
     private final OnRejectListener onReject;
     private final OnViewChangesListener onViewChanges;
+    private final OnPreviewListener onPreview; // NEW
 
     public enum ApprovalType {
         INITIAL,  // Khóa học mới
@@ -50,12 +53,18 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
         void onViewChanges(Course course);
     }
 
+    public interface OnPreviewListener {
+        void onPreview(Course course);
+    }
+
     public AdminPendingCourseAdapter(OnApproveListener onApprove,
                                      OnRejectListener onReject,
-                                     OnViewChangesListener onViewChanges) {
+                                     OnViewChangesListener onViewChanges,
+                                     OnPreviewListener onPreview) {
         this.onApprove = onApprove;
         this.onReject = onReject;
         this.onViewChanges = onViewChanges;
+        this.onPreview = onPreview;
     }
 
     public void setCourses(List<Course> courses) {
@@ -100,9 +109,10 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
         private final TextView tvPrice;
         private final TextView tvLectures;
         private final TextView tvCreatedAt;
-        private final Button btnApprove;
+        private final Button btnPreview;        // NEW for INITIAL
+        private final Button btnViewChanges;    // For EDIT
         private final Button btnReject;
-        private final Button btnViewChanges;
+        private final Button btnApprove;
 
         public PendingCourseViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -116,9 +126,10 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
             tvPrice = itemView.findViewById(R.id.tvPrice);
             tvLectures = itemView.findViewById(R.id.tvLectures);
             tvCreatedAt = itemView.findViewById(R.id.tvCreatedAt);
-            btnApprove = itemView.findViewById(R.id.btnApprove);
-            btnReject = itemView.findViewById(R.id.btnReject);
+            btnPreview = itemView.findViewById(R.id.btnPreview);          // NEW
             btnViewChanges = itemView.findViewById(R.id.btnViewChanges);
+            btnReject = itemView.findViewById(R.id.btnReject);
+            btnApprove = itemView.findViewById(R.id.btnApprove);
         }
 
         public void bind(Course course, ApprovalType type) {
@@ -155,7 +166,11 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
                 case INITIAL:
                     tvStatusBadge.setText("🆕 KHÓA HỌC MỚI");
                     tvStatusBadge.setBackgroundResource(R.drawable.bg_status_new);
+
+                    // Show Preview button, hide ViewChanges
+                    btnPreview.setVisibility(View.VISIBLE);
                     btnViewChanges.setVisibility(View.GONE);
+
                     btnApprove.setText("✓ Phê duyệt");
                     btnReject.setText("✗ Từ chối");
                     break;
@@ -163,7 +178,11 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
                 case EDIT:
                     tvStatusBadge.setText("✏️ CHỈNH SỬA");
                     tvStatusBadge.setBackgroundResource(R.drawable.bg_status_edit);
+
+                    // Hide Preview, show ViewChanges
+                    btnPreview.setVisibility(View.GONE);
                     btnViewChanges.setVisibility(View.VISIBLE);
+
                     btnApprove.setText("✓ Duyệt sửa");
                     btnReject.setText("✗ Từ chối");
                     break;
@@ -171,16 +190,26 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
                 case DELETE:
                     tvStatusBadge.setText("🗑️ YÊU CẦU XÓA");
                     tvStatusBadge.setBackgroundResource(R.drawable.bg_status_delete);
+
+                    // Hide both Preview and ViewChanges
+                    btnPreview.setVisibility(View.GONE);
                     btnViewChanges.setVisibility(View.GONE);
+
                     btnApprove.setText("✓ Xóa vĩnh viễn");
                     btnReject.setText("✗ Giữ lại");
                     break;
             }
 
             // Button listeners
-            btnApprove.setOnClickListener(v -> {
-                if (onApprove != null) {
-                    onApprove.onApprove(course);
+            btnPreview.setOnClickListener(v -> {
+                if (onPreview != null) {
+                    onPreview.onPreview(course);
+                }
+            });
+
+            btnViewChanges.setOnClickListener(v -> {
+                if (onViewChanges != null) {
+                    onViewChanges.onViewChanges(course);
                 }
             });
 
@@ -190,9 +219,9 @@ public class AdminPendingCourseAdapter extends RecyclerView.Adapter<AdminPending
                 }
             });
 
-            btnViewChanges.setOnClickListener(v -> {
-                if (onViewChanges != null) {
-                    onViewChanges.onViewChanges(course);
+            btnApprove.setOnClickListener(v -> {
+                if (onApprove != null) {
+                    onApprove.onApprove(course);
                 }
             });
         }

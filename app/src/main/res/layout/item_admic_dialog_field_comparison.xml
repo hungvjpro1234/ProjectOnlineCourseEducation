@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/bg_comparison_item">
+
+    <TextView
+        android:id="@+id/tvField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tiêu đề:"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#212121" />
+
+    <TextView
+        android:id="@+id/tvOldValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cũ: Java Cơ Bản"
+        android:textSize="13sp"
+        android:textColor="#757575"
+        android:layout_marginTop="4dp" />
+
+    <TextView
+        android:id="@+id/tvNewValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mới: Java Nâng Cao"
+        android:textSize="13sp"
+        android:textColor="#4CAF50"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp" />
+
+</LinearLayout>

@@ -1,10 +1,12 @@
 package com.example.projectonlinecourseeducation.feature.admin.fragment;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,13 +18,21 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
+import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
+import com.example.projectonlinecourseeducation.feature.admin.activity.AdminCoursePreviewActivity;
+import com.example.projectonlinecourseeducation.feature.admin.activity.AdminLessonVideoPreviewActivity;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminPendingCourseAdapter;
 import com.google.android.material.tabs.TabLayout;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,9 +40,9 @@ import java.util.concurrent.Executors;
  * Fragment phê duyệt khóa học cho Admin
  *
  * 3 LOẠI PHÊ DUYỆT:
- * 1. INITIAL - Khóa học mới (chưa được duyệt lần đầu)
- * 2. EDIT - Chỉnh sửa khóa học (pending version vs original)
- * 3. DELETE - Yêu cầu xóa khóa học
+ * 1. INITIAL - Khóa học mới (có preview activity đầy đủ)
+ * 2. EDIT - Chỉnh sửa (dialog chi tiết với lesson tracking)
+ * 3. DELETE - Yêu cầu xóa (dialog đơn giản)
  */
 public class AdminCourseApprovalFragment extends Fragment {
 
@@ -46,6 +56,7 @@ public class AdminCourseApprovalFragment extends Fragment {
 
     // Data
     private CourseApi courseApi;
+    private LessonApi lessonApi;
     private AdminPendingCourseAdapter adapter;
     private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
@@ -91,6 +102,7 @@ public class AdminCourseApprovalFragment extends Fragment {
 
     private void initApis() {
         courseApi = ApiProvider.getCourseApi();
+        lessonApi = ApiProvider.getLessonApi();
     }
 
     private void setupTabs() {
@@ -130,8 +142,10 @@ public class AdminCourseApprovalFragment extends Fragment {
                 this::handleApproveCourse,
                 // onReject
                 this::handleRejectCourse,
-                // onViewChanges (for EDIT type)
-                this::handleViewChanges
+                // onViewChanges
+                this::handleViewChanges,
+                // onPreview (NEW for INITIAL)
+                this::handlePreviewCourse
         );
 
         rvPendingCourses.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -142,7 +156,6 @@ public class AdminCourseApprovalFragment extends Fragment {
         if (courseApi == null) return;
 
         courseUpdateListener = (courseId, updatedCourse) -> {
-            // Reload when any course changes
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> loadPendingCourses(currentType));
             }
@@ -192,21 +205,18 @@ public class AdminCourseApprovalFragment extends Fragment {
         for (Course course : allPending) {
             switch (type) {
                 case INITIAL:
-                    // Khóa học mới: chưa được duyệt initial
                     if (!course.isInitialApproved()) {
                         result.add(course);
                     }
                     break;
 
                 case EDIT:
-                    // Chỉnh sửa: đã duyệt initial nhưng có pending edit
                     if (course.isInitialApproved() && !course.isEditApproved() && !course.isDeleteRequested()) {
                         result.add(course);
                     }
                     break;
 
                 case DELETE:
-                    // Xóa: đã được duyệt initial và có yêu cầu xóa
                     if (course.isInitialApproved() && course.isDeleteRequested()) {
                         result.add(course);
                     }
@@ -239,9 +249,17 @@ public class AdminCourseApprovalFragment extends Fragment {
     private void showCourses(List<Course> courses, ApprovalType type) {
         emptyState.setVisibility(View.GONE);
         rvPendingCourses.setVisibility(View.VISIBLE);
-        // --- FIX: convert fragment's ApprovalType to adapter's ApprovalType to avoid enum type mismatch ---
         adapter.setType(AdminPendingCourseAdapter.ApprovalType.valueOf(type.name()));
         adapter.setCourses(courses);
+    }
+
+    // ==================== PREVIEW (NEW) ====================
+
+    private void handlePreviewCourse(Course course) {
+        // Open full preview activity
+        Intent intent = new Intent(getActivity(), AdminCoursePreviewActivity.class);
+        intent.putExtra("course_id", course.getId());
+        startActivity(intent);
     }
 
     // ==================== APPROVAL ACTIONS ====================
@@ -271,8 +289,12 @@ public class AdminCourseApprovalFragment extends Fragment {
     }
 
     private void handleViewChanges(Course course) {
-        // Show dialog comparing original vs pending version
-        showComparisonDialog(course);
+        if (currentType == ApprovalType.EDIT) {
+            showEditComparisonDialog(course);
+        } else {
+            // Fallback to simple comparison
+            showComparisonDialog(course);
+        }
     }
 
     private String getApproveMessage(Course course, ApprovalType type) {
@@ -389,6 +411,246 @@ public class AdminCourseApprovalFragment extends Fragment {
         });
     }
 
+    // ==================== EDIT COMPARISON WITH LESSON TRACKING ====================
+
+    private void showEditComparisonDialog(Course course) {
+        if (courseApi == null || lessonApi == null) return;
+
+        bgExecutor.execute(() -> {
+            try {
+                Course pendingVersion = courseApi.getPendingEdit(course.getId());
+
+                // Load lessons for both versions
+                List<Lesson> originalLessons = lessonApi.getLessonsForCourse(course.getId());
+
+                if (getActivity() == null) return;
+
+                getActivity().runOnUiThread(() -> {
+                    if (pendingVersion != null) {
+                        showEnhancedComparisonDialog(course, pendingVersion, originalLessons);
+                    } else {
+                        Toast.makeText(getContext(),
+                                "Không tìm thấy phiên bản chỉnh sửa",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading edit comparison", e);
+            }
+        });
+    }
+
+    private void showEnhancedComparisonDialog(Course original, Course pending, List<Lesson> originalLessons) {
+        // Create custom dialog with scrollable content
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(requireContext());
+
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_edit_comparison, null);
+        LinearLayout comparisonContainer = dialogView.findViewById(R.id.comparisonContainer);
+
+        // Build comparison content
+        addCourseComparison(comparisonContainer, original, pending);
+        addLessonComparison(comparisonContainer, originalLessons, original.getId());
+
+        builder.setView(dialogView);
+        builder.setTitle("📝 So sánh thay đổi");
+        builder.setPositiveButton("Đóng", null);
+        builder.show();
+    }
+
+    private void addCourseComparison(LinearLayout container, Course original, Course pending) {
+        // Header
+        addSectionHeader(container, "THÔNG TIN KHÓA HỌC");
+
+        // Compare fields
+        if (!original.getTitle().equals(pending.getTitle())) {
+            addComparisonRow(container, "Tiêu đề", original.getTitle(), pending.getTitle());
+        }
+
+        if (!original.getCategory().equals(pending.getCategory())) {
+            addComparisonRow(container, "Danh mục", original.getCategory(), pending.getCategory());
+        }
+
+        if (original.getPrice() != pending.getPrice()) {
+            addComparisonRow(container, "Giá",
+                    String.format("%,.0f VNĐ", original.getPrice()),
+                    String.format("%,.0f VNĐ", pending.getPrice()));
+        }
+
+        if (!original.getDescription().equals(pending.getDescription())) {
+            addComparisonRow(container, "Mô tả",
+                    truncate(original.getDescription(), 50),
+                    truncate(pending.getDescription(), 50));
+        }
+
+        if (!original.getImageUrl().equals(pending.getImageUrl())) {
+            addComparisonRow(container, "Ảnh", "Đã thay đổi", "URL mới");
+        }
+
+        // Skills comparison
+        if (!listsEqual(original.getSkills(), pending.getSkills())) {
+            addComparisonRow(container, "Kỹ năng",
+                    original.getSkills().size() + " kỹ năng",
+                    pending.getSkills().size() + " kỹ năng");
+        }
+
+        // Requirements comparison
+        if (!listsEqual(original.getRequirements(), pending.getRequirements())) {
+            addComparisonRow(container, "Yêu cầu",
+                    original.getRequirements().size() + " yêu cầu",
+                    pending.getRequirements().size() + " yêu cầu");
+        }
+    }
+
+    private void addLessonComparison(LinearLayout container, List<Lesson> originalLessons, String courseId) {
+        // Load current lessons (after edit)
+        bgExecutor.execute(() -> {
+            List<Lesson> currentLessons = lessonApi.getLessonsForCourse(courseId);
+
+            // Compare lessons
+            LessonChanges changes = compareLessons(originalLessons, currentLessons);
+
+            if (getActivity() != null && !changes.isEmpty()) {
+                getActivity().runOnUiThread(() -> {
+                    addSectionHeader(container, "BÀI HỌC");
+                    displayLessonChanges(container, changes);
+                });
+            }
+        });
+    }
+
+    private LessonChanges compareLessons(List<Lesson> original, List<Lesson> current) {
+        LessonChanges changes = new LessonChanges();
+
+        Map<String, Lesson> originalMap = new HashMap<>();
+        for (Lesson l : original) {
+            if (l.getId() != null) {
+                originalMap.put(l.getId(), l);
+            }
+        }
+
+        Set<String> currentIds = new HashSet<>();
+        for (Lesson l : current) {
+            if (l.getId() != null) {
+                currentIds.add(l.getId());
+
+                if (originalMap.containsKey(l.getId())) {
+                    // Check if modified
+                    Lesson orig = originalMap.get(l.getId());
+                    if (!lessonsEqual(orig, l)) {
+                        changes.modified.add(l);
+                    }
+                } else {
+                    // New lesson
+                    changes.added.add(l);
+                }
+            } else {
+                // New lesson without ID yet
+                changes.added.add(l);
+            }
+        }
+
+        // Find deleted
+        for (String origId : originalMap.keySet()) {
+            if (!currentIds.contains(origId)) {
+                changes.deleted.add(originalMap.get(origId));
+            }
+        }
+
+        return changes;
+    }
+
+    private void displayLessonChanges(LinearLayout container, LessonChanges changes) {
+        // Added lessons
+        for (Lesson lesson : changes.added) {
+            addLessonChangeRow(container, "➕ Thêm", lesson, true);
+        }
+
+        // Modified lessons
+        for (Lesson lesson : changes.modified) {
+            addLessonChangeRow(container, "✏️ Sửa", lesson, true);
+        }
+
+        // Deleted lessons
+        for (Lesson lesson : changes.deleted) {
+            addLessonChangeRow(container, "🗑️ Xóa", lesson, false);
+        }
+    }
+
+    private void addLessonChangeRow(LinearLayout container, String changeType, Lesson lesson, boolean canPlay) {
+        View row = getLayoutInflater().inflate(R.layout.item_admic_dialog_lesson_change, container, false);
+
+        TextView tvChangeType = row.findViewById(R.id.tvChangeType);
+        TextView tvLessonTitle = row.findViewById(R.id.tvLessonTitle);
+        TextView tvLessonInfo = row.findViewById(R.id.tvLessonInfo);
+        View btnPlay = row.findViewById(R.id.btnPlay);
+
+        tvChangeType.setText(changeType);
+        tvLessonTitle.setText(lesson.getTitle());
+        tvLessonInfo.setText("Video: " + lesson.getVideoUrl() + " • " + lesson.getDuration());
+
+        if (canPlay) {
+            btnPlay.setVisibility(View.VISIBLE);
+            btnPlay.setOnClickListener(v -> {
+                // Open video preview
+                Intent intent = new Intent(getActivity(), AdminLessonVideoPreviewActivity.class);
+                intent.putExtra("lesson_id", lesson.getId());
+                intent.putExtra("course_title", "Preview");
+                startActivity(intent);
+            });
+        } else {
+            btnPlay.setVisibility(View.GONE);
+        }
+
+        container.addView(row);
+    }
+
+    // ==================== HELPERS ====================
+
+    private void addSectionHeader(LinearLayout container, String title) {
+        TextView tv = new TextView(getContext());
+        tv.setText(title);
+        tv.setTextSize(14);
+        tv.setTextColor(0xFF2196F3);
+        tv.setTypeface(null, android.graphics.Typeface.BOLD);
+        tv.setPadding(0, 24, 0, 8);
+        container.addView(tv);
+    }
+
+    private void addComparisonRow(LinearLayout container, String field, String oldValue, String newValue) {
+        View row = getLayoutInflater().inflate(R.layout.item_admic_dialog_field_comparison, container, false);
+
+        TextView tvField = row.findViewById(R.id.tvField);
+        TextView tvOld = row.findViewById(R.id.tvOldValue);
+        TextView tvNew = row.findViewById(R.id.tvNewValue);
+
+        tvField.setText(field + ":");
+        tvOld.setText("Cũ: " + oldValue);
+        tvNew.setText("Mới: " + newValue);
+
+        container.addView(row);
+    }
+
+    private String truncate(String s, int maxLength) {
+        if (s == null) return "";
+        if (s.length() <= maxLength) return s;
+        return s.substring(0, maxLength) + "...";
+    }
+
+    private boolean listsEqual(List<String> list1, List<String> list2) {
+        if (list1 == null && list2 == null) return true;
+        if (list1 == null || list2 == null) return false;
+        if (list1.size() != list2.size()) return false;
+        return list1.containsAll(list2) && list2.containsAll(list1);
+    }
+
+    private boolean lessonsEqual(Lesson l1, Lesson l2) {
+        if (!l1.getTitle().equals(l2.getTitle())) return false;
+        if (!l1.getVideoUrl().equals(l2.getVideoUrl())) return false;
+        if (!l1.getDescription().equals(l2.getDescription())) return false;
+        return true;
+    }
+
+    // Simple comparison dialog (fallback)
     private void showComparisonDialog(Course course) {
         if (courseApi == null) return;
 
@@ -399,7 +661,7 @@ public class AdminCourseApprovalFragment extends Fragment {
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
                         if (pendingVersion != null) {
-                            showCompareUI(course, pendingVersion);
+                            showSimpleCompareUI(course, pendingVersion);
                         } else {
                             Toast.makeText(getContext(),
                                     "Không tìm thấy phiên bản chỉnh sửa",
@@ -413,8 +675,7 @@ public class AdminCourseApprovalFragment extends Fragment {
         });
     }
 
-    private void showCompareUI(Course original, Course pending) {
-        // Create comparison dialog
+    private void showSimpleCompareUI(Course original, Course pending) {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(requireContext());
         builder.setTitle("So sánh thay đổi");
 
@@ -458,16 +719,26 @@ public class AdminCourseApprovalFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
 
-        // Cleanup listener
         if (courseUpdateListener != null && courseApi != null) {
             try {
                 courseApi.removeCourseUpdateListener(courseUpdateListener);
             } catch (Exception ignored) {}
         }
 
-        // Shutdown executor
         try {
             bgExecutor.shutdownNow();
         } catch (Exception ignored) {}
+    }
+
+    // ==================== DATA CLASSES ====================
+
+    static class LessonChanges {
+        List<Lesson> added = new ArrayList<>();
+        List<Lesson> modified = new ArrayList<>();
+        List<Lesson> deleted = new ArrayList<>();
+
+        boolean isEmpty() {
+            return added.isEmpty() && modified.isEmpty() && deleted.isEmpty();
+        }
     }
 }
