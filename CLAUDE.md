@@ -2,6 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Recent Updates (December 2024)
+
+**Major Progress:**
+- ✅ **Admin Module Complete**: Fully implemented with 6 navigation tabs, statistics dashboard, user management, and comprehensive course management features (previously was just a placeholder)
+- ✅ **Backend Cart Endpoints**: Cart functionality implemented on backend (add, remove, checkout, status checking)
+- ✅ **Backend Course Endpoints**: Full CRUD operations for courses with image upload support
+- ✅ **Auth Endpoints Extended**: Added profile update and password change endpoints
+
+**What Changed:**
+- Admin module now has 3 activities, 10 fragments, 15+ adapters
+- Backend server updated with cart and course management APIs
+- File structure documentation updated to reflect admin implementation
+- Integration roadmap reorganized to show current status
+
+**Next Priorities:**
+1. Create AsyncApiHelper utility (critical for preventing ANR)
+2. Implement RemoteApiServices for Course, Cart, Lesson, Review modules
+3. Wrap API calls in activities/fragments with AsyncApiHelper
+4. Test complete backend integration
+
 ## Project Overview
 
 This is an **Android Online Learning Platform (University Project)** - a video-based online course app built with Java/XML frontend and Node.js backend.
@@ -11,11 +31,13 @@ This is an **Android Online Learning Platform (University Project)** - a video-b
 - **Development Approach:** Frontend and Backend developed in parallel by separate teams
 - **Goal:** Functional demo app that connects to real backend and runs smoothly without crashes
 
-**Current Status:**
-- FakeApiService implementations provide in-memory data for frontend development
-- Backend API exists but integration is in progress
-- All logic and features are tested and working with FakeApiService
-- Goal: Maintain same behavior and logic when switching to real backend
+**Current Status (December 2024):**
+- ✅ All frontend modules complete: Student, Teacher, Admin (fully functional)
+- ✅ Backend server implemented with Auth, Course, Cart endpoints
+- ✅ AuthRemoteApiService integrated and working
+- ⚠️ Other modules still using FakeApiService (Cart, Course, Lesson, Review)
+- ⚠️ AsyncApiHelper not created yet (required before RemoteApi integration)
+- 🎯 **Next Step**: Create AsyncApiHelper + implement RemoteApiServices for other modules
 
 **Project Goals (NOT Production App):**
 - ✅ Connect to real backend APIs
@@ -73,9 +95,11 @@ node server.js
 ```
 
 **Backend Configuration:**
-- Database: PostgreSQL at `postgres://postgres:07052004@127.0.0.1:5432/online-learning2`
+- Database: PostgreSQL (connection via environment variable DATABASE_URL)
 - Port: 3000
-- JWT Secret: "apphoctap"
+- JWT Secret: Configured via environment variables
+- Image Upload: Using multer middleware for course avatars
+- CORS: Enabled for cross-origin requests
 
 ## Architecture
 
@@ -154,6 +178,26 @@ class ApiResult<T> {
   - Changes are local until "Save" is clicked
   - Prevents accidental data loss
   - See [TeacherCourseEditActivity.java](app/src/main/java/com/example/projectonlinecourseeducation/feature/teacher/activity/TeacherCourseEditActivity.java)
+
+**Admin Module** ([feature/admin/](app/src/main/java/com/example/projectonlinecourseeducation/feature/admin/)):
+- Main: `AdminHomeActivity` with BottomNavigationView (6 tabs)
+- Key Features:
+  - **Statistics Dashboard**: Course/Student/Teacher analytics with ViewPager2 + TabLayout
+  - **User Management**: Student and Teacher detailed views (ViewPager2 tabs for Students/Teachers)
+  - **Course Management**: View all courses with comprehensive details
+    - Lesson list with video player and progress tracking
+    - Review management with rating display
+    - Student enrollment list with progress details
+    - Long-press delete for courses, lessons, and reviews
+  - **Course Approval**: Review and approve teacher-submitted courses (in development)
+  - **Notifications**: System notifications (placeholder)
+  - **Profile**: Admin profile management
+- Key Activities:
+  - `AdminManageCourseDetailActivity` - Full course details with lessons, reviews, enrolled students
+  - `AdminLessonDetailActivity` - Lesson video player with student progress tracking
+  - `AdminManageUserStudentDetailActivity` - Student profile with purchased/cart courses
+  - `AdminManageUserTeacherDetailActivity` - Teacher profile with owned courses statistics
+- Specialized Adapters: 15+ adapters for admin views (courses, lessons, users, stats, progress)
 
 **Course Status Resolution:**
 - Uses `CourseStatusResolver` ([core/utils/CourseStatusResolver.java](app/src/main/java/com/example/projectonlinecourseeducation/core/utils/CourseStatusResolver.java))
@@ -450,8 +494,9 @@ Activity/Fragment receives result
 - ✅ `register()` → POST /signup
 - ✅ `requestPasswordResetLink()` → POST /forgot-password-request
 - ✅ `finalizeResetViaLink()` → POST /forgot-password-update
-- ⚠️ `updateCurrentUserProfile()` - Backend endpoint not implemented (local update only)
-- ⚠️ `changeCurrentUserPassword()` - Backend endpoint not implemented (local update only)
+- ✅ `updateCurrentUserProfile()` → PUT /auth/profile
+- ✅ `changeCurrentUserPassword()` → POST /auth/change-password
+- ✅ `getCurrentUser()` → GET /auth/me
 
 ### Switching Between Fake and Remote API
 
@@ -547,6 +592,109 @@ This determines button visibility/behavior in course detail views.
 
 ## Important Notes and Limitations
 
+### Course Approval System (Three-Level Approval)
+
+The app implements a comprehensive approval workflow for courses:
+
+**Model Fields:**
+- `isInitialApproved` (boolean) - Phê duyệt khởi tạo
+- `isEditApproved` (boolean) - Phê duyệt chỉnh sửa
+- `isDeleteRequested` (boolean) - Yêu cầu xóa đang chờ duyệt (soft delete)
+
+**Workflow:**
+
+1. **Teacher Creates New Course:**
+   - Both approval fields set to `false` by `CourseFakeApiService.createCourse()`
+   - Course NOT visible on Student home (filtered by `isInitialApproved`)
+   - Admin sees "Chờ duyệt khởi tạo" tag
+   - Admin must approve → both fields become `true`
+   - Course now visible on Student home
+
+2. **Teacher Edits Existing Course (Pending Changes System):**
+   - Teacher submits edits → `CourseFakeApiService.updateCourse()` is called
+   - **Pending changes saved to `pendingCourseEdits` Map** (clone of edited course)
+   - **Original course UNCHANGED** - Student continues seeing old version
+   - `isEditApproved` set to `false` on original course
+   - Admin sees "Chờ duyệt chỉnh sửa" tag
+   - Admin can view both versions:
+     - Original via `getCourseDetail(id)`
+     - Pending via `getPendingEdit(id)`
+   - Admin approves → `approveCourseEdit()` applies pending changes to original
+   - Admin rejects → `rejectCourseEdit()` discards pending changes
+   - After approval: `isEditApproved = true`, changes visible to everyone
+
+3. **Teacher Deletes Course (Soft Delete):**
+   - `CourseFakeApiService.deleteCourse()` sets `isDeleteRequested = true`
+   - Course hidden from Student home (filtered by `isDeleteRequested`)
+   - Course still visible to Teacher and Admin with "Chờ duyệt xóa" tag
+   - Admin can:
+     - Approve delete → call `permanentlyDeleteCourse()` → course removed permanently
+     - Reject delete → call `cancelDeleteRequest()` → course returns to normal
+
+**Benefits:**
+- Prevents inappropriate content from going live
+- Allows continuous availability (edit approval doesn't hide course)
+- Soft delete prevents accidental permanent deletion
+- Clear status tracking via tags
+
+**UI Implementation:**
+- Teacher: Orange tag showing "Chờ duyệt khởi tạo", "Chờ duyệt chỉnh sửa", or "Chờ duyệt xóa" in [HomeCourseAdapter](app/src/main/java/com/example/projectonlinecourseeducation/feature/teacher/adapter/HomeCourseAdapter.java)
+- Admin: Same tags in [AdminCourseAdapter](app/src/main/java/com/example/projectonlinecourseeducation/feature/admin/adapter/AdminCourseAdapter.java)
+- Student: Only sees approved, non-deleted courses (filtered in `filterSearchSort()`)
+
+**Helper Methods in Course Model:**
+- `isPendingApproval()` - Returns true if awaiting any approval (create, edit, or delete)
+- `getApprovalStatusText()` - Returns status string for UI tags
+- `isDeleteRequested()` - Check if course is pending delete approval
+
+**API Methods in CourseFakeApiService:**
+
+*Course Edit Approval:*
+- `updateCourse(id, course)` - Saves changes to pending, doesn't modify original
+- `getPendingEdit(id)` - Get pending version for review (admin/teacher)
+- `hasPendingEdit(id)` - Check if course has pending changes
+- `approveCourseEdit(id)` - Apply pending changes to original (admin)
+- `rejectCourseEdit(id)` - Discard pending changes (admin)
+
+*Course Delete Approval:*
+- `deleteCourse(id)` - Soft delete, sets `isDeleteRequested = true`
+- `permanentlyDeleteCourse(id)` - Hard delete, removes from database (admin only)
+- `cancelDeleteRequest(id)` - Reject delete request, restores course (admin only)
+
+*Helper Methods:*
+- `cloneCourse(course)` - Deep copy of course object
+- Internal `pendingCourseEdits` Map stores all pending versions
+
+**Admin Approval Page:**
+- Currently placeholder in [AdminCourseApprovalFragment](app/src/main/java/com/example/projectonlinecourseeducation/feature/admin/fragment/AdminCourseApprovalFragment.java)
+- To be implemented with three action types:
+
+1. **Create Approval** (course with `isInitialApproved = false`):
+   ```java
+   course.setInitialApproved(true);
+   course.setEditApproved(true);
+   ```
+
+2. **Edit Approval** (course with `isEditApproved = false` and pending changes):
+   ```java
+   // View both versions:
+   Course original = ApiProvider.getCourseApi().getCourseDetail(courseId);
+   Course pending = CourseFakeApiService.getInstance().getPendingEdit(courseId);
+
+   // Approve or Reject:
+   CourseFakeApiService.getInstance().approveCourseEdit(courseId);  // Approve
+   CourseFakeApiService.getInstance().rejectCourseEdit(courseId);   // Reject
+   ```
+
+3. **Delete Approval** (course with `isDeleteRequested = true`):
+   ```java
+   // Approve delete:
+   CourseFakeApiService.getInstance().permanentlyDeleteCourse(courseId);
+
+   // Reject delete:
+   CourseFakeApiService.getInstance().cancelDeleteRequest(courseId);
+   ```
+
 ### Category System
 
 31+ predefined categories in `CourseFakeApiService.FIXED_CATEGORIES`:
@@ -616,37 +764,78 @@ app/src/main/java/com/example/projectonlinecourseeducation/
     │   ├── activity/       # Home, CourseCreate, CourseEdit
     │   ├── adapter/        # Course and lesson adapters
     │   └── fragment/       # 4 fragments
-    └── admin/              # Placeholder (incomplete)
+    └── admin/
+    ├── activity/       # Home, CourseDetail, LessonDetail, UserDetails
+    ├── adapter/        # 15+ adapters (Course, Lesson, User, Stats, Progress)
+    └── fragment/       # 10 fragments (Statistics, UserManagement, CourseManagement, etc.)
 ```
 
 ## Backend Integration Roadmap
+
+**Current Integration Status:**
+```
+Frontend Modules:          Backend APIs:           RemoteApiServices:
+┌────────────────┐         ┌──────────────┐        ┌──────────────────┐
+│ Student ✅     │ ───┐    │ Auth ✅      │ ────── │ Auth ✅          │
+│ Teacher ✅     │    │    │ Course ✅    │ ─────┐ │ Course ⏳        │
+│ Admin ✅       │    └──→ │ Cart ✅      │ ─────┤ │ Cart ⏳          │
+└────────────────┘         │ Lesson ⏳    │ ─────┤ │ Lesson ⏳        │
+                           │ Review ⏳    │ ─────┤ │ Review ⏳        │
+                           └──────────────┘      └ │ MyCourse ⏳      │
+                                                   └──────────────────┘
+Legend:
+✅ Complete    ⏳ TODO    🟢 Backend Ready    ⚠️ Critical Next Step
+```
+
+**Critical Blocker:**
+- ⚠️ AsyncApiHelper must be created BEFORE RemoteApiServices can be safely used
+- Without it: Network calls on main thread → ANR crash after 5 seconds
+- With it: Network calls on background thread → smooth operation
+
+---
 
 ### Phase 1: Auth Module ✅ (Complete)
 - ✅ AuthRemoteApiService implemented
 - ✅ Retrofit + OkHttp configured
 - ✅ JWT token management (SessionManager)
 - ✅ Login, Register, Password Reset endpoints
+- ✅ Profile update and password change endpoints
 
-### Phase 2: Course Module (Next Priority)
-- ⏳ Implement CourseRemoteApiService
-- ⏳ Map backend responses to Course model
-- ⏳ Handle category differences (backend structure vs fixed list)
-- ⏳ Support search, filter, sort operations
+### Phase 2: Backend Endpoints Implemented 🟢 (Backend Ready)
+Backend server has the following endpoints ready for integration:
+- ✅ **Auth**: POST /login, /signup, /forgot-password-request, /forgot-password-update
+- ✅ **Auth Protected**: GET /auth/me, PUT /auth/profile, POST /auth/change-password
+- ✅ **Course**: POST /course, GET /course, GET /course/:id, DELETE /course/:id
+- ✅ **Cart**: GET /cart/:userId, POST /cart/add, POST /cart/remove, POST /cart/checkout
+- ✅ **Course Status**: GET /course/:userId/:courseId/status, POST /course/:id/purchase
 
-### Phase 3: Lesson Module
+### Phase 3: Admin Module ✅ (Frontend Complete)
+- ✅ AdminHomeActivity with 6 navigation tabs
+- ✅ Statistics Dashboard (Course/Student/Teacher stats with charts)
+- ✅ User Management (Student/Teacher detailed views)
+- ✅ Course Management (view courses, lessons, reviews, enrolled students)
+- ✅ Lesson details with video player and progress tracking
+- ✅ 15+ specialized adapters for admin views
+
+### Phase 4: Create RemoteApiServices (Next Priority)
+Frontend activities are still using FakeApiService. Need to create RemoteApiService implementations:
+- ⏳ Implement CourseRemoteApiService (backend endpoints ready)
+- ⏳ Implement CartRemoteApiService (backend endpoints ready)
+- ⏳ Implement MyCourseRemoteApiService
 - ⏳ Implement LessonRemoteApiService
 - ⏳ Implement LessonProgressRemoteApiService
-- ⏳ Handle Chapter → Lesson mapping
-- ⏳ Maintain Observer pattern for duration updates
-
-### Phase 4: Cart & Purchase
-- ⏳ Implement CartRemoteApiService
-- ⏳ Implement MyCourseRemoteApiService
-- ⏳ Payment flow integration
-
-### Phase 5: Review Module
 - ⏳ Implement ReviewRemoteApiService
-- ⏳ Rating calculation sync with backend
+
+### Phase 5: ANR Prevention (Critical Before RemoteApi Integration)
+- ⚠️ **MUST DO FIRST**: Create AsyncApiHelper utility class
+- ⏳ Wrap API calls in ~11 Activity/Fragment files with AsyncApiHelper
+- ⏳ Test with RemoteApiService to ensure no ANR crashes
+
+### Phase 6: RemoteApi Integration Testing
+- ⏳ Swap FakeApiService to RemoteApiService via ApiProvider
+- ⏳ Test all features: Student, Teacher, Admin modules
+- ⏳ Verify same behavior as FakeApiService (no lag, no crashes)
+- ⏳ Handle Chapter → Lesson mapping (backend has chapters, app doesn't)
 
 **Integration Pattern for Each Module:**
 1. Create `XxxRemoteApiService implements XxxApi`
@@ -657,29 +846,65 @@ app/src/main/java/com/example/projectonlinecourseeducation/
 
 ## Summary: Key Points for University Project
 
-**What Makes This Work:**
-1. ✅ **FakeApiService** - Enabled parallel FE/BE development
-2. ✅ **Interface-based design** - Easy to swap Fake ↔ Remote
-3. ✅ **ApiProvider pattern** - Central configuration point
-4. ✅ **AsyncApiHelper** - Simple ANR prevention without architecture overhaul
+**What Has Been Accomplished (December 2024):**
+1. ✅ **All Frontend Modules Complete**:
+   - Student module: 5 tabs, course browsing, cart, video player, progress tracking
+   - Teacher module: 4 tabs, course/lesson CRUD with staged changes pattern
+   - Admin module: 6 tabs, statistics dashboard, user management, course management with full details
+2. ✅ **Backend Server Functional**:
+   - Auth endpoints (login, register, password reset, profile)
+   - Course endpoints (CRUD operations)
+   - Cart endpoints (add, remove, checkout, status)
+   - PostgreSQL database with proper schema
+3. ✅ **First RemoteApi Integration**:
+   - AuthRemoteApiService implemented and working
+   - RetrofitClient with JWT token management
+   - SessionManager for user persistence
+4. ✅ **FakeApiService Strategy**:
+   - Enabled parallel FE/BE development
+   - All features tested and working with in-memory data
+   - Interface-based design ready for RemoteApi swap
 
-**Minimal Integration Requirements:**
-- Create `AsyncApiHelper` utility class (1 file)
+**What Still Needs to Be Done:**
+1. ⚠️ **CRITICAL - Create AsyncApiHelper** (1 file):
+   - Required to prevent ANR crashes when using RemoteApiService
+   - Simple utility class using ExecutorService + Handler
+   - Must be created BEFORE integrating other RemoteApiServices
+2. ⏳ **Implement RemoteApiServices** (5 services):
+   - CourseRemoteApiService (backend endpoints ready ✅)
+   - CartRemoteApiService (backend endpoints ready ✅)
+   - MyCourseRemoteApiService
+   - LessonRemoteApiService
+   - ReviewRemoteApiService
+3. ⏳ **Wrap API Calls in Activities** (~11 files):
+   - Update Student, Teacher, Admin activities to use AsyncApiHelper
+   - Replace direct API calls with background thread execution
+4. ⏳ **Integration Testing**:
+   - Swap FakeApi → RemoteApi via ApiProvider
+   - Verify app runs smoothly with backend (no lag, no crashes)
+   - Test all features: browsing, cart, purchase, video playback
+5. ⏳ **Handle Backend Differences**:
+   - Backend has Chapter model (app doesn't) - needs mapping
+   - Category system may need synchronization
+
+**Integration Approach:**
+- Create `AsyncApiHelper` utility class (prevents ANR)
 - Wrap API calls in ~11 Activity/Fragment files
 - Initialize `RetrofitClient` in MainActivity
-- Swap `ApiProvider.setXxxApi()` when ready
+- Create RemoteApiService implementations
+- Swap `ApiProvider.setXxxApi()` when ready to test
 
-**Result:**
+**Expected Result:**
 - App runs smoothly with real backend
 - No crashes from network operations
 - Same logic and features as FakeApiService
-- Suitable for university project demonstration
+- Demonstrates full-stack mobile app development for university project
 
-**NOT Included (Beyond Scope):**
+**NOT Included (Beyond Project Scope):**
 - MVVM architecture refactoring
 - Comprehensive unit testing
 - Offline caching with Room database
 - Production-level security hardening
 - Enterprise scalability patterns
 
-This approach balances academic requirements (demonstrating full-stack integration) with practical development (quick iteration, working demo).
+This approach balances academic requirements (demonstrating full-stack integration) with practical development (quick iteration, working demo). The foundation is solid - just need to complete the RemoteApi integration layer.

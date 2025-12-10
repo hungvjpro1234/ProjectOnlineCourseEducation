@@ -51,6 +51,22 @@
                 android:maxLines="2"
                 android:ellipsize="end" />
 
+            <!-- Approval Status Tag -->
+            <TextView
+                android:id="@+id/tv_approval_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Chờ duyệt khởi tạo"
+                android:textSize="10sp"
+                android:textColor="@color/white"
+                android:background="@android:color/holo_orange_dark"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:layout_marginTop="2dp"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/tv_teacher"
                 android:layout_width="wrap_content"

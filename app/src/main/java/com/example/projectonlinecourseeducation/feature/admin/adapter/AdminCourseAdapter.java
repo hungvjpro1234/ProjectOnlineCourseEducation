@@ -59,6 +59,15 @@ public class AdminCourseAdapter extends RecyclerView.Adapter<AdminCourseAdapter.
         holder.tvRating.setText(String.format(Locale.getDefault(), "%.1f", c.getRating()));
         holder.tvRatingBig.setText(String.format(Locale.getDefault(), "%.1f", c.getRating()));
 
+        // Approval Status Tag
+        String statusText = c.getApprovalStatusText();
+        if (statusText != null && !statusText.isEmpty()) {
+            holder.tvApprovalStatus.setVisibility(View.VISIBLE);
+            holder.tvApprovalStatus.setText(statusText);
+        } else {
+            holder.tvApprovalStatus.setVisibility(View.GONE);
+        }
+
         holder.tvPrice.setText(formatCurrency(c.getPrice()));
 
         long total = (long) c.getStudents() * Math.round(c.getPrice());
@@ -123,7 +132,7 @@ public class AdminCourseAdapter extends RecyclerView.Adapter<AdminCourseAdapter.
 
     public static class VH extends RecyclerView.ViewHolder {
         ImageView imgCourse;
-        TextView tvTitle, tvTeacher, tvStudents, tvRating, tvPrice, tvTotalValue, tvRatingBig;
+        TextView tvTitle, tvTeacher, tvStudents, tvRating, tvPrice, tvTotalValue, tvRatingBig, tvApprovalStatus;
         ImageButton btnDelete;
 
         public VH(@NonNull View itemView) {
@@ -136,6 +145,7 @@ public class AdminCourseAdapter extends RecyclerView.Adapter<AdminCourseAdapter.
             tvPrice = itemView.findViewById(R.id.tv_price);
             tvTotalValue = itemView.findViewById(R.id.tv_total_value);
             tvRatingBig = itemView.findViewById(R.id.tv_rating_big);
+            tvApprovalStatus = itemView.findViewById(R.id.tv_approval_status);
             btnDelete = itemView.findViewById(R.id.btn_delete);
         }
     }

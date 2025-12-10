@@ -26,10 +26,18 @@ public class Course {
     private List<String> skills;       // các skill / insight "Bạn sẽ học được gì"
     private List<String> requirements; // yêu cầu học viên
 
+    // --- Approval fields ---
+    private boolean isInitialApproved;  // Đã duyệt khởi tạo (true = course được hiển thị)
+    private boolean isEditApproved;     // Đã duyệt chỉnh sửa (false = có thay đổi đang chờ duyệt)
+    private boolean isDeleteRequested;  // Yêu cầu xóa đang chờ duyệt (soft delete)
+
     // ====== Constructor rỗng (bắt buộc nên có để dùng với Gson/Retrofit/Room) ======
     public Course() {
         this.skills = new ArrayList<>();
         this.requirements = new ArrayList<>();
+        this.isInitialApproved = false; // Mặc định chưa duyệt
+        this.isEditApproved = false;    // Mặc định chưa duyệt
+        this.isDeleteRequested = false; // Mặc định không yêu cầu xóa
     }
 
     // Constructor cũ – để code cũ vẫn chạy (ví dụ màn Home, Fake API cũ...)
@@ -123,5 +131,38 @@ public class Course {
 
     public void setRequirements(List<String> requirements) {
         this.requirements = (requirements != null) ? new ArrayList<>(requirements) : new ArrayList<>();
+    }
+
+    // --- Getter/Setter cho approval fields ---
+    public boolean isInitialApproved() { return isInitialApproved; }
+    public void setInitialApproved(boolean initialApproved) { this.isInitialApproved = initialApproved; }
+
+    public boolean isEditApproved() { return isEditApproved; }
+    public void setEditApproved(boolean editApproved) { this.isEditApproved = editApproved; }
+
+    public boolean isDeleteRequested() { return isDeleteRequested; }
+    public void setDeleteRequested(boolean deleteRequested) { this.isDeleteRequested = deleteRequested; }
+
+    /**
+     * Helper method: Kiểm tra xem course có đang chờ duyệt không
+     * @return true nếu đang chờ duyệt (khởi tạo, chỉnh sửa, hoặc xóa)
+     */
+    public boolean isPendingApproval() {
+        return !isInitialApproved || !isEditApproved || isDeleteRequested;
+    }
+
+    /**
+     * Helper method: Lấy trạng thái approval dạng text
+     * @return "Chờ duyệt khởi tạo", "Chờ duyệt chỉnh sửa", "Chờ duyệt xóa", hoặc ""
+     */
+    public String getApprovalStatusText() {
+        if (isDeleteRequested) {
+            return "Chờ duyệt xóa";
+        } else if (!isInitialApproved) {
+            return "Chờ duyệt khởi tạo";
+        } else if (!isEditApproved) {
+            return "Chờ duyệt chỉnh sửa";
+        }
+        return "";
     }
 }

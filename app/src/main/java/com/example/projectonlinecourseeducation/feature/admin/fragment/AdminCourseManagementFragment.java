@@ -164,15 +164,57 @@ public class AdminCourseManagementFragment extends Fragment {
             return;
         }
 
+        // CRITICAL FIX: Admin must use listAll() to see ALL courses including pending ones
+        // filterSearchSort() filters out unapproved courses (for students)
+        List<Course> allCourses = courseApi.listAll();
+
         String selectedCat = (String) spinnerCategory.getSelectedItem();
-        if ("All".equalsIgnoreCase(selectedCat)) selectedCat = "All";
-        String query = etSearch.getText() == null ? "" : etSearch.getText().toString();
+        String query = etSearch.getText() == null ? "" : etSearch.getText().toString().toLowerCase().trim();
         CourseApi.Sort sort = SORT_VALUES[Math.max(0, spinnerSort.getSelectedItemPosition())];
 
-        // limit = 0 -> no limit (our FakeApi treats limit >0 to limit results)
-        List<Course> res = courseApi.filterSearchSort(selectedCat, query, sort, 0);
+        // Apply filters manually (client-side)
+        List<Course> filtered = new ArrayList<>();
+        for (Course c : allCourses) {
+            // Category filter
+            if (!"All".equalsIgnoreCase(selectedCat)) {
+                if (c.getCategory() == null || !c.getCategory().contains(selectedCat)) {
+                    continue;
+                }
+            }
+
+            // Search filter (title or teacher)
+            if (!query.isEmpty()) {
+                String title = c.getTitle() == null ? "" : c.getTitle().toLowerCase();
+                String teacher = c.getTeacher() == null ? "" : c.getTeacher().toLowerCase();
+                if (!title.contains(query) && !teacher.contains(query)) {
+                    continue;
+                }
+            }
+
+            filtered.add(c);
+        }
+
+        // Apply sort
+        if (sort == CourseApi.Sort.AZ) {
+            filtered.sort((a, b) -> {
+                String ta = a.getTitle() == null ? "" : a.getTitle();
+                String tb = b.getTitle() == null ? "" : b.getTitle();
+                return ta.compareToIgnoreCase(tb);
+            });
+        } else if (sort == CourseApi.Sort.ZA) {
+            filtered.sort((a, b) -> {
+                String ta = a.getTitle() == null ? "" : a.getTitle();
+                String tb = b.getTitle() == null ? "" : b.getTitle();
+                return tb.compareToIgnoreCase(ta);
+            });
+        } else if (sort == CourseApi.Sort.RATING_UP) {
+            filtered.sort((a, b) -> Double.compare(a.getRating(), b.getRating()));
+        } else if (sort == CourseApi.Sort.RATING_DOWN) {
+            filtered.sort((a, b) -> Double.compare(b.getRating(), a.getRating()));
+        }
+
         courseList.clear();
-        courseList.addAll(res);
+        courseList.addAll(filtered);
         refreshList();
     }
 

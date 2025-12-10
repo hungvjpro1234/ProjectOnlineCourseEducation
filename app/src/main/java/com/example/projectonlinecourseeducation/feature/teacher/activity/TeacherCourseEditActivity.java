@@ -763,17 +763,25 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 }
             }
 
-            currentCourse.setTitle(title);
-            String joinedCategories = String.join(", ", stagedCategoryTags);
-            currentCourse.setCategory(joinedCategories);
-            currentCourse.setPrice(price);
-            currentCourse.setDescription(description);
-            currentCourse.setSkills(skills);
-            currentCourse.setRequirements(requirements);
-
-            if (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty()) {
-                currentCourse.setImageUrl(stagedImageUrl);
-            }
+            // CRITICAL FIX: Create a NEW Course object instead of modifying currentCourse
+            // This prevents changes from being visible immediately before admin approval
+            Course updatedCourse = new Course(
+                currentCourse.getId(),
+                title,
+                currentCourse.getTeacher(),
+                (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty()) ? stagedImageUrl : currentCourse.getImageUrl(),
+                String.join(", ", stagedCategoryTags),
+                currentCourse.getLectures(),
+                currentCourse.getStudents(),
+                currentCourse.getRating(),
+                price,
+                description,
+                currentCourse.getCreatedAt(),
+                currentCourse.getRatingCount(),
+                currentCourse.getTotalDurationMinutes(),
+                skills,
+                requirements
+            );
 
             for (int i = 0; i < localLessons.size(); i++) {
                 localLessons.get(i).setOrder(i + 1);
@@ -800,8 +808,8 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
             Set<String> toDeleteIds = new HashSet<>(originalIds);
             toDeleteIds.removeAll(newIds);
 
-            // Update course first
-            courseApi.updateCourse(courseId, currentCourse);
+            // Update course with the NEW object (not the original)
+            courseApi.updateCourse(courseId, updatedCourse);
 
             // Create new lessons
             for (Lesson c : toCreate) {
