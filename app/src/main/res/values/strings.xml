@@ -83,4 +83,6 @@
     <string name="total_revenue">Tổng doanh thu</string>
     <string name="course_price">Giá khóa học</string>
     <string name="teacher_name">Tên giáo viên</string>
+
+    <string name="do_quiz">Làm quiz</string>
 </resources>

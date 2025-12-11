@@ -10,7 +10,6 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
@@ -28,6 +27,7 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 import com.example.projectonlinecourseeducation.data.network.SessionManager;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCommentAdapter;
 import com.google.android.material.button.MaterialButton;
@@ -48,6 +48,11 @@ import java.util.List;
  *   với các thay đổi tiến độ (từ chính activity hoặc từ nơi khác).
  * - Không cập nhật UI trực tiếp ngay sau updateLessonProgress/markLessonAsCompleted,
  *   thay vào đó listener sẽ đảm nhiệm việc refresh UI.
+ *
+ * - Thêm integration với LessonQuizApi: nếu lesson có quiz, nút Next chuyển sang "Làm quiz"
+ *   và chỉ cho phép làm quiz khi lesson đã completed (theo business rule).
+ *
+ * - Thêm QuizUpdateListener để tự cập nhật khi Quiz được create/update/delete.
  */
 public class StudentLessonVideoActivity extends AppCompatActivity {
 
@@ -56,7 +61,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private TextView tvLessonTitle, tvLessonDescription, tvProgressPercentage;
     private YouTubePlayerView youTubePlayerView;
-    // NEW: nút chuyển bài tiếp theo
+    // NEW: nút chuyển bài tiếp theo / hoặc làm quiz
     private MaterialButton btnNextLesson;
 
     // Comment views
@@ -74,6 +79,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     private LessonApi lessonApi;
     private LessonProgressApi lessonProgressApi;
     private LessonCommentApi lessonCommentApi;
+    private LessonQuizApi lessonQuizApi; // NEW: quiz API
 
     // Comment adapter
     private LessonCommentAdapter commentAdapter;
@@ -85,6 +91,12 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
     // NEW: listener để nhận thông báo progress thay đổi
     private LessonProgressApi.LessonProgressUpdateListener lessonProgressListener;
+
+    // NEW: quiz listener để reload state khi quiz thay đổi
+    private LessonQuizApi.QuizUpdateListener quizUpdateListener;
+
+    // NEW: flag nếu lesson có quiz
+    private boolean lessonHasQuiz = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -104,6 +116,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         lessonApi = ApiProvider.getLessonApi();
         lessonProgressApi = ApiProvider.getLessonProgressApi();
         lessonCommentApi = ApiProvider.getLessonCommentApi();
+        lessonQuizApi = ApiProvider.getLessonQuizApi(); // NEW
 
         // Setup comment adapter
         setupCommentSection();
@@ -162,6 +175,32 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             // Call listener with current lessonId to refresh only this lesson's UI.
             lessonProgressListener.onLessonProgressChanged(lessonId);
         }
+
+        // Register quiz update listener to refresh "lessonHasQuiz" and button state when quiz changes
+        if (lessonQuizApi != null && quizUpdateListener == null) {
+            quizUpdateListener = new LessonQuizApi.QuizUpdateListener() {
+                @Override
+                public void onQuizChanged(String changedLessonId) {
+                    // If change is global (null) or related to this lesson, refresh state
+                    boolean relevant = (changedLessonId == null || changedLessonId.isEmpty() || (lessonId != null && lessonId.equals(changedLessonId)));
+                    if (!relevant) return;
+
+                    runOnUiThread(() -> {
+                        try {
+                            lessonHasQuiz = lessonQuizApi.getQuizForLesson(lessonId) != null;
+                        } catch (Exception ignored) {
+                            lessonHasQuiz = false;
+                        }
+                        // Re-evaluate button enabled state using current lesson progress
+                        User currentUser = SessionManager.getInstance(StudentLessonVideoActivity.this).getCurrentUser();
+                        String studentId = currentUser != null ? currentUser.getId() : null;
+                        LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId, studentId);
+                        updateNextButtonState(progress);
+                    });
+                }
+            };
+            lessonQuizApi.addQuizUpdateListener(quizUpdateListener);
+        }
     }
 
     @Override
@@ -171,6 +210,11 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         if (lessonProgressApi != null && lessonProgressListener != null) {
             lessonProgressApi.removeLessonProgressUpdateListener(lessonProgressListener);
             lessonProgressListener = null;
+        }
+
+        if (lessonQuizApi != null && quizUpdateListener != null) {
+            lessonQuizApi.removeQuizUpdateListener(quizUpdateListener);
+            quizUpdateListener = null;
         }
     }
 
@@ -214,6 +258,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
         // Xử lý sự kiện gửi bình luận
         btnSendComment.setOnClickListener(v -> sendComment());
+
+        // Back button
+        btnBack.setOnClickListener(v -> finish());
     }
 
     /**
@@ -259,6 +306,8 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     /**
      * Tìm bài học tiếp theo trong cùng khóa học dựa trên order
      * Nếu không có bài tiếp theo -> ẩn / disable nút Next.
+     *
+     * UPDATED: nếu lesson có quiz -> nút sẽ là "Làm quiz" và business rule khác.
      */
     private void prepareNextLesson() {
         nextLesson = null;
@@ -285,20 +334,36 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
         nextLesson = candidate;
 
-        if (nextLesson == null) {
-            // Không có bài tiếp theo
-            btnNextLesson.setText("Đây là bài cuối trong khóa");
-            btnNextLesson.setEnabled(false);
-            btnNextLesson.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.bgnav)
-            );
+        // Kiểm tra quiz cho lesson hiện tại
+        lessonHasQuiz = false;
+        try {
+            if (lessonQuizApi != null) {
+                lessonHasQuiz = lessonQuizApi.getQuizForLesson(lessonId) != null;
+            }
+        } catch (Exception ignored) {
+        }
+
+        if (lessonHasQuiz) {
+            // Nếu có quiz, đổi text nút sang làm quiz. Bật/tắt dựa trên lesson completed (updateNextButtonState sẽ handle)
+            btnNextLesson.setText("Làm quiz");
+            btnNextLesson.setEnabled(false); // enable khi lesson completed (updateNextButtonState sẽ xử lý)
+            btnNextLesson.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.bgnav));
         } else {
-            // Có bài tiếp theo nhưng sẽ được mở/khóa dựa trên progress hiện tại
-            btnNextLesson.setText("Bài tiếp theo: " + nextLesson.getTitle());
-            btnNextLesson.setEnabled(false);
-            btnNextLesson.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.bgnav)
-            );
+            if (nextLesson == null) {
+                // Không có bài tiếp theo
+                btnNextLesson.setText("Đây là bài cuối trong khóa");
+                btnNextLesson.setEnabled(false);
+                btnNextLesson.setBackgroundTintList(
+                        ContextCompat.getColorStateList(this, R.color.bgnav)
+                );
+            } else {
+                // Có bài tiếp theo nhưng sẽ được mở/khóa dựa trên progress hiện tại
+                btnNextLesson.setText("Bài tiếp theo: " + nextLesson.getTitle());
+                btnNextLesson.setEnabled(false);
+                btnNextLesson.setBackgroundTintList(
+                        ContextCompat.getColorStateList(this, R.color.bgnav)
+                );
+            }
         }
     }
 
@@ -407,11 +472,11 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
     /**
      * Bật/tắt nút Next dựa trên rule:
-     *  - Được phép Next nếu completion >= 90% hoặc isCompleted = true
+     *  - Nếu lesson có quiz: chỉ bật khi lesson.isCompleted() == true (business)
+     *  - Nếu không có quiz: Giữ rule cũ: completion >=90% hoặc isCompleted = true
      */
     private void updateNextButtonState(LessonProgress progress) {
-        if (nextLesson == null) {
-            // Không có bài tiếp theo
+        if (nextLesson == null && !lessonHasQuiz) {
             btnNextLesson.setEnabled(false);
             btnNextLesson.setBackgroundTintList(
                     ContextCompat.getColorStateList(this, R.color.bgnav)
@@ -419,38 +484,62 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             return;
         }
 
-        boolean canGoNext = false;
-        if (progress != null) {
-            canGoNext = progress.isCompleted() || progress.getCompletionPercentage() >= 90;
+        boolean canInteract = false;
+        if (lessonHasQuiz) {
+            // Business: chỉ được làm quiz khi lesson completed
+            if (progress != null && progress.isCompleted()) {
+                canInteract = true;
+            }
+        } else {
+            // Giữ rule trước: completion>=90% hoặc isCompleted true
+            if (progress != null) {
+                canInteract = progress.isCompleted() || progress.getCompletionPercentage() >= 90;
+            }
         }
 
-        btnNextLesson.setEnabled(canGoNext);
+        btnNextLesson.setEnabled(canInteract);
         btnNextLesson.setBackgroundTintList(
                 ContextCompat.getColorStateList(
                         this,
-                        canGoNext ? R.color.colorSecondary : R.color.bgnav
+                        canInteract ? R.color.colorSecondary : R.color.bgnav
                 )
         );
     }
 
     private void setupActions() {
-        btnBack.setOnClickListener(v -> finish());
+        // btnBack handled in setupCommentSection()
 
-        // Nút chuyển bài tiếp theo
+        // Nút chuyển bài tiếp theo (hoặc làm quiz)
         btnNextLesson.setOnClickListener(v -> {
             User currentUser = SessionManager.getInstance(this).getCurrentUser();
             String studentId = currentUser != null ? currentUser.getId() : null;
             LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId, studentId);
-            boolean canGoNext = progress != null &&
-                    (progress.isCompleted() || progress.getCompletionPercentage() >= 90);
 
-            if (!canGoNext) {
-                Toast.makeText(this,
-                        "Bạn cần xem ít nhất 90% thời lượng video trước khi chuyển bài.",
-                        Toast.LENGTH_SHORT).show();
+            boolean canInteract;
+            if (lessonHasQuiz) {
+                canInteract = progress != null && progress.isCompleted();
+            } else {
+                canInteract = progress != null && (progress.isCompleted() || progress.getCompletionPercentage() >= 90);
+            }
+
+            if (!canInteract) {
+                String msg = lessonHasQuiz ? "Bạn cần hoàn thành bài học trước khi làm quiz." :
+                        "Bạn cần xem ít nhất 90% thời lượng video trước khi chuyển bài.";
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
                 return;
             }
 
+            if (lessonHasQuiz) {
+                // Start Quiz Activity
+                Intent intent = new Intent(this, StudentLessonQuizActivity.class);
+                intent.putExtra("lesson_id", lessonId);
+                if (nextLesson != null) intent.putExtra("next_lesson_id", nextLesson.getId());
+                startActivity(intent);
+                // don't finish() — user may return to replay video
+                return;
+            }
+
+            // original next-lesson flow
             if (nextLesson == null) {
                 Toast.makeText(this,
                         "Đây là bài cuối cùng trong khóa học.",
@@ -460,7 +549,6 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
 
             Intent intent = new Intent(this, StudentLessonVideoActivity.class);
             intent.putExtra("lesson_id", nextLesson.getId());
-            // courseId sẽ được load từ Lesson của bài mới
             startActivity(intent);
             finish();
         });
@@ -556,8 +644,8 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
      * Hiển thị dialog xác nhận xóa bình luận
      */
     private void showDeleteCommentDialog(LessonComment comment) {
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.delete_comment)
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle(R.string.delete_comment)
                 .setMessage(R.string.delete_comment_confirm)
                 .setPositiveButton(R.string.delete, (dialog, which) -> deleteComment(comment))
                 .setNegativeButton(R.string.cancel, null)

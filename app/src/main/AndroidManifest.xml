@@ -28,6 +28,8 @@
         <activity android:name=".feature.student.activity.StudentCourseProductDetailActivity" />
         <activity android:name=".feature.student.activity.StudentLessonVideoActivity"
             android:exported="false" />
+        <activity android:name=".feature.student.activity.StudentLessonQuizActivity"
+            android:exported="false" />
 
         <!-- TEACHER -->
         <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />

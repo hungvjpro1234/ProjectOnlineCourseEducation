@@ -51,7 +51,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Giới thiệu Java và cài đặt môi trường"
+                android:text="Giới thiệu Java và cài đặt "
                 android:textSize="14sp"
                 android:textColor="@color/black"
                 android:textStyle="bold"
@@ -71,7 +71,7 @@
                     android:layout_height="14dp"
                     android:src="@drawable/ic_timer"
                     android:contentDescription="@string/duration"
-                    android:tint="@color/text_secondary" />
+                    app:tint="@color/text_secondary" />
 
                 <TextView
                     android:id="@+id/tvLessonDuration"
@@ -115,16 +115,41 @@
             <!-- END NEW -->
         </LinearLayout>
 
-        <!-- Play Icon (NEW: thêm id để bắt click riêng) -->
-        <ImageView
-            android:id="@+id/ivPlay"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:src="@drawable/ic_play_circle"
-            android:scaleType="fitCenter"
-            android:contentDescription="@string/play_lesson"
-            android:tint="@color/colorSecondary"
-            android:layout_gravity="center_vertical"
-            android:layout_marginStart="8dp" />
+        <!-- thay đổi phần Right column trong file CardView của bạn -->
+        <!-- thêm xmlns:app nếu chưa có -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="15dp">
+
+            <ImageView
+                android:id="@+id/ivPlay"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_play_circle"
+                android:scaleType="fitCenter"
+                android:contentDescription="@string/play_lesson"
+                app:tint="@color/colorSecondary"
+                android:layout_gravity="center" />
+
+            <!-- MaterialButton thay cho Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnQuiz"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:minWidth="84dp"
+                android:text="@string/do_quiz"
+                android:textAllCaps="false"
+                app:cornerRadius="8dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:visibility="visible"
+                app:strokeWidth="0dp"
+                />
+        </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>
