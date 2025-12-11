@@ -28,4 +28,13 @@
         android:text="40%"
         android:layout_marginStart="8dp"
         android:textSize="12sp" />
+
+    <!-- NEW: Quiz score text (e.g. "8/10") -->
+    <TextView
+        android:id="@+id/tvLessonQuizScore"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="—/10"
+        android:layout_marginStart="8dp"
+        android:textSize="12sp" />
 </LinearLayout>

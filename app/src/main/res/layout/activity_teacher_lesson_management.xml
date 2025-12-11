@@ -69,6 +69,7 @@
             android:orientation="vertical"
             android:paddingBottom="20dp">
 
+            <!-- Video card (unchanged) -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -148,18 +149,6 @@
                                 android:textColor="@color/text_primary" />
                         </LinearLayout>
 
-                        <Button
-                            android:id="@+id/btnEditVideo"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:minHeight="40dp"
-                            android:paddingStart="14dp"
-                            android:paddingEnd="14dp"
-                            android:text="Đổi video"
-                            android:textSize="12sp"
-                            android:textAllCaps="false"
-                            android:backgroundTint="@color/blue_800"
-                            android:textColor="@color/white" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -192,6 +181,7 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Lesson info card (unchanged) -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -222,19 +212,6 @@
                             android:textSize="15sp"
                             android:textStyle="bold"
                             android:textColor="@color/blue_700" />
-
-                        <Button
-                            android:id="@+id/btnEditInfo"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:minHeight="36dp"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            android:text="Chỉnh sửa"
-                            android:textSize="12sp"
-                            android:textAllCaps="false"
-                            android:backgroundTint="@color/blue_800"
-                            android:textColor="@color/white" />
                     </LinearLayout>
 
                     <View
@@ -286,7 +263,7 @@
                             android:id="@+id/tvDescription"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Bài giảng này sẽ giới thiệu những khái niệm cơ bản về lập trình Java, cách thiết lập môi trường phát triển và viết chương trình Hello World đầu tiên."
+                            android:text="Bài giảng này sẽ giới thiệu những khái niệm cơ bản về lập trình Java..."
                             android:textSize="12sp"
                             android:lineSpacingExtra="2dp"
                             android:textColor="@color/text_primary" />
@@ -294,6 +271,66 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- NEW: Quiz card (placed between lesson info and comments) -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="6dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvQuizTitle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Quiz (10 câu)"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/blue_700" />
+
+                        <ImageView
+                            android:id="@+id/imgQuizExpand"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:src="@drawable/ic_expand"
+                            android:contentDescription="@string/app_name"
+                            app:tint="@color/blue_800"
+                            android:visibility="gone" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/divider"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvQuiz"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Comments card (unchanged) -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
