@@ -687,6 +687,29 @@ app.get("/course/pending", authMiddleware, async (req, res) => {
     }
 });
 
+// Admin approve initial creation -> set is_approved = true and is_edit_approved = true
+app.post("/course/:id/approve-initial", authMiddleware, async (req, res) => {
+  try {
+    const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
+    if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId)) return res.status(400).send({ success:false, message:"Invalid course id" });
+
+    const updated = await db.oneOrNone(
+      `UPDATE course SET is_approved = true, is_edit_approved = true WHERE course_id = $1 RETURNING *`,
+      [courseId]
+    );
+    if (!updated) return res.status(404).send({ success:false, message:"Course not found" });
+
+    res.send({ success:true, message:"Đã duyệt khóa học", data: transformCourseRow(updated) });
+  } catch (err) {
+    console.error("POST /course/:id/approve-initial error", err);
+    res.status(500).send({ success:false, message:"Lỗi khi duyệt khóa học" });
+  }
+});
+
+
 // Get pending edit for a course
 app.get("/course/:id/pending", authMiddleware, async (req, res) => {
     try {
@@ -1143,33 +1166,132 @@ app.patch("/course/:id", upload.single("courseAvatar"), authMiddleware, async (r
     }
 });
 
+// GET students of a course (teacher/admin)
+app.get("/course/:id/students", authMiddleware, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId))
+      return res.status(400).send({ success:false, message:"Invalid course id" });
 
-// DELETE
-app.delete("/course/:id", async (req, res) => {
-    try {
-        const id = parseInt(req.params.id, 10);
-        if (!Number.isFinite(id))
-            return res
-                .status(400)
-                .send({ success: false, message: "Invalid course id" });
+    // If course_student table doesn't exist, return empty list
+    const rows = await db.any(
+      `SELECT cs.user_id, cs.enrolled_at, u.username as name, u.email
+       FROM course_student cs
+       LEFT JOIN appuser u ON u.user_id = cs.user_id
+       WHERE cs.course_id = $1
+       ORDER BY cs.enrolled_at DESC`,
+      [courseId]
+    );
 
-        const deletedCourse = await db.oneOrNone(
-            "DELETE FROM course WHERE course_id = $1 RETURNING *",
-            [id]
-        );
-        if (!deletedCourse)
-            return res
-                .status(404)
-                .send({ success: false, message: "Course not found" });
-        res.send({ success: true, data: transformCourseRow(deletedCourse) });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send({
-            success: false,
-            message: "Lỗi khi xóa khóa học",
-        });
-    }
+    res.send({ success:true, data: rows });
+  } catch (err) {
+    console.error("GET /course/:id/students error", err);
+    res.status(500).send({ success:false, message:"Lỗi khi lấy danh sách học viên" });
+  }
 });
+
+// Recalculate rating for a course from course_review table (admin or background job)
+app.post("/course/:id/recalculate-rating", authMiddleware, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId)) return res.status(400).send({ success:false, message:"Invalid course id" });
+
+    // optional auth check (allow admin or system)
+    // const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
+    // if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+
+    // aggregate from course_review table if exists
+    const stats = await db.oneOrNone(
+      `SELECT COUNT(*)::int as cnt, COALESCE(AVG(rating),0)::float as avg
+       FROM course_review WHERE course_id = $1`,
+      [courseId]
+    );
+
+    if (!stats || stats.cnt === 0) {
+      // no reviews -> set 0 or skip update
+      await db.none(`UPDATE course SET rating = 0, ratingcount = 0 WHERE course_id = $1`, [courseId]);
+      return res.send({ success:true, message:"Rating reset to 0 (no reviews)", data: { rating:0, ratingCount:0 } });
+    }
+
+    await db.none(`UPDATE course SET rating = $1, ratingcount = $2 WHERE course_id = $3`, [stats.avg, stats.cnt, courseId]);
+
+    const updated = await db.one(`SELECT * FROM course WHERE course_id = $1`, [courseId]);
+    res.send({ success:true, data: transformCourseRow(updated) });
+  } catch (err) {
+    console.error("POST /course/:id/recalculate-rating error", err);
+    res.status(500).send({ success:false, message:"Lỗi khi tính lại rating" });
+  }
+});
+
+
+// === REPLACE existing DELETE /course/:id handler with "request delete" + admin approve/reject ===
+
+// Teacher requests delete (soft request) -> mark delete_requested & set is_edit_approved = false
+app.post("/course/:id/request-delete", authMiddleware, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId))
+      return res.status(400).send({ success:false, message:"Invalid course id" });
+
+    // Optionally: check permission: teacher owns course or admin can request on behalf
+    // Here we just mark request-delete
+    await db.none(
+      `UPDATE course SET is_delete_requested = true, is_edit_approved = false WHERE course_id = $1`,
+      [courseId]
+    );
+
+    res.send({ success:true, message: "Yêu cầu xóa đã được ghi nhận. Chờ admin duyệt." });
+  } catch (err) {
+    console.error("POST /course/:id/request-delete error", err);
+    res.status(500).send({ success:false, message:"Lỗi khi gửi yêu cầu xóa" });
+  }
+});
+
+// Admin approves & permanently deletes the course
+app.post("/course/:id/approve-delete", authMiddleware, async (req, res) => {
+  try {
+    const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
+    if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId))
+      return res.status(400).send({ success:false, message:"Invalid course id" });
+
+    const deleted = await db.oneOrNone(
+      "DELETE FROM course WHERE course_id = $1 RETURNING *",
+      [courseId]
+    );
+    if (!deleted) return res.status(404).send({ success:false, message:"Course not found" });
+
+    // Also cleanup pending edits
+    await db.none("DELETE FROM course_pending_edits WHERE course_id = $1", [courseId]);
+
+    res.send({ success:true, message:"Course permanently deleted", data: transformCourseRow(deleted) });
+  } catch (err) {
+    console.error("POST /course/:id/approve-delete error", err);
+    res.status(500).send({ success:false, message:"Lỗi khi duyệt xóa" });
+  }
+});
+
+// Admin rejects delete request -> clear flag, set edit_approved true to restore
+app.post("/course/:id/reject-delete", authMiddleware, async (req, res) => {
+  try {
+    const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
+    if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId))
+      return res.status(400).send({ success:false, message:"Invalid course id" });
+
+    await db.none(`UPDATE course SET is_delete_requested = false, is_edit_approved = true WHERE course_id = $1`, [courseId]);
+
+    res.send({ success:true, message:"Yêu cầu xóa đã bị từ chối" });
+  } catch (err) {
+    console.error("POST /course/:id/reject-delete error", err);
+    res.status(500).send({ success:false, message:"Lỗi khi từ chối xóa" });
+  }
+});
+
 
 // RECORD PURCHASE (increment students)
 app.post("/course/:id/purchase", async (req, res) => {
