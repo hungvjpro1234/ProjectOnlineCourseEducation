@@ -35,6 +35,7 @@
                 android:scaleType="centerInside"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/app_name"
+                android:layout_marginTop="2dp"
                 app:tint="@color/white" />
 
             <TextView

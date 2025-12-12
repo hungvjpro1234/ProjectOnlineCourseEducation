@@ -22,7 +22,7 @@
             android:layout_height="wrap_content"
             android:text="Quản lý khóa học"
             android:textSize="25sp"
-            android:textColor="@color/colorPrimaryVariant"
+            android:textColor="@color/blue_text_primary"
             android:textStyle="bold" />
     </LinearLayout>
 

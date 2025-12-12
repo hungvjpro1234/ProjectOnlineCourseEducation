@@ -7,7 +7,6 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -68,7 +67,7 @@ public class QuestionItemAdapter extends RecyclerView.Adapter<QuestionItemAdapte
         // Ensure options container has 4 rows
         h.optionsContainer.removeAllViews();
         for (int i = 0; i < 4; i++) {
-            View row = LayoutInflater.from(h.itemView.getContext()).inflate(R.layout._internal_option_row, h.optionsContainer, false);
+            View row = LayoutInflater.from(h.itemView.getContext()).inflate(R.layout.item_teacher_internal_option_row, h.optionsContainer, false);
             RadioButton rb = row.findViewById(R.id.rbOption);
             EditText etOpt = row.findViewById(R.id.etOptionText);
             rb.setId(View.generateViewId());

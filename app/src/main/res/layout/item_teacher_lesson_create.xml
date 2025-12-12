@@ -59,7 +59,7 @@
             android:src="@drawable/ic_edit"
             android:contentDescription="@string/edit"
             android:scaleType="centerInside"
-            app:tint="@color/purple_500" />
+            app:tint="@color/blue_500" />
 
         <ImageButton
             android:id="@+id/btnEditQuiz"
@@ -71,7 +71,7 @@
             android:contentDescription="@string/edit_quiz"
             android:scaleType="centerInside"
             android:padding="6dp"
-            app:tint="@color/purple_500" />
+            app:tint="@color/blue_500" />
 
         <ImageButton
             android:id="@+id/btnDeleteLesson"
