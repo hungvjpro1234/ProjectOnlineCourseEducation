@@ -175,7 +175,7 @@
                         android:text="0"
                         android:textSize="12sp"
                         android:textColor="@color/badge_text"
-                        android:background="@drawable/bg_badge_count"
+                        android:background="@drawable/bg_badge_green"
                         android:paddingHorizontal="8dp"
                         android:paddingVertical="4dp" />
                 </LinearLayout>

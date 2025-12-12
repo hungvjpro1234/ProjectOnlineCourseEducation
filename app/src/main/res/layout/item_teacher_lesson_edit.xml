@@ -22,7 +22,7 @@
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@color/white"
-            android:background="@drawable/bg_circular_blue"
+            android:background="@drawable/bg_circular_purple"
             android:gravity="center" />
 
         <LinearLayout

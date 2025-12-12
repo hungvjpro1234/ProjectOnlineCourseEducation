@@ -22,20 +22,35 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="end"
         android:paddingTop="8dp">
 
-        <Button
+        <android.widget.Button
             android:id="@+id/btnCancelQuiz"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hủy" />
+            android:layout_height="36dp"
+            android:text="Hủy"
+            android:textSize="11sp"
+            android:paddingHorizontal="12dp"
+            android:background="@drawable/bg_badge_red"
+            android:layout_marginLeft="10dp"
+            android:textColor="@android:color/white" />
 
-        <Button
+        <!-- View rỗng đẩy 2 nút sang hai phía -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <android.widget.Button
             android:id="@+id/btnSaveQuiz"
-            android:layout_marginStart="8dp"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Lưu" />
+            android:layout_height="36dp"
+            android:text="Lưu"
+            android:textSize="11sp"
+            android:paddingHorizontal="12dp"
+            android:background="@drawable/bg_badge_hard_purple"
+            android:layout_marginRight="10dp"
+            android:textColor="@android:color/white" />
+
     </LinearLayout>
 </LinearLayout>

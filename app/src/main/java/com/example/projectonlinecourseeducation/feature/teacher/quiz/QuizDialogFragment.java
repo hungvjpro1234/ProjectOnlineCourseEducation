@@ -51,7 +51,7 @@ public class QuizDialogFragment extends DialogFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_quiz_dialog, container, false);
+        return inflater.inflate(R.layout.fragment_teacher_quiz_dialog, container, false);
     }
 
     @Override
