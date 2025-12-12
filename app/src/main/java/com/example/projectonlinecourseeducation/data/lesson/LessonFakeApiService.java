@@ -5,6 +5,7 @@ import android.app.Activity;
 import androidx.annotation.NonNull;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService.ActivityProvider;
 import com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService.VideoDurationHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
@@ -101,6 +102,10 @@ public class LessonFakeApiService implements LessonApi {
 
     // In-memory storage for runtime modifications
     private java.util.Map<String, Lesson> lessonMap = new java.util.HashMap<>();
+
+    // Pending edits (cho approval workflow)
+    private java.util.Map<String, Lesson> pendingLessonEdits = new java.util.HashMap<>();
+
     private int nextLessonId = 1000;
 
     private String generateNewLessonId(String courseId) {
@@ -140,9 +145,29 @@ public class LessonFakeApiService implements LessonApi {
         List<Lesson> result = new ArrayList<>();
         if (courseId == null) return result;
 
+        // Get current user to determine filter logic
+        User currentUser = null;
+        try {
+            currentUser = ApiProvider.getAuthApi() != null
+                ? ApiProvider.getAuthApi().getCurrentUser()
+                : null;
+        } catch (Exception ignored) {}
+
+        boolean isStudent = (currentUser != null && currentUser.getRole() == User.Role.STUDENT);
+
         for (Lesson lesson : lessonMap.values()) {
             if (courseId.equals(lesson.getCourseId())) {
-                result.add(lesson);
+                // STUDENT filter: Chỉ hiển thị lessons đã được duyệt KHỞI TẠO
+                // Lesson đang chờ duyệt EDIT hoặc DELETE vẫn hiển thị (student thấy version cũ)
+                // Chỉ khi admin APPROVE DELETE thì lesson mới bị xóa vĩnh viễn
+                if (isStudent) {
+                    if (lesson.isInitialApproved()) {
+                        result.add(lesson);
+                    }
+                } else {
+                    // TEACHER/ADMIN: Hiển thị tất cả lessons (kể cả pending/deleted)
+                    result.add(lesson);
+                }
             }
         }
 
@@ -163,6 +188,10 @@ public class LessonFakeApiService implements LessonApi {
         if (newLesson.getId() == null || newLesson.getId().trim().isEmpty()) {
             newLesson.setId(generateNewLessonId(newLesson.getCourseId()));
         }
+
+        // APPROVAL LOGIC: Khi tạo mới lesson, cả 2 trường đều false (chờ admin duyệt)
+        newLesson.setInitialApproved(false);
+        newLesson.setEditApproved(false);
 
         // Put into map
         lessonMap.put(newLesson.getId(), newLesson);
@@ -219,35 +248,31 @@ public class LessonFakeApiService implements LessonApi {
         Lesson existing = lessonMap.get(lessonId);
         if (existing == null || updatedLesson == null) return null;
 
-        // compute prev minutes for proper delta if duration will change
-        int prevMinutes = parseDurationToMinutesSafe(existing.getDuration());
+        // CRITICAL FIX: KHÔNG update lesson gốc, lưu vào pending thay vì
+        // Lesson gốc giữ nguyên để student vẫn thấy version cũ
 
-        existing.setTitle(updatedLesson.getTitle());
-        existing.setDescription(updatedLesson.getDescription());
-        existing.setVideoUrl(updatedLesson.getVideoUrl());
-        existing.setDuration(updatedLesson.getDuration());
-        existing.setOrder(updatedLesson.getOrder());
+        // Clone lesson để lưu các thay đổi
+        Lesson pendingVersion = cloneLesson(updatedLesson);
+        pendingVersion.setId(lessonId); // Ensure same ID
+        pendingVersion.setCourseId(existing.getCourseId()); // Keep same courseId
 
-        // If we have a foreground Activity, recompute duration (dev-only).
+        // Đánh dấu là có thay đổi chờ duyệt
+        existing.setEditApproved(false);
+
+        // Lưu pending version (bản đã sửa chờ duyệt)
+        pendingLessonEdits.put(lessonId, pendingVersion);
+
+        // If we have a foreground Activity, recompute duration for pending version (dev-only).
         Activity current = ActivityProvider.getTopActivity();
         if (current != null && updatedLesson.getVideoUrl() != null && !updatedLesson.getVideoUrl().trim().isEmpty()) {
             final String id = lessonId;
             VideoDurationHelper.fetchDuration(current, updatedLesson.getVideoUrl(), new VideoDurationHelper.Callback() {
                 @Override
                 public void onSuccess(@NonNull String durationText, int durationSeconds) {
-                    Lesson exist2 = lessonMap.get(id);
-                    if (exist2 != null) {
-                        int newMinutes = secondsToRoundedMinutes(durationSeconds);
-                        int prev = parseDurationToMinutesSafe(existing.getDuration());
-                        exist2.setDuration(durationText);
-                        notifyLessonUpdated(id, exist2);
-                        int delta = newMinutes - prev;
-                        try {
-                            if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
-                                CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
-                                cs.adjustCourseDuration(exist2.getCourseId(), delta);
-                            }
-                        } catch (Exception ignored) {}
+                    Lesson pending = pendingLessonEdits.get(id);
+                    if (pending != null) {
+                        pending.setDuration(durationText);
+                        // Note: Duration update for course will happen when admin approves edit
                     }
                 }
 
@@ -256,29 +281,28 @@ public class LessonFakeApiService implements LessonApi {
                     // ignore
                 }
             });
-        } else {
-            // notify immediate update (duration likely unchanged)
-            notifyLessonUpdated(lessonId, existing);
         }
 
-        return existing;
+        // Notify listeners
+        notifyLessonUpdated(lessonId, existing);
+
+        return existing; // Trả về lesson gốc, KHÔNG phải pending version
     }
 
     @Override
     public boolean deleteLesson(String lessonId) {
-        if (lessonId == null) return false;
-        Lesson removed = lessonMap.remove(lessonId);
-        if (removed != null) {
-            // update course summary
-            try {
-                if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
-                    CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
-                    cs.removeLessonFromCourse(removed);
-                }
-            } catch (Exception ignored) {}
-            return true;
-        }
-        return false;
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        // SOFT DELETE: Đánh dấu lesson là đang chờ duyệt xóa thay vì xóa thật
+        // Teacher xóa → chờ admin duyệt
+        existing.setDeleteRequested(true);
+        existing.setEditApproved(false); // Đánh dấu có thay đổi cần duyệt
+
+        // Notify listeners that lesson status changed
+        notifyLessonUpdated(lessonId, existing);
+
+        return true;
     }
 
     @Override
@@ -327,5 +351,234 @@ public class LessonFakeApiService implements LessonApi {
 
     private int secondsToRoundedMinutes(int seconds) {
         return (seconds + 30) / 60;
+    }
+
+    // ============ APPROVAL WORKFLOW METHODS ============
+
+    /**
+     * Lấy danh sách tất cả lessons đang chờ phê duyệt
+     * (khởi tạo, chỉnh sửa, hoặc xóa)
+     */
+    @Override
+    public List<Lesson> getPendingLessons() {
+        List<Lesson> pending = new ArrayList<>();
+        for (Lesson lesson : lessonMap.values()) {
+            if (lesson.isPendingApproval()) {
+                pending.add(lesson);
+            }
+        }
+        return pending;
+    }
+
+    /**
+     * Lấy danh sách lessons chờ duyệt của một course
+     */
+    @Override
+    public List<Lesson> getPendingLessonsForCourse(String courseId) {
+        List<Lesson> pending = new ArrayList<>();
+        if (courseId == null) return pending;
+
+        for (Lesson lesson : lessonMap.values()) {
+            if (courseId.equals(lesson.getCourseId()) && lesson.isPendingApproval()) {
+                pending.add(lesson);
+            }
+        }
+
+        // Sort by order
+        pending.sort((a, b) -> Integer.compare(a.getOrder(), b.getOrder()));
+        return pending;
+    }
+
+    /**
+     * Admin phê duyệt khởi tạo lesson
+     * Cho phép lesson hiển thị với students
+     */
+    @Override
+    public boolean approveInitialCreation(String lessonId) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        existing.setInitialApproved(true);
+        existing.setEditApproved(true); // Cũng set edit approved luôn
+
+        notifyLessonUpdated(lessonId, existing);
+        return true;
+    }
+
+    /**
+     * Admin từ chối khởi tạo lesson
+     * Xóa lesson khỏi database (chưa được duyệt thì xóa luôn)
+     */
+    @Override
+    public boolean rejectInitialCreation(String lessonId) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        // Nếu lesson chưa được duyệt khởi tạo thì xóa luôn
+        if (!existing.isInitialApproved()) {
+            lessonMap.remove(lessonId);
+
+            // Update course summary
+            try {
+                if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                    CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                    cs.removeLessonFromCourse(existing);
+                }
+            } catch (Exception ignored) {}
+
+            notifyLessonUpdated(lessonId, null);
+            return true;
+        }
+
+        // Nếu đã được duyệt rồi thì không cho xóa bằng method này
+        return false;
+    }
+
+    /**
+     * Admin phê duyệt chỉnh sửa lesson
+     * Apply pending changes vào lesson gốc
+     */
+    @Override
+    public boolean approveLessonEdit(String lessonId) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        Lesson pendingVersion = pendingLessonEdits.get(lessonId);
+        if (pendingVersion == null) {
+            // Không có pending changes, chỉ cần set approved = true
+            existing.setEditApproved(true);
+            notifyLessonUpdated(lessonId, existing);
+            return true;
+        }
+
+        // Compute duration delta for course update
+        int prevMinutes = parseDurationToMinutesSafe(existing.getDuration());
+        int newMinutes = parseDurationToMinutesSafe(pendingVersion.getDuration());
+        int delta = newMinutes - prevMinutes;
+
+        // Apply tất cả thay đổi từ pending version vào lesson gốc
+        existing.setTitle(pendingVersion.getTitle());
+        existing.setDescription(pendingVersion.getDescription());
+        existing.setVideoUrl(pendingVersion.getVideoUrl());
+        existing.setDuration(pendingVersion.getDuration());
+        existing.setOrder(pendingVersion.getOrder());
+
+        // Set approved
+        existing.setEditApproved(true);
+
+        // Remove pending version
+        pendingLessonEdits.remove(lessonId);
+
+        // Update course duration if changed
+        if (delta != 0) {
+            try {
+                if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                    CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                    cs.adjustCourseDuration(existing.getCourseId(), delta);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        notifyLessonUpdated(lessonId, existing);
+        return true;
+    }
+
+    /**
+     * Admin từ chối chỉnh sửa lesson
+     * Xóa pending changes, giữ nguyên lesson gốc
+     */
+    @Override
+    public boolean rejectLessonEdit(String lessonId) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        // Remove pending version
+        pendingLessonEdits.remove(lessonId);
+
+        // Set approved (quay lại trạng thái đã duyệt)
+        existing.setEditApproved(true);
+
+        notifyLessonUpdated(lessonId, existing);
+        return true;
+    }
+
+    /**
+     * Lấy pending edit của lesson (cho admin/teacher xem)
+     * @return pending version nếu có, null nếu không
+     */
+    @Override
+    public Lesson getPendingEdit(String lessonId) {
+        return pendingLessonEdits.get(lessonId);
+    }
+
+    /**
+     * Kiểm tra lesson có pending edit không
+     */
+    @Override
+    public boolean hasPendingEdit(String lessonId) {
+        return pendingLessonEdits.containsKey(lessonId);
+    }
+
+    /**
+     * HARD DELETE: Xóa lesson vĩnh viễn khỏi hệ thống
+     * Chỉ admin mới được gọi method này sau khi duyệt yêu cầu xóa
+     */
+    @Override
+    public boolean permanentlyDeleteLesson(String lessonId) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        lessonMap.remove(lessonId);
+
+        // Update course summary
+        try {
+            if (ApiProvider.getCourseApi() instanceof CourseFakeApiService) {
+                CourseFakeApiService cs = (CourseFakeApiService) ApiProvider.getCourseApi();
+                cs.removeLessonFromCourse(existing);
+            }
+        } catch (Exception ignored) {}
+
+        // Notify listeners that lesson was permanently deleted
+        notifyLessonUpdated(lessonId, null);
+        return true;
+    }
+
+    /**
+     * Hủy yêu cầu xóa lesson (admin từ chối xóa)
+     */
+    @Override
+    public boolean cancelDeleteRequest(String lessonId) {
+        Lesson existing = lessonMap.get(lessonId);
+        if (existing == null) return false;
+
+        existing.setDeleteRequested(false);
+        existing.setEditApproved(true); // Quay lại trạng thái đã duyệt
+
+        notifyLessonUpdated(lessonId, existing);
+        return true;
+    }
+
+    /**
+     * Clone một lesson object (deep copy)
+     */
+    private Lesson cloneLesson(Lesson original) {
+        if (original == null) return null;
+
+        Lesson clone = new Lesson(
+            original.getId(),
+            original.getCourseId(),
+            original.getTitle(),
+            original.getDescription(),
+            original.getVideoUrl(),
+            original.getDuration(),
+            original.getOrder()
+        );
+
+        // Copy approval fields
+        clone.setInitialApproved(original.isInitialApproved());
+        clone.setEditApproved(original.isEditApproved());
+        clone.setDeleteRequested(original.isDeleteRequested());
+
+        return clone;
     }
 }

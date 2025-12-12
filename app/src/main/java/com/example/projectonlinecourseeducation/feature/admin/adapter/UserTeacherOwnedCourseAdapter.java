@@ -68,7 +68,7 @@ public class UserTeacherOwnedCourseAdapter extends RecyclerView.Adapter<UserTeac
     public static class OwnedCourseViewHolder extends RecyclerView.ViewHolder {
         private final ImageView imgCourseAvatar;
         private final TextView tvCourseName;
-        private final TextView tvRating;
+        private final TextView tvApprovalStatus;
         private final TextView tvStudentCount;
         private final TextView tvPrice;
         private final Button btnViewDetails;
@@ -77,7 +77,7 @@ public class UserTeacherOwnedCourseAdapter extends RecyclerView.Adapter<UserTeac
             super(itemView);
             imgCourseAvatar = itemView.findViewById(R.id.imgCourseAvatar);
             tvCourseName = itemView.findViewById(R.id.tvCourseName);
-            tvRating = itemView.findViewById(R.id.tvRating);
+            tvApprovalStatus = itemView.findViewById(R.id.tvApprovalStatus);
             tvStudentCount = itemView.findViewById(R.id.tvStudentCount);
             tvPrice = itemView.findViewById(R.id.tvPrice);
             btnViewDetails = itemView.findViewById(R.id.btnViewDetails);
@@ -89,9 +89,14 @@ public class UserTeacherOwnedCourseAdapter extends RecyclerView.Adapter<UserTeac
             // Course name
             tvCourseName.setText(course.getTitle());
 
-            // Rating
-            String ratingText = String.format(Locale.getDefault(), "⭐ %.1f", course.getRating());
-            tvRating.setText(ratingText);
+            // Approval status tag (giống AdminCourseLessonAdapter)
+            String statusText = course.getApprovalStatusText();
+            if (statusText != null && !statusText.isEmpty()) {
+                tvApprovalStatus.setText(statusText);
+                tvApprovalStatus.setVisibility(View.VISIBLE);
+            } else {
+                tvApprovalStatus.setVisibility(View.GONE);
+            }
 
             // Student count
             String studentCountText = "👥 " + formatStudentCount(course.getStudents());

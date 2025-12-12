@@ -4,8 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="2dp">
+    app:cardCornerRadius="12dp"
+    app:cardElevation="3dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -29,7 +29,9 @@
                 android:src="@drawable/ava_student"
                 android:scaleType="centerCrop"
                 android:contentDescription="@string/app_name"
-                android:layout_marginEnd="12dp" />
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_avatar_ring"
+                android:padding="2dp" />
 
             <!-- Name and Email -->
             <LinearLayout
@@ -40,7 +42,7 @@
 
                 <TextView
                     android:id="@+id/tvStudentName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Nguyễn Văn A"
                     android:textSize="14sp"
@@ -49,7 +51,7 @@
 
                 <TextView
                     android:id="@+id/tvStudentEmail"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="nguyenvana@gmail.com"
                     android:textSize="12sp"
@@ -162,14 +164,17 @@
             </LinearLayout>
 
             <!-- View Details Button -->
-            <android.widget.Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnViewDetails"
-                android:layout_width="match_parent"
-                android:layout_height="36dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
                 android:text="Xem chi tiết"
                 android:textSize="12sp"
-                android:background="@color/blue_700"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                android:background="@drawable/bg_button_purple"
+                android:layout_gravity="right"
+                app:backgroundTint="@null"
+                android:paddingHorizontal="16dp" />
         </LinearLayout>
 
     </LinearLayout>

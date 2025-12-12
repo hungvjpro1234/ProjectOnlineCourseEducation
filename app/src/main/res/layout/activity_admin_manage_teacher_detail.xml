@@ -14,14 +14,15 @@
         android:gravity="center_vertical"
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
-        android:background="@color/blue_700"
+        android:background="@color/purple_300"
         android:elevation="4dp">
 
         <ImageButton
             android:id="@+id/btnBack"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@drawable/ic_back"
+            android:src="@drawable/ic_back_white"
+            android:layout_marginTop="3dp"
             android:scaleType="centerInside"
             android:background="?attr/selectableItemBackground"
             android:contentDescription="@string/app_name" />
@@ -205,8 +206,8 @@
                         android:layout_height="wrap_content"
                         android:text="0"
                         android:textSize="12sp"
-                        android:textColor="@android:color/white"
-                        android:background="@color/blue_700"
+                        android:textColor="@color/badge_text"
+                        android:background="@drawable/bg_badge_count_purple"
                         android:paddingHorizontal="8dp"
                         android:paddingVertical="4dp" />
                 </LinearLayout>

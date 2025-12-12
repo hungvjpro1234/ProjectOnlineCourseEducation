@@ -217,15 +217,17 @@
                     android:layout_marginTop="12dp" />
 
                 <!-- View Details Button -->
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnViewDetails"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="40dp"
-                    android:text="Xem chi tiết"
+                    android:text="Xem chi tiết khóa học"
+                    android:textSize="12sp"
                     android:textColor="@android:color/white"
-                    android:textSize="13sp"
-                    android:background="@color/blue_700"
-                    android:layout_marginTop="12dp" />
+                    android:background="@drawable/bg_button_primary"
+                    app:backgroundTint="@null"
+                    android:paddingHorizontal="16dp"
+                    android:layout_gravity="center_horizontal" />
             </LinearLayout>
         </LinearLayout>
 

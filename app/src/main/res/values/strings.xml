@@ -85,4 +85,7 @@
     <string name="teacher_name">Tên giáo viên</string>
 
     <string name="do_quiz">Làm quiz</string>
+    <string name="edit_quiz">Sửa quiz</string>
+
+    <string name="unknown_teacher">Unknown Teacher</string>
 </resources>

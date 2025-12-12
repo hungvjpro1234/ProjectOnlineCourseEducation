@@ -41,7 +41,7 @@
                 <!-- Course Name -->
                 <TextView
                     android:id="@+id/tvCourseName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Lập trình Android Nâng cao"
                     android:textSize="14sp"
@@ -50,6 +50,22 @@
                     android:maxLines="2"
                     android:ellipsize="end"
                     android:layout_marginBottom="6dp" />
+
+                <!-- Approval status tag (added) -->
+                <TextView
+                    android:id="@+id/tvApprovalStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Đang chờ duyệt"
+                    android:textSize="11sp"
+                    android:paddingLeft="6dp"
+                    android:paddingRight="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:layout_marginBottom="6dp"
+                    android:background="@drawable/bg_tag_gray"
+                    android:textColor="@android:color/black"
+                    android:visibility="gone" />
 
                 <!-- Rating and Student Count -->
                 <LinearLayout
@@ -117,16 +133,17 @@
                     android:textColor="@color/blue_700" />
             </LinearLayout>
 
-            <!-- View Details Button -->
-            <Button
+            <!-- View Details Button (MaterialButton as requested) -->
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnViewDetails"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
                 android:text="Xem chi tiết"
-                android:textColor="@android:color/white"
                 android:textSize="12sp"
-                android:paddingHorizontal="12dp"
-                android:background="@color/blue_700" />
+                android:textColor="@android:color/white"
+                android:background="@drawable/bg_button_primary"
+                app:backgroundTint="@null"
+                android:paddingHorizontal="12dp" />
         </LinearLayout>
 
     </LinearLayout>

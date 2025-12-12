@@ -279,13 +279,12 @@ public class CourseFakeApiService implements CourseApi {
 
         List<Course> res = new ArrayList<>();
         for (Course c : allCourses) {
-            // FILTER: Chỉ hiển thị course đã được duyệt khởi tạo (isInitialApproved = true)
-            // Đây là logic cho Student Home - chỉ thấy course đã được admin approve
+            // FILTER: Student chỉ thấy course đã được duyệt KHỞI TẠO
+            // Course đang chờ duyệt EDIT hoặc DELETE vẫn hiển thị (student thấy version cũ)
+            // Chỉ khi admin APPROVE DELETE thì course mới bị xóa vĩnh viễn (permanentlyDeleteCourse)
             if (!c.isInitialApproved()) {
-                continue; // Skip courses chưa được duyệt
+                continue; // Skip courses chưa được duyệt khởi tạo
             }
-
-            // NOTE: Không filter isDeleteRequested - Student vẫn thấy course cho đến khi Admin approve xóa
 
             boolean catOk = cat.equals("All") || hasCategory(c.getCategory(), cat);
             boolean matches = q.isEmpty()
@@ -348,12 +347,11 @@ public class CourseFakeApiService implements CourseApi {
         for (Course c : allCourses) {
             if (c.getId().equals(base.getId())) continue;
 
-            // FILTER: Chỉ hiển thị course đã được duyệt khởi tạo cho Student
+            // FILTER: Student chỉ thấy course đã được duyệt KHỞI TẠO
+            // Course đang chờ duyệt EDIT hoặc DELETE vẫn hiển thị
             if (!c.isInitialApproved()) {
                 continue;
             }
-
-            // NOTE: Không filter isDeleteRequested - Student vẫn thấy course cho đến khi Admin approve xóa
 
             boolean sameTeacher = c.getTeacher() != null
                     && base.getTeacher() != null

@@ -2,6 +2,7 @@ package com.example.projectonlinecourseeducation.feature.admin.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
@@ -23,11 +24,12 @@ import java.util.Locale;
  */
 public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
 
+    private static final String TAG = "AdminManageUserTeacherDetail";
+
     private ImageButton btnBack;
     private RecyclerView rvOwnedCourses;
     private android.widget.TextView tvTeacherName;
     private android.widget.TextView tvTotalRevenue;
-    private android.widget.TextView tvAverageRating;
     private android.widget.TextView tvOwnedCourseCount;
 
     private UserTeacherOwnedCourseAdapter ownedCourseAdapter;
@@ -46,7 +48,11 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         initViews();
         setupAdapter();
         setupListeners();
-        loadTeacherData();
+
+        // Nếu userId hợp lệ thì load dữ liệu, nếu không thì activity đã finish trong getIntentData()
+        if (userId != null && !userId.trim().isEmpty()) {
+            loadTeacherData();
+        }
     }
 
     private void initAPIs() {
@@ -58,9 +64,19 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         userId = intent.getStringExtra("userId");
         userName = intent.getStringExtra("userName");
 
-        if (userId == null || userId.isEmpty()) {
-            Toast.makeText(this, "Không tìm thấy thông tin teacher", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "Received intent extras: userId=" + userId + " userName=" + userName);
+
+        if (userId == null || userId.trim().isEmpty()) {
+            // Nếu không có userId thì báo và finish() để tránh activity ở trạng thái lửng
+            Toast.makeText(this, "Không tìm thấy thông tin teacher (userId trống).", Toast.LENGTH_LONG).show();
+            Log.e(TAG, "userId is null or empty - finishing activity to avoid undefined behavior.");
             finish();
+            return;
+        }
+
+        // đảm bảo userName không null
+        if (userName == null) {
+            userName = "";
         }
     }
 
@@ -69,12 +85,13 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         rvOwnedCourses = findViewById(R.id.rvOwnedCourses);
         tvTeacherName = findViewById(R.id.tvTeacherName);
         tvTotalRevenue = findViewById(R.id.tvTotalRevenue);
-        tvAverageRating = findViewById(R.id.tvAverageRating);
         tvOwnedCourseCount = findViewById(R.id.tvOwnedCourseCount);
 
         // Set teacher name
         if (userName != null && !userName.isEmpty()) {
             tvTeacherName.setText(userName);
+        } else {
+            tvTeacherName.setText(getString(R.string.unknown_teacher));
         }
     }
 
@@ -105,12 +122,21 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
      */
     private void loadTeacherData() {
         // Get all courses
-        List<Course> allCourses = courseApi.listAll();
+        List<Course> allCourses;
+        try {
+            allCourses = courseApi.listAll();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to load courses from API", e);
+            Toast.makeText(this, "Tải khóa học thất bại.", Toast.LENGTH_SHORT).show();
+            allCourses = new ArrayList<>();
+        }
 
-        // Filter courses owned by this teacher
+        // Filter courses owned by this teacher (so sánh theo tên hiện có trong model)
         List<Course> ownedCourses = new ArrayList<>();
         for (Course course : allCourses) {
-            if (course.getTeacher() != null && course.getTeacher().equals(userName)) {
+            if (course == null) continue;
+            String courseTeacher = course.getTeacher();
+            if (courseTeacher != null && courseTeacher.equals(userName)) {
                 ownedCourses.add(course);
             }
         }
@@ -121,22 +147,14 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         // Calculate total revenue (price × students)
         double totalRevenue = 0;
         for (Course c : ownedCourses) {
-            totalRevenue += c.getPrice() * c.getStudents();
+            try {
+                totalRevenue += c.getPrice() * c.getStudents();
+            } catch (Exception e) {
+                Log.w(TAG, "Error calculating revenue for course, skipping. course=" + (c != null ? c.getTitle() : "null"), e);
+            }
         }
         NumberFormat currencyFormat = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
         tvTotalRevenue.setText("Tổng thu nhập: " + currencyFormat.format(totalRevenue) + " VNĐ");
-
-        // Calculate average rating
-        double avgRating = 0;
-        if (ownedCourses.size() > 0) {
-            double sumRating = 0;
-            for (Course c : ownedCourses) {
-                sumRating += c.getRating();
-            }
-            avgRating = sumRating / ownedCourses.size();
-        }
-        tvAverageRating.setText(String.format(Locale.getDefault(),
-                "Rating TB: %.1f ⭐", avgRating));
 
         // Set courses to adapter
         ownedCourseAdapter.setCourses(ownedCourses);

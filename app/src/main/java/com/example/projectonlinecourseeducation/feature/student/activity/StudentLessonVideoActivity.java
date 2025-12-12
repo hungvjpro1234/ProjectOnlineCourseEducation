@@ -8,7 +8,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -101,7 +101,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
+        androidx.activity.EdgeToEdge.enable(this);
         setContentView(R.layout.activity_student_lesson_video);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -117,6 +117,16 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         lessonProgressApi = ApiProvider.getLessonProgressApi();
         lessonCommentApi = ApiProvider.getLessonCommentApi();
         lessonQuizApi = ApiProvider.getLessonQuizApi(); // NEW
+
+        // Handle system back (gesture / hardware) using AndroidX OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                Intent intent = new Intent(StudentLessonVideoActivity.this, StudentCoursePurchasedActivity.class);
+                startActivity(intent);
+                finish();
+            }
+        });
 
         // Setup comment adapter
         setupCommentSection();
@@ -259,8 +269,12 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         // Xử lý sự kiện gửi bình luận
         btnSendComment.setOnClickListener(v -> sendComment());
 
-        // Back button
-        btnBack.setOnClickListener(v -> finish());
+        // Back button -> navigate to StudentCoursePurchasedActivity (consistent behavior)
+        btnBack.setOnClickListener(v -> {
+            Intent intent = new Intent(StudentLessonVideoActivity.this, StudentCoursePurchasedActivity.class);
+            startActivity(intent);
+            finish();
+        });
     }
 
     /**

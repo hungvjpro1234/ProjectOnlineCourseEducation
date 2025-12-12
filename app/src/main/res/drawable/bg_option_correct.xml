@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <!-- background: very light green -->
+    <solid android:color="#E8F5E9"/> <!-- green-50 -->
+
+    <!-- border -->
+    <stroke
+        android:width="1dp"
+        android:color="#C8E6C9" /> <!-- green-200 -->
+
+    <corners android:radius="12dp"/>
+
+    <!-- padding so left-accent bar doesn't touch text -->
+    <padding android:left="6dp" android:top="6dp" android:right="6dp" android:bottom="6dp"/>
+</shape>

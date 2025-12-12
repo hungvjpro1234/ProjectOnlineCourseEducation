@@ -1,12 +1,15 @@
 package com.example.projectonlinecourseeducation.feature.student.activity;
 
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -62,6 +65,10 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
     // listener để reload khi quiz thay đổi (create/update/delete)
     private LessonQuizApi.QuizUpdateListener quizUpdateListener;
 
+    // Keep original submit button appearance so we can restore it when user retries
+    private Drawable btnSubmitDefaultBackground;
+    private CharSequence btnSubmitDefaultText;
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,12 +83,27 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
         tvScore = findViewById(R.id.tvScore);
         tvMessage = findViewById(R.id.tvMessage);
 
+        // save default appearance for later restore
+        btnSubmitDefaultBackground = btnSubmit.getBackground();
+        btnSubmitDefaultText = btnSubmit.getText();
+
         lessonId = getIntent().getStringExtra("lesson_id");
         nextLessonId = getIntent().getStringExtra("next_lesson_id");
         courseId = getIntent().getStringExtra("course_id");
 
         // LẤY API QUIZ từ ApiProvider (đảm bảo ApiProvider có getLessonQuizApi())
         lessonQuizApi = ApiProvider.getLessonQuizApi();
+
+        // Handle system back (gesture / hardware) using AndroidX OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Navigate to StudentCoursePurchasedActivity (keeps logic consistent)
+                Intent intent = new Intent(StudentLessonQuizActivity.this, StudentCoursePurchasedActivity.class);
+                startActivity(intent);
+                finish();
+            }
+        });
 
         setupRecycler();
         loadQuiz();
@@ -104,7 +126,12 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
             finish();
         });
 
-        btnBack.setOnClickListener(v -> finish());
+        // Back ImageButton should go to StudentCoursePurchasedActivity
+        btnBack.setOnClickListener(v -> {
+            Intent intent = new Intent(this, StudentCoursePurchasedActivity.class);
+            startActivity(intent);
+            finish();
+        });
     }
 
     @Override
@@ -138,6 +165,9 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
                             tvMessage.setVisibility(TextView.GONE);
                             btnGoNext.setVisibility(Button.GONE);
                             btnGoNext.setEnabled(false);
+
+                            // restore submit button to default state in case it was switched to retry
+                            restoreSubmitButtonToDefault();
                         } catch (Exception e) {
                             // an toàn: nếu lỗi, show toast nhỏ
                             Toast.makeText(StudentLessonQuizActivity.this, "Không thể tải lại quiz.", Toast.LENGTH_SHORT).show();
@@ -197,6 +227,9 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
         btnGoNext.setVisibility(Button.GONE);
         tvScore.setVisibility(TextView.GONE);
         tvMessage.setVisibility(TextView.GONE);
+
+        // Ensure submit button is default
+        restoreSubmitButtonToDefault();
 
         // If nextLessonId not provided via intent, attempt to resolve now (best-effort)
         if (nextLessonId == null) {
@@ -288,6 +321,31 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
             // QuizAttempt.getAnswers() expected Map<String,Integer>
             Map<String, Integer> attemptAnswers = attempt.getAnswers();
             adapter.revealWrongAnswers(attemptAnswers);
+
+            // Change submit button to \"Làm lại\" (Retry) and change color to indicate retry action
+            btnSubmit.setText("Làm lại");
+            try {
+                btnSubmit.setBackgroundColor(Color.parseColor("#FF9800")); // orange, visible
+                btnSubmit.setTextColor(Color.WHITE);
+            } catch (Exception ignored) {}
+
+            // Change submit button behavior to perform a retry/reset when tapped
+            btnSubmit.setOnClickListener(v -> {
+                // clear selections and reveals so student can retake
+                chosenMap.clear();
+                adapter.clearReveal();
+                adapter.submitList(quiz.getQuestions()); // re-bind current questions
+
+                // hide score/message and goNext until next submission
+                tvScore.setVisibility(TextView.GONE);
+                tvMessage.setVisibility(TextView.GONE);
+                btnGoNext.setVisibility(Button.GONE);
+                btnGoNext.setEnabled(false);
+
+                // restore submit button to original appearance and behavior
+                restoreSubmitButtonToDefault();
+            });
+
         } else {
             // FAIL: theo yêu cầu không reveal answers, user phải thử lại
             tvMessage.setText("Chưa đạt yêu cầu. Vui lòng làm lại (>=8/10).");
@@ -296,8 +354,25 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
 
             // clear any previous reveal and allow retry
             adapter.clearReveal();
+
+            // keep submit button as-is (Nộp bài) so user can change answers and submit again
         }
 
         // Note: FakeApi already lưu attempt và sẽ notify AttemptListeners (admin có thể lắng nghe).
+    }
+
+    /**
+     * Restore submit button to default appearance and set click to submit behavior.
+     */
+    private void restoreSubmitButtonToDefault() {
+        if (btnSubmitDefaultBackground != null) {
+            btnSubmit.setBackground(btnSubmitDefaultBackground);
+        }
+        if (btnSubmitDefaultText != null) {
+            btnSubmit.setText(btnSubmitDefaultText);
+        }
+        // default text color - rely on layout/default. Fallback to black if necessary
+        btnSubmit.setTextColor(Color.WHITE);
+        btnSubmit.setOnClickListener(v -> onSubmit());
     }
 }

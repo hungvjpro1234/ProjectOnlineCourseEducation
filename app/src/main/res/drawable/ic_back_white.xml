@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Mũi tên đậm cỡ trung bình -->
+    <path
+        android:fillColor="@color/badge_text"
+        android:pathData="M14.5,6L13,4.5L7.5,10L13,15.5L14.5,14L10,10L14.5,6z" />
+</vector>

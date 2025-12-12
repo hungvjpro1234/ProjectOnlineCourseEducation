@@ -334,28 +334,72 @@ public class AdminCourseApprovalFragment extends Fragment {
             try {
                 boolean success = false;
                 String message = "";
+                int totalApproved = 0;
 
                 switch (currentType) {
                     case INITIAL:
+                        // 1. Approve course
                         success = courseApi.approveInitialCreation(course.getId());
-                        message = success ? "✅ Đã duyệt khóa học mới" : "❌ Lỗi khi duyệt";
+                        if (success) totalApproved++;
+
+                        // 2. Approve ALL lessons of this course
+                        List<Lesson> pendingLessons = lessonApi.getPendingLessonsForCourse(course.getId());
+                        for (Lesson lesson : pendingLessons) {
+                            if (!lesson.isInitialApproved()) {
+                                if (lessonApi.approveInitialCreation(lesson.getId())) {
+                                    totalApproved++;
+                                }
+                            }
+                        }
+
+                        // 3. TODO: Approve ALL quizzes of this course (when quiz approval is implemented)
+
+                        message = success ? "✅ Đã duyệt khóa học mới + " + (totalApproved - 1) + " lessons" : "❌ Lỗi khi duyệt";
                         break;
 
                     case EDIT:
+                        // 1. Approve course edit
                         success = courseApi.approveCourseEdit(course.getId());
-                        message = success ? "✅ Đã duyệt chỉnh sửa" : "❌ Lỗi khi duyệt";
+                        if (success) totalApproved++;
+
+                        // 2. Approve ALL lesson edits of this course
+                        List<Lesson> editedLessons = lessonApi.getPendingLessonsForCourse(course.getId());
+                        for (Lesson lesson : editedLessons) {
+                            if (!lesson.isEditApproved() && !lesson.isDeleteRequested()) {
+                                if (lessonApi.approveLessonEdit(lesson.getId())) {
+                                    totalApproved++;
+                                }
+                            }
+                        }
+
+                        // 3. TODO: Approve ALL quiz edits of this course
+
+                        message = success ? "✅ Đã duyệt chỉnh sửa + " + (totalApproved - 1) + " lessons" : "❌ Lỗi khi duyệt";
                         break;
 
                     case DELETE:
+                        // 1. Permanently delete course (lessons will be orphaned/handled by cascade)
                         success = courseApi.permanentlyDeleteCourse(course.getId());
-                        message = success ? "✅ Đã xóa khóa học" : "❌ Lỗi khi xóa";
+
+                        // 2. Delete ALL lessons of this course
+                        if (success) {
+                            List<Lesson> lessonsToDelete = lessonApi.getLessonsForCourse(course.getId());
+                            for (Lesson lesson : lessonsToDelete) {
+                                lessonApi.permanentlyDeleteLesson(lesson.getId());
+                                totalApproved++;
+                            }
+                        }
+
+                        // 3. TODO: Delete ALL quizzes of this course
+
+                        message = success ? "✅ Đã xóa khóa học + " + totalApproved + " lessons" : "❌ Lỗi khi xóa";
                         break;
                 }
 
                 final String finalMessage = message;
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
-                        Toast.makeText(getContext(), finalMessage, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), finalMessage, Toast.LENGTH_LONG).show();
                         loadPendingCourses(currentType);
                     });
                 }
@@ -375,28 +419,74 @@ public class AdminCourseApprovalFragment extends Fragment {
             try {
                 boolean success = false;
                 String message = "";
+                int totalRejected = 0;
 
                 switch (currentType) {
                     case INITIAL:
+                        // 1. Reject course (will delete it)
                         success = courseApi.rejectInitialCreation(course.getId());
-                        message = success ? "✅ Đã từ chối và xóa khóa học" : "❌ Lỗi khi từ chối";
+                        if (success) totalRejected++;
+
+                        // 2. Reject ALL lessons of this course (will delete them)
+                        List<Lesson> pendingLessons = lessonApi.getPendingLessonsForCourse(course.getId());
+                        for (Lesson lesson : pendingLessons) {
+                            if (!lesson.isInitialApproved()) {
+                                if (lessonApi.rejectInitialCreation(lesson.getId())) {
+                                    totalRejected++;
+                                }
+                            }
+                        }
+
+                        // 3. TODO: Reject ALL quizzes of this course
+
+                        message = success ? "✅ Đã từ chối và xóa khóa học + " + (totalRejected - 1) + " lessons" : "❌ Lỗi khi từ chối";
                         break;
 
                     case EDIT:
+                        // 1. Reject course edit (discard changes)
                         success = courseApi.rejectCourseEdit(course.getId());
-                        message = success ? "✅ Đã từ chối chỉnh sửa" : "❌ Lỗi khi từ chối";
+                        if (success) totalRejected++;
+
+                        // 2. Reject ALL lesson edits of this course
+                        List<Lesson> editedLessons = lessonApi.getPendingLessonsForCourse(course.getId());
+                        for (Lesson lesson : editedLessons) {
+                            if (!lesson.isEditApproved() && !lesson.isDeleteRequested()) {
+                                if (lessonApi.rejectLessonEdit(lesson.getId())) {
+                                    totalRejected++;
+                                }
+                            }
+                        }
+
+                        // 3. TODO: Reject ALL quiz edits of this course
+
+                        message = success ? "✅ Đã từ chối chỉnh sửa + " + (totalRejected - 1) + " lessons" : "❌ Lỗi khi từ chối";
                         break;
 
                     case DELETE:
+                        // 1. Cancel delete request for course (restore it)
                         success = courseApi.cancelDeleteRequest(course.getId());
-                        message = success ? "✅ Đã từ chối xóa, khôi phục khóa học" : "❌ Lỗi khi từ chối";
+                        if (success) totalRejected++;
+
+                        // 2. Cancel delete request for ALL lessons of this course
+                        List<Lesson> lessonsToRestore = lessonApi.getPendingLessonsForCourse(course.getId());
+                        for (Lesson lesson : lessonsToRestore) {
+                            if (lesson.isDeleteRequested()) {
+                                if (lessonApi.cancelDeleteRequest(lesson.getId())) {
+                                    totalRejected++;
+                                }
+                            }
+                        }
+
+                        // 3. TODO: Cancel delete for ALL quizzes
+
+                        message = success ? "✅ Đã khôi phục khóa học + " + (totalRejected - 1) + " lessons" : "❌ Lỗi khi từ chối";
                         break;
                 }
 
                 final String finalMessage = message;
                 if (getActivity() != null) {
                     getActivity().runOnUiThread(() -> {
-                        Toast.makeText(getContext(), finalMessage, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), finalMessage, Toast.LENGTH_LONG).show();
                         loadPendingCourses(currentType);
                     });
                 }

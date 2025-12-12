@@ -30,11 +30,16 @@
         <Button
             android:id="@+id/btnLogout"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Logout"
+            android:layout_height="36dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:text="@string/logout"
+            android:textAllCaps="false"
             android:textSize="12sp"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="6dp" />
+            android:textColor="@color/blue_text_primary"
+            android:background="@drawable/bg_logout_button"
+            app:backgroundTint="@null"
+            android:layout_marginEnd="4dp"/>
     </LinearLayout>
 
     <!-- Fragment Container -->

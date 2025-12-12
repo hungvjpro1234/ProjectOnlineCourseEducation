@@ -1,10 +1,12 @@
 package com.example.projectonlinecourseeducation.feature.admin.activity;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,11 +19,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
-import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminLessonCommentAdapter;
+import com.google.android.material.card.MaterialCardView;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView;
@@ -32,19 +37,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Admin Lesson Detail Activity
+ * Variant of AdminLessonDetailActivity with colorful question blocks.
+ * - Each question is shown inside a MaterialCardView with a soft pastel background.
+ * - Correct option is emphasized and a subtle green tint is applied to it.
+ * - This file only changes the quiz rendering (displayQuiz) to make it more lively.
  *
- * ADMIN ROLE - READ-ONLY với DELETE POWER:
- * - ✅ Xem video YouTube
- * - ✅ Xem mô tả bài học
- * - ✅ Xem comments của students
- * - ✅ Xem replies của teacher
- * - ✅ Xóa comments (bất kỳ)
- * - ✅ Xóa replies (bất kỳ)
- * - ❌ KHÔNG post comments
- * - ❌ KHÔNG reply comments
- *
- * Admin = Supervisor/Moderator: Giám sát và kiểm duyệt nội dung
+ * NOTE: Requires Material Components dependency in the app module (com.google.android.material:material).
  */
 public class AdminLessonDetailActivity extends AppCompatActivity {
 
@@ -54,6 +52,7 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
     private String lessonId;
     private Lesson lesson;
     private List<LessonComment> comments = new ArrayList<>();
+    private Quiz lessonQuiz;
 
     // Views
     private ImageButton btnBack;
@@ -69,12 +68,17 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
     private EditText etComment;
     private ImageButton btnSendComment;
 
+    // Quiz views
+    private LinearLayout llQuizContainer; // container inside Quiz Card
+    private TextView tvQuizTitle;
+
     // Adapters
     private AdminLessonCommentAdapter commentAdapter;
 
     // APIs
     private LessonApi lessonApi;
     private LessonCommentApi commentApi;
+    private LessonQuizApi lessonQuizApi;
 
     // Listeners
     private LessonCommentApi.LessonCommentUpdateListener commentUpdateListener;
@@ -102,6 +106,7 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
 
         fetchLessonDetail();
         fetchComments();
+        fetchQuizForLesson(); // <-- load quiz
     }
 
     private void initViews() {
@@ -118,6 +123,10 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
         etComment = findViewById(R.id.etComment);
         btnSendComment = findViewById(R.id.btnSendComment);
 
+        // Quiz views (mới)
+        tvQuizTitle = findViewById(R.id.tvQuizTitle);
+        llQuizContainer = findViewById(R.id.llQuizContainer);
+
         // ẨN comment input - Admin chỉ XEM và XÓA, không post comment
         if (layoutCommentInput != null) {
             layoutCommentInput.setVisibility(View.GONE);
@@ -129,8 +138,6 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
 
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
-
-        // Admin KHÔNG có comment input, nên không cần setup listener
     }
 
     private void setupAdapters() {
@@ -227,14 +234,10 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
     private String extractVideoId(String videoUrl) {
         if (videoUrl == null) return null;
 
-        // Nếu chỉ là video ID (11 ký tự)
         if (videoUrl.length() == 11 && !videoUrl.contains("/") && !videoUrl.contains(".")) {
             return videoUrl;
         }
 
-        // Extract từ URL
-        // https://www.youtube.com/watch?v=VIDEO_ID
-        // https://youtu.be/VIDEO_ID
         try {
             if (videoUrl.contains("youtube.com/watch?v=")) {
                 int start = videoUrl.indexOf("v=") + 2;
@@ -251,7 +254,6 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
             Log.e(TAG, "Error extracting video ID", e);
         }
 
-        // Fallback: coi như là video ID
         return videoUrl;
     }
 
@@ -320,7 +322,6 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
 
         bgExecutor.execute(() -> {
             try {
-                // Admin soft delete (mark as deleted)
                 LessonComment updated = commentApi.markCommentAsDeleted(comment.getId());
 
                 if (updated != null) {
@@ -347,6 +348,158 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
 
         commentUpdateListener = () -> runOnUiThread(() -> fetchComments());
         commentApi.addLessonCommentUpdateListener(commentUpdateListener);
+    }
+
+    // ------------------ Quiz: fetch + display (colorful cards) ------------------
+
+    private void fetchQuizForLesson() {
+        lessonQuizApi = ApiProvider.getLessonQuizApi();
+        if (lessonQuizApi == null) {
+            return;
+        }
+
+        bgExecutor.execute(() -> {
+            try {
+                Quiz q = lessonQuizApi.getQuizForLesson(lessonId);
+                runOnUiThread(() -> {
+                    lessonQuiz = q;
+                    displayQuiz();
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching quiz", e);
+            }
+        });
+    }
+
+    /**
+     * Render quiz using MaterialCardView cards per question with pastel colors.
+     * Correct option is highlighted with a subtle green background and bold text.
+     */
+    /**
+     * Render quiz: mỗi question nằm trên MaterialCard trắng.
+     * - Không dùng palette pastel (card trắng, elevation nhẹ).
+     * - Đáp án đúng: nổi bật với left-accent bar + nền xanh nhạt + viền xanh.
+     * - Question title (tvQ) đậm hơn và màu tối để không bị lu mờ.
+     */
+    private void displayQuiz() {
+        if (tvQuizTitle == null || llQuizContainer == null) return;
+
+        llQuizContainer.removeAllViews();
+
+        if (lessonQuiz == null) {
+            tvQuizTitle.setText("Quiz: (chưa có)");
+            TextView tvEmpty = new TextView(this);
+            tvEmpty.setText("Không có quiz cho bài học này");
+            tvEmpty.setPadding(12, 12, 12, 12);
+            tvEmpty.setTextSize(14f);
+            tvEmpty.setTextColor(getResources().getColor(android.R.color.darker_gray));
+            llQuizContainer.addView(tvEmpty);
+            return;
+        }
+
+        // ensure quiz title still visible
+        tvQuizTitle.setText(lessonQuiz.getTitle() != null && !lessonQuiz.getTitle().isEmpty() ? lessonQuiz.getTitle() : "Quiz");
+        tvQuizTitle.setTextSize(17f);
+        tvQuizTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvQuizTitle.setTextColor(getResources().getColor(android.R.color.black));
+        tvQuizTitle.setPadding(12, 6, 12, 10);
+
+        List<QuizQuestion> qs = lessonQuiz.getQuestions();
+        if (qs == null || qs.isEmpty()) {
+            TextView tvEmpty = new TextView(this);
+            tvEmpty.setText("Quiz chưa có câu hỏi");
+            tvEmpty.setPadding(12, 12, 12, 12);
+            tvEmpty.setTextSize(14f);
+            tvEmpty.setTextColor(getResources().getColor(android.R.color.darker_gray));
+            llQuizContainer.addView(tvEmpty);
+            return;
+        }
+
+        int qIndex = 1;
+        for (QuizQuestion q : qs) {
+            // Create a MaterialCardView for each question (white background)
+            MaterialCardView card = new MaterialCardView(this);
+            LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cardLp.setMargins(12, 8, 12, 8);
+            card.setLayoutParams(cardLp);
+            card.setRadius(12f);
+            card.setCardElevation(6f);
+            card.setUseCompatPadding(true);
+            card.setCardBackgroundColor(getResources().getColor(android.R.color.white));
+
+            // inner vertical layout
+            LinearLayout inner = new LinearLayout(this);
+            inner.setOrientation(LinearLayout.VERTICAL);
+            inner.setPadding(18, 14, 18, 14);
+
+            // Question text — make it bold & dark so it won't be overshadowed
+            TextView tvQ = new TextView(this);
+            tvQ.setText(qIndex + ". " + (q.getQuestion() != null ? q.getQuestion() : ""));
+            tvQ.setTextSize(16f);
+            tvQ.setPadding(6, 6, 6, 10);
+            tvQ.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvQ.setTextColor(getResources().getColor(android.R.color.black));
+            inner.addView(tvQ);
+
+            // Options container
+            LinearLayout optionsContainer = new LinearLayout(this);
+            optionsContainer.setOrientation(LinearLayout.VERTICAL);
+            optionsContainer.setPadding(0, 0, 0, 0);
+
+            List<String> opts = q.getOptions();
+            int correctIdx = q.getCorrectOptionIndex();
+
+            if (opts != null) {
+                for (int i = 0; i < opts.size(); i++) {
+                    String opt = opts.get(i);
+
+                    // Wrap each option in a horizontal layout so we can show left accent in background drawable
+                    LinearLayout optWrapper = new LinearLayout(this);
+                    LinearLayout.LayoutParams wrapLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    wrapLp.setMargins(6, 6, 6, 6);
+                    optWrapper.setLayoutParams(wrapLp);
+                    optWrapper.setOrientation(LinearLayout.HORIZONTAL);
+                    optWrapper.setPadding(0,0,0,0);
+
+                    TextView tvOpt = new TextView(this);
+                    tvOpt.setTextSize(14f);
+                    tvOpt.setPadding(14, 12, 14, 12);
+
+                    if (i == correctIdx) {
+                        // Mark correct option: use special drawable with left-accent + rounded corners
+                        tvOpt.setText("✓ " + opt);
+                        tvOpt.setTypeface(null, android.graphics.Typeface.BOLD);
+                        // apply the correct-bg drawable (which includes light green background + left accent)
+                        tvOpt.setBackgroundResource(R.drawable.bg_option_correct);
+                        // ensure text color contrasts
+                        tvOpt.setTextColor(getResources().getColor(android.R.color.black));
+                    } else {
+                        tvOpt.setText("• " + opt);
+                        // use transparent rounded background (existing drawable)
+                        tvOpt.setBackgroundResource(R.drawable.bg_option_transparent);
+                        tvOpt.setTextColor(getResources().getColor(android.R.color.black));
+                    }
+
+                    // Make tvOpt fill width so the background stretches nicely
+                    LinearLayout.LayoutParams optLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                    tvOpt.setLayoutParams(optLp);
+
+                    optWrapper.addView(tvOpt);
+                    optionsContainer.addView(optWrapper);
+                }
+            } else {
+                TextView tvNoOpt = new TextView(this);
+                tvNoOpt.setText("Không có đáp án");
+                tvNoOpt.setPadding(6, 6, 6, 6);
+                optionsContainer.addView(tvNoOpt);
+            }
+
+            inner.addView(optionsContainer);
+            card.addView(inner);
+            llQuizContainer.addView(card);
+
+            qIndex++;
+        }
     }
 
     @Override

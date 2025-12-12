@@ -75,4 +75,7 @@
     <!-- Primary Color (for compatibility) -->
     <color name="primary">#2196F3</color>
 
+    <color name="purple_accent">#7B61FF</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="badge_text">#FFFFFF</color>
 </resources>

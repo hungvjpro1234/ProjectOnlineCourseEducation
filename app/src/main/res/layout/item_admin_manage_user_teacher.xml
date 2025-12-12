@@ -162,14 +162,17 @@
             </LinearLayout>
 
             <!-- View Details Button -->
-            <android.widget.Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnViewDetails"
-                android:layout_width="match_parent"
-                android:layout_height="36dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
                 android:text="Xem chi tiết"
                 android:textSize="12sp"
-                android:background="@color/blue_700"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                android:background="@drawable/bg_button_primary"
+                android:layout_gravity="right"
+                app:backgroundTint="@null"
+                android:paddingHorizontal="16dp" />
         </LinearLayout>
 
     </LinearLayout>

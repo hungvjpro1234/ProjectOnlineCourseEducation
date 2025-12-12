@@ -32,35 +32,14 @@
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tvLessonTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/tvLessonTitle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Bài 1: Giới thiệu"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/black" />
-
-                <TextView
-                    android:id="@+id/tvApprovalStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Chờ duyệt"
-                    android:textSize="10sp"
-                    android:textColor="@color/white"
-                    android:background="@drawable/bg_tag_orange"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="4dp"
-                    android:layout_marginStart="8dp"
-                    android:visibility="gone" />
-            </LinearLayout>
+                android:text="Bài 1: Giới thiệu"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
 
             <TextView
                 android:id="@+id/tvDuration"

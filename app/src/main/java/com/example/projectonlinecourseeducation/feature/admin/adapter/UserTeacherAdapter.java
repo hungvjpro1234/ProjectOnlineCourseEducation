@@ -69,7 +69,6 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
         private TextView tvTeacherEmail;
         private TextView tvTotalCourses;
         private TextView tvTotalRevenue;
-        private TextView tvAverageRating;
 
         public TeacherViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -81,7 +80,6 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
             tvTeacherEmail = itemView.findViewById(R.id.tvTeacherEmail);
             tvTotalCourses = itemView.findViewById(R.id.tvTotalCourses);
             tvTotalRevenue = itemView.findViewById(R.id.tvTotalRevenue);
-            tvAverageRating = itemView.findViewById(R.id.tvAverageRating);
         }
 
         public void bind(TeacherStats stats, OnTeacherClickListener listener) {
@@ -97,10 +95,6 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
             // Total revenue with currency format
             NumberFormat currencyFormat = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
             tvTotalRevenue.setText(currencyFormat.format(stats.getTotalRevenue()) + " VNĐ");
-
-            // Average rating
-            String ratingText = String.format(Locale.getDefault(), "%.1f ⭐", stats.getAverageRating());
-            tvAverageRating.setText(ratingText);
 
             // Toggle expand/collapse
             collapsedView.setOnClickListener(v -> {

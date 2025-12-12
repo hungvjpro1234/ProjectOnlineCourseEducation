@@ -1,5 +1,6 @@
 package com.example.projectonlinecourseeducation.feature.student.activity;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -9,6 +10,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -46,6 +48,7 @@ import java.util.Locale;
  *  - Dùng LessonProgressApi để lấy progress từng bài (single source of truth)
  *  - Khi listener notify, UI được cập nhật thông qua bindLessonsWithProgress() -> updateCourseProgress()
  *  - Bổ sung hasQuiz flag cho LessonItemUiModel (adapter sẽ hiển thị nút "Làm quiz")
+ *  - Sửa hành vi back: luôn chuyển về StudentHomeActivity và mở tab MyCourse
  */
 public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
@@ -110,6 +113,14 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         // Lần đầu vào: load info khóa học + lessons + reviews
         loadCourseData(courseId);
         setupActions();
+
+        // Bắt back-press hệ thống để hành vi giống nút back trên UI
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                navigateToHomeMyCourses();
+            }
+        });
     }
 
     @Override
@@ -277,7 +288,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
         bindLessonsWithProgress(lessons);
 
-        // NEW: update course progress now (bindLessonsWithProgress also calls it)
+        // NEW: update course progress now (bindLessonsWithProgress cũng gọi nó)
         updateCourseProgress(lessons);
 
         reviewAdapter.submitList(reviews);
@@ -449,7 +460,8 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     private void setupActions() {
-        btnBack.setOnClickListener(v -> finish());
+        // Thay finish() bằng điều hướng tới StudentHomeActivity mở tab My Course
+        btnBack.setOnClickListener(v -> navigateToHomeMyCourses());
 
         fabQAndA.setOnClickListener(v -> Toast.makeText(this, "Phần hỏi đáp đang được phát triển", Toast.LENGTH_SHORT).show());
 
@@ -503,5 +515,16 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 Toast.makeText(this, "Lỗi khi gửi đánh giá. Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * Điều hướng về StudentHomeActivity và mở tab MyCourse
+     */
+    private void navigateToHomeMyCourses() {
+        Intent intent = new Intent(this, StudentHomeActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra("open_my_course", true);
+        startActivity(intent);
+        finish();
     }
 }

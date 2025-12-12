@@ -2,6 +2,7 @@ package com.example.projectonlinecourseeducation.feature.admin.adapter;
 
 import android.content.Context;
 import android.content.Intent;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,9 +26,11 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.feature.admin.model.CourseProgressStats;
-
-// <-- IMPORTANT: import Activity so compiler can resolve the symbol
 import com.example.projectonlinecourseeducation.feature.admin.activity.AdminManageCourseDetailActivity;
+
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -39,7 +42,7 @@ import java.util.Locale;
  *
  * - Khi expand 1 item, sẽ load danh sách lesson cho course và progress per-lesson của student,
  *   sau đó hiển thị nested list chi tiết.
- * - Tránh gọi nặng toàn bộ ở lần đầu; load-on-demand giúp performance.
+ * - Đã mở rộng nested row để hiển thị quiz summary (correct/total) trong một "box" bên phải.
  */
 public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<UserStudentPurchasedCourseAdapter.PurchasedCourseViewHolder> {
 
@@ -113,6 +116,7 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
         // apis
         private final LessonApi lessonApi = ApiProvider.getLessonApi();
         private final LessonProgressApi lessonProgressApi = ApiProvider.getLessonProgressApi();
+        private final LessonQuizApi lessonQuizApi = ApiProvider.getLessonQuizApi();
 
         public PurchasedCourseViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -240,13 +244,11 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
                 // then open course detail activity
                 try {
                     Context ctx = itemView.getContext();
-                    // Using imported class directly
                     Intent intent = new Intent(ctx, AdminManageCourseDetailActivity.class);
                     if (stats.getCourse() != null) {
                         intent.putExtra("courseId", stats.getCourse().getId());
                         intent.putExtra("courseTitle", stats.getCourse().getTitle());
                     }
-                    // If context isn't an Activity, ensure NEW_TASK flag is set to avoid crash
                     if (!(ctx instanceof android.app.Activity)) {
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     }
@@ -264,7 +266,8 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
          * Load lesson list for the course and per-student progress, on background thread.
          * This method needs studentId to call lessonProgressApi.getLessonProgress(lessonId, studentId).
          *
-         * If studentId is null, no per-student progress will be loaded (will show 0%).
+         * ENHANCEMENT: also reads LessonQuizApi to get latest attempt correctCount and quiz total questions,
+         * and passes that to nested row model so the nested item can display "Quiz: correct/total".
          */
         private void loadLessonProgressForCourse(Course course, String studentId) {
             if (course == null) return;
@@ -287,12 +290,55 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
                         if (lessonProgressApi != null && studentId != null) {
                             LessonProgress lp = lessonProgressApi.getLessonProgress(lesson.getId(), studentId);
                             if (lp != null) {
-                                percent = lp.getCompletionPercentage();
+                                try {
+                                    percent = lp.getCompletionPercentage();
+                                } catch (Exception ignored) {
+                                    percent = 0;
+                                }
                                 completed = lp.isCompleted();
                             }
                         }
                     } catch (Exception ignored) {}
-                    rows.add(new LessonProgressRow(i + 1, lesson.getTitle() == null ? ("Bài " + (i + 1)) : lesson.getTitle(), percent, completed));
+
+                    // --- NEW: get quiz latest attempt (correct count) and quiz total ---
+                    int quizCorrect = 0;
+                    int quizTotal = 0; // 0 -> no quiz
+                    try {
+                        if (lessonQuizApi != null) {
+                            Quiz quiz = lessonQuizApi.getQuizForLesson(lesson.getId());
+                            if (quiz != null && quiz.getQuestions() != null) {
+                                quizTotal = quiz.getQuestions().size();
+                            }
+                            if (quizTotal > 0 && studentId != null) {
+                                List<QuizAttempt> attempts = lessonQuizApi.getAttemptsForLesson(lesson.getId(), studentId);
+                                if (attempts != null && !attempts.isEmpty() && attempts.get(0) != null) {
+                                    QuizAttempt latest = attempts.get(0);
+                                    try {
+                                        quizCorrect = latest.getCorrectCount();
+                                    } catch (Exception ignored) {
+                                        // fallback: try other getter names if model differs
+                                        try {
+                                            // If the model uses 'getCorrect' or 'getCorrectAnswers'
+                                            java.lang.reflect.Method m = latest.getClass().getMethod("getCorrect");
+                                            Object v = m.invoke(latest);
+                                            if (v instanceof Integer) quizCorrect = (Integer) v;
+                                        } catch (Exception e) {
+                                            // ignore - keep quizCorrect = 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+
+                    rows.add(new LessonProgressRow(i + 1,
+                            lesson.getTitle() == null ? ("Bài " + (i + 1)) : lesson.getTitle(),
+                            percent,
+                            completed,
+                            quizCorrect,
+                            quizTotal,
+                            lesson.getId()
+                    ));
                     sumPercent += percent;
                     if (completed) completedCount++;
                 }
@@ -314,14 +360,25 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
             }).start();
         }
 
-        // Model for nested row
+        // Model for nested row (extended with quiz info and lessonId)
         private static class LessonProgressRow {
             final int order;
             final String title;
             final int percent;
             final boolean completed;
-            LessonProgressRow(int order, String title, int percent, boolean completed) {
-                this.order = order; this.title = title; this.percent = percent; this.completed = completed;
+            final int quizCorrect; // số câu đúng trong latest attempt
+            final int quizTotal;   // tổng câu trong quiz (0 means no quiz)
+            final String lessonId;
+
+            LessonProgressRow(int order, String title, int percent, boolean completed,
+                              int quizCorrect, int quizTotal, String lessonId) {
+                this.order = order;
+                this.title = title;
+                this.percent = percent;
+                this.completed = completed;
+                this.quizCorrect = quizCorrect;
+                this.quizTotal = quizTotal;
+                this.lessonId = lessonId;
             }
         }
 
@@ -350,7 +407,7 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
             @Override
             public int getItemCount() { return items.size(); }
             static class LessonVH extends RecyclerView.ViewHolder {
-                private final TextView tvLessonTitle, tvLessonPercent, tvLessonCourse;
+                private final TextView tvLessonTitle, tvLessonPercent, tvLessonCourse, tvLessonQuiz;
                 private final ProgressBar pbLesson;
                 LessonVH(@NonNull View itemView) {
                     super(itemView);
@@ -358,12 +415,29 @@ public class UserStudentPurchasedCourseAdapter extends RecyclerView.Adapter<User
                     tvLessonPercent = itemView.findViewById(R.id.tvLessonPercent);
                     tvLessonCourse = itemView.findViewById(R.id.tvLessonCourse);
                     pbLesson = itemView.findViewById(R.id.pbLesson);
+                    tvLessonQuiz = itemView.findViewById(R.id.tvLessonQuiz); // must exist in layout
                 }
                 void bind(LessonProgressRow r) {
                     tvLessonTitle.setText((r.order > 0 ? r.order + ". " : "") + (r.title != null ? r.title : "Bài"));
+
+                    // Slightly smaller title for compact UI
+                    tvLessonTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                    tvLessonPercent.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+
                     tvLessonPercent.setText(r.percent + "%");
                     tvLessonCourse.setVisibility(View.GONE); // we don't have course context here
                     try { pbLesson.setMax(100); pbLesson.setProgress(r.percent); } catch (Exception ignored) {}
+
+                    // Show quiz info if quiz exists (quizTotal > 0)
+                    if (r.quizTotal > 0) {
+                        // display "Quiz: 6/10" where 6 is correct count
+                        tvLessonQuiz.setText("Quiz: " + r.quizCorrect + "/" + r.quizTotal);
+                        tvLessonQuiz.setVisibility(View.VISIBLE);
+                        tvLessonQuiz.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                    } else {
+                        // no quiz for this lesson -> hide
+                        tvLessonQuiz.setVisibility(View.GONE);
+                    }
                 }
             }
         }

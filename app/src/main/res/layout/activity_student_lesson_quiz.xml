@@ -6,7 +6,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/colorBackground"
-    tools:context=".feature.student.activity.StudentLessonQuizActivity">
+    tools:context=".feature.student.activity.StudentLessonQuizActivity"
+    android:fitsSystemWindows="true">
 
     <!-- Header -->
     <LinearLayout

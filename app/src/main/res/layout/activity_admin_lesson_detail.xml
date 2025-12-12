@@ -157,6 +157,43 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Quiz Section (NEW: hiển thị quiz & đáp án đúng) -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:id="@+id/tvQuizTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Quiz"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#212121"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Container: sẽ được populate động từ Activity -->
+                    <LinearLayout
+                        android:id="@+id/llQuizContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+
             <!-- Comments Section -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"

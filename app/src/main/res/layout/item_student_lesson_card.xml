@@ -11,31 +11,72 @@
     app:cardCornerRadius="8dp"
     app:cardBackgroundColor="@color/white">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:padding="12dp">
 
-        <!-- Lesson Thumbnail -->
         <ImageView
             android:id="@+id/ivLessonThumbnail"
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:scaleType="centerCrop"
             android:contentDescription="@string/lesson_thumbnail"
-            android:background="@color/colorBackground" />
+            android:background="@color/colorBackground"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- Lesson Info -->
         <LinearLayout
+            android:id="@+id/rightColumn"
+            android:layout_width="72dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <ImageView
+                android:id="@+id/ivPlay"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_play_circle"
+                android:scaleType="fitCenter"
+                android:contentDescription="@string/play_lesson"
+                app:tint="@color/colorSecondary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnQuiz"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginTop="8dp"
+                android:minWidth="84dp"
+                android:textSize="11dp"
+                android:text="@string/do_quiz"
+                android:textAllCaps="false"
+                app:cornerRadius="8dp"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:visibility="visible"
+                app:strokeWidth="0dp"
+                />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/middleContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="12dp"
             android:orientation="vertical"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:layout_marginStart="12dp"
+            app:layout_constraintStart_toEndOf="@id/ivLessonThumbnail"
+            app:layout_constraintEnd_toStartOf="@id/rightColumn"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
 
-            <!-- Lesson Number -->
             <TextView
                 android:id="@+id/tvLessonNumber"
                 android:layout_width="match_parent"
@@ -45,20 +86,18 @@
                 android:textColor="@color/colorSecondary"
                 android:textStyle="bold" />
 
-            <!-- Lesson Title -->
             <TextView
                 android:id="@+id/tvLessonTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="Giới thiệu Java và cài đặt "
+                android:text="Giới thiệu Java và cài đặt"
                 android:textSize="14sp"
                 android:textColor="@color/black"
                 android:textStyle="bold"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
-            <!-- Lesson Duration -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -83,7 +122,6 @@
                     android:textColor="@color/text_secondary" />
             </LinearLayout>
 
-            <!-- NEW: Progress bar + % hoàn thành bài học -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -112,44 +150,7 @@
                     android:textSize="11sp"
                     android:textColor="@color/text_secondary" />
             </LinearLayout>
-            <!-- END NEW -->
         </LinearLayout>
 
-        <!-- thay đổi phần Right column trong file CardView của bạn -->
-        <!-- thêm xmlns:app nếu chưa có -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginStart="8dp"
-            android:layout_marginTop="15dp">
-
-            <ImageView
-                android:id="@+id/ivPlay"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_play_circle"
-                android:scaleType="fitCenter"
-                android:contentDescription="@string/play_lesson"
-                app:tint="@color/colorSecondary"
-                android:layout_gravity="center" />
-
-            <!-- MaterialButton thay cho Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnQuiz"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginTop="8dp"
-                android:minWidth="84dp"
-                android:text="@string/do_quiz"
-                android:textAllCaps="false"
-                app:cornerRadius="8dp"
-                android:paddingLeft="10dp"
-                android:paddingRight="10dp"
-                android:visibility="visible"
-                app:strokeWidth="0dp"
-                />
-        </LinearLayout>
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>

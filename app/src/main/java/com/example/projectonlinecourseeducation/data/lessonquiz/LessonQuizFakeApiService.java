@@ -1,4 +1,3 @@
-// file: data/lessonquiz/LessonQuizFakeApiService.java
 package com.example.projectonlinecourseeducation.data.lessonquiz;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
@@ -24,6 +23,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - submitQuizAttempt: kiểm tra quiz tồn tại và quiz hợp lệ, kiểm tra LessonProgress.isCompleted(),
  *   chấm điểm, lưu attempt, trả QuizAttempt.
  * - Khi attempt lưu thành công -> notify attempt listeners (onAttemptSubmitted).
+ *
+ * NOTE: this implementation stores quizzes keyed by lessonId (one quiz per lesson),
+ * following the pattern used in LessonFakeApiService (lessonMap keyed by lessonId).
  */
 public class LessonQuizFakeApiService implements LessonQuizApi {
 
@@ -53,81 +55,11 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
             "      {\"id\":\"c1_l1_q10\",\"text\":\"Câu 10: File .java sau khi biên dịch sẽ tạo file nào?\",\"options\":[\".class\",\".exe\",\".py\",\".jar\"],\"correctIndex\":0}\n" +
             "    ]\n" +
             "  },\n" +
-            "  {\n" +
-            "    \"id\":null,\n" +
-            "    \"lessonId\":\"c1_l2\",\n" +
-            "    \"title\":\"Quiz: Biến, kiểu dữ liệu & toán tử\",\n" +
-            "    \"questions\": [\n" +
-            "      {\"id\":\"c1_l2_q1\",\"text\":\"Câu 1: Kiểu dữ liệu để lưu số nguyên trong Java?\",\"options\":[\"int\",\"String\",\"boolean\",\"double\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q2\",\"text\":\"Câu 2: Từ khóa khai báo hằng số (constant) trong Java?\",\"options\":[\"final\",\"const\",\"static\",\"immutable\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q3\",\"text\":\"Câu 3: Kết quả phép 5 / 2 (int / int) trong Java là?\",\"options\":[\"2\",\"2.5\",\"3\",\"2.0\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q4\",\"text\":\"Câu 4: Kiểu dữ liệu đúng cho true/false?\",\"options\":[\"boolean\",\"int\",\"char\",\"String\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q5\",\"text\":\"Câu 5: Toán tử so sánh để kiểm tra bằng bằng giá trị primitive?\",\"options\":[\"==\",\"equals\",\"compareTo\",\"is\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q6\",\"text\":\"Câu 6: Ký tự duy nhất trong Java được đặt trong?\",\"options\":[\"' ' (single quotes)\",\"\\\" \\\" (double quotes)\",\"backticks\",\"<>\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q7\",\"text\":\"Câu 7: Kết quả biểu thức (true && false) là?\",\"options\":[\"false\",\"true\",\"null\",\"error\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q8\",\"text\":\"Câu 8: Toán tử dùng cho phép cộng chuỗi (String) trong Java?\",\"options\":[\"+\",\"concat\",\"append\",\"&\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q9\",\"text\":\"Câu 9: Kiểu dữ liệu phù hợp để lưu số thập phân chính xác đơn?\",\"options\":[\"float\",\"int\",\"long\",\"char\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l2_q10\",\"text\":\"Câu 10: Kiểm tra so sánh chuỗi nên dùng phương thức nào?\",\"options\":[\"equals\",\"==\",\"compare\",\"match\"],\"correctIndex\":0}\n" +
-            "    ]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":null,\n" +
-            "    \"lessonId\":\"c1_l3\",\n" +
-            "    \"title\":\"Quiz: Cấu trúc điều khiển (if, switch, loop)\",\n" +
-            "    \"questions\": [\n" +
-            "      {\"id\":\"c1_l3_q1\",\"text\":\"Câu 1: Câu lệnh dùng cho lựa chọn nhánh hai hướng?\",\"options\":[\"if-else\",\"switch\",\"for\",\"while\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q2\",\"text\":\"Câu 2: Để lặp biết trước số lần dùng?\",\"options\":[\"for\",\"while\",\"do-while\",\"if\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q3\",\"text\":\"Câu 3: Trong switch, để so sánh nhiều case thì dùng?\",\"options\":[\"case\",\"if\",\"loop\",\"break\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q4\",\"text\":\"Câu 4: Lệnh nào thoát khỏi vòng lặp hiện tại?\",\"options\":[\"break\",\"continue\",\"return\",\"exit\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q5\",\"text\":\"Câu 5: Vòng lặp thực hiện ít nhất 1 lần phù hợp là?\",\"options\":[\"do-while\",\"while\",\"for\",\"foreach\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q6\",\"text\":\"Câu 6: 'continue' làm gì trong vòng lặp?\",\"options\":[\"bỏ qua lần lặp hiện tại\",\"thoát vòng lặp\",\"dừng chương trình\",\"không làm gì\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q7\",\"text\":\"Câu 7: Biểu thức điều kiện phải trả về kiểu nào trong if(...) ?\",\"options\":[\"boolean\",\"int\",\"String\",\"Object\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q8\",\"text\":\"Câu 8: Khi dùng nested loops thì complex tăng theo?\",\"options\":[\"bậc của số vòng lặp\",\"giảm\",\"không đổi\",\"sai\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q9\",\"text\":\"Câu 9: switch có thể dùng với kiểu nào?\",\"options\":[\"int, String, enum\",\"double\",\"float\",\"Object bất kỳ\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l3_q10\",\"text\":\"Câu 10: Lệnh nào dùng để thoát khỏi hàm?\",\"options\":[\"return\",\"break\",\"continue\",\"exit\"],\"correctIndex\":0}\n" +
-            "    ]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":null,\n" +
-            "    \"lessonId\":\"c1_l4\",\n" +
-            "    \"title\":\"Quiz: Mảng & Collection cơ bản\",\n" +
-            "    \"questions\": [\n" +
-            "      {\"id\":\"c1_l4_q1\",\"text\":\"Câu 1: Cách khai báo mảng int 5 phần tử?\",\"options\":[\"int[] a = new int[5];\",\"int a = new int(5);\",\"array<int> a = new array<>();\",\"int a[] = 5;\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q2\",\"text\":\"Câu 2: Lớp nào dùng để lưu danh sách có thể thay đổi kích thước?\",\"options\":[\"ArrayList\",\"HashMap\",\"LinkedList\",\"TreeSet\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q3\",\"text\":\"Câu 3: Map lưu trữ dữ liệu theo cặp?\",\"options\":[\"key-value\",\"index-value\",\"node-edge\",\"pair-list\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q4\",\"text\":\"Câu 4: Để lặp qua collection dùng?\",\"options\":[\"for-each\",\"switch\",\"if\",\"do-while\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q5\",\"text\":\"Câu 5: Để sắp xếp ArrayList có thể dùng?\",\"options\":[\"Collections.sort(list)\",\"list.sort()\",\"list.orderBy()\",\"list.arrange()\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q6\",\"text\":\"Câu 6: HashMap cho phép keys là?\",\"options\":[\"objects with proper hashCode/equals\",\"primitive only\",\"null impossible\",\"only String\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q7\",\"text\":\"Câu 7: LinkedList khác ArrayList ở điểm nào?\",\"options\":[\"chèn/xóa giữa nhanh hơn\",\"truy xuất ngẫu nhiên nhanh hơn\",\"luôn nhỏ hơn\",\"không dùng được\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q8\",\"text\":\"Câu 8: Set khác List là?\",\"options\":[\"không cho phép phần tử trùng lặp\",\"luôn có thứ tự\",\"cho phép index\",\"lưu theo cặp\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q9\",\"text\":\"Câu 9: Lấy kích thước collection dùng phương thức?\",\"options\":[\"size()\",\"length()\",\"count()\",\"getSize()\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l4_q10\",\"text\":\"Câu 10: Để chuyển List sang mảng dùng?\",\"options\":[\"list.toArray()\",\"list.asArray()\",\"list.asList()\",\"list.copy()\"],\"correctIndex\":0}\n" +
-            "    ]\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\":null,\n" +
-            "    \"lessonId\":\"c1_l5\",\n" +
-            "    \"title\":\"Quiz: Giới thiệu lập trình hướng đối tượng\",\n" +
-            "    \"questions\": [\n" +
-            "      {\"id\":\"c1_l5_q1\",\"text\":\"Câu 1: OOP gồm những tính chất nào?\",\"options\":[\"Encapsulation, Inheritance, Polymorphism, Abstraction\",\"Loop, Condition, Variable, Function\",\"Compile, Run, Debug, Test\",\"Class, Package, Module, Thread\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q2\",\"text\":\"Câu 2: Từ khóa để kế thừa trong Java là?\",\"options\":[\"extends\",\"implements\",\"inherits\",\"uses\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q3\",\"text\":\"Câu 3: Interface khác abstract class ở chỗ?\",\"options\":[\"không có trạng thái (field) mặc định trước Java 8\",\"không thể có method\",\"luôn có constructor\",\"luôn private\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q4\",\"text\":\"Câu 4: Đa hình (polymorphism) cho phép gì?\",\"options\":[\"gọi method của subclass qua tham chiếu parent\",\"tạo nhiều biến cùng tên\",\"lưu nhiều kiểu dữ liệu cùng biến\",\"gộp hai class\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q5\",\"text\":\"Câu 5: Từ khóa để gọi constructor lớp cha?\",\"options\":[\"super\",\"parent\",\"this\",\"base\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q6\",\"text\":\"Câu 6: Đóng gói (encapsulation) làm gì?\",\"options\":[\"ẩn chi tiết hiện thực bằng private + getter/setter\",\"tăng tốc độ chạy\",\"giảm bộ nhớ\",\"tự động test\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q7\",\"text\":\"Câu 7: Ghi đè phương thức gọi là?\",\"options\":[\"override\",\"overload\",\"overwrite\",\"overrun\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q8\",\"text\":\"Câu 8: Nếu muốn nhiều implement khác nhau cho cùng method signature gọi là?\",\"options\":[\"polymorphism\",\"inheritance\",\"encapsulation\",\"abstraction\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q9\",\"text\":\"Câu 9: Abstract class có thể có method nào?\",\"options\":[\"cả abstract lẫn concrete method\",\"chỉ abstract\",\"chỉ concrete\",\"không có method\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l5_q10\",\"text\":\"Câu 10: Tạo object từ class bằng từ khóa?\",\"options\":[\"new\",\"create\",\"init\",\"make\"],\"correctIndex\":0}\n" +
-            "    ]\n" +
-            "  }\n" +
             "]";
 
     // ------------------ In-memory storage ------------------
-    // quizId -> Quiz
-    private final Map<String, Quiz> quizMap = new HashMap<>();
-    // lessonId -> quizId (convention: 1 quiz per lesson)
-    private final Map<String, String> lessonToQuiz = new HashMap<>();
+    // Keyed by lessonId -> Quiz (one quiz per lesson, like lessonMap pattern)
+    private final Map<String, Quiz> quizMap = new LinkedHashMap<>();
 
     // attemptId -> QuizAttempt
     private final Map<String, QuizAttempt> attemptMap = new LinkedHashMap<>();
@@ -155,9 +87,7 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
     @Override
     public synchronized Quiz getQuizForLesson(String lessonId) {
         if (lessonId == null) return null;
-        String qid = lessonToQuiz.get(lessonId);
-        if (qid == null) return null;
-        return quizMap.get(qid);
+        return quizMap.get(lessonId);
     }
 
     @Override
@@ -165,43 +95,62 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
         if (!validateQuizStructure(quiz)) {
             return null;
         }
+        if (quiz.getLessonId() == null || quiz.getLessonId().trim().isEmpty()) return null;
+
         String id = quiz.getId();
         if (id == null || id.trim().isEmpty()) id = generateId("quiz");
+
         Quiz created = new Quiz(id, quiz.getLessonId(), quiz.getTitle(), quiz.getQuestions());
-        saveQuizInternal(created);
-        return created;
+
+        // follow lesson-like behavior: keep first quiz if exists; otherwise put
+        quizMap.putIfAbsent(created.getLessonId(), created);
+        notifyQuizChanged(created.getLessonId());
+        return quizMap.get(created.getLessonId());
     }
 
     @Override
     public synchronized Quiz updateQuiz(String quizId, Quiz updated) {
         if (quizId == null || updated == null) return null;
-        Quiz exist = quizMap.get(quizId);
-        if (exist == null) return null;
+
+        // find existing quiz by id across quizMap values
+        Quiz existing = null;
+        String existingLessonId = null;
+        for (Map.Entry<String, Quiz> e : quizMap.entrySet()) {
+            if (quizId.equals(e.getValue().getId())) {
+                existing = e.getValue();
+                existingLessonId = e.getKey();
+                break;
+            }
+        }
+        if (existing == null) return null;
 
         if (!validateQuizStructure(updated)) {
             return null;
         }
 
-        // lessonId cannot change
-        if (!exist.getLessonId().equals(updated.getLessonId())) {
-            updated = new Quiz(quizId, exist.getLessonId(), updated.getTitle(), updated.getQuestions());
-        } else {
-            updated = new Quiz(quizId, updated.getLessonId(), updated.getTitle(), updated.getQuestions());
-        }
+        // lessonId should remain same (treat lesson as parent)
+        String lessonId = existing.getLessonId();
+        Quiz newQuiz = new Quiz(existing.getId(), lessonId, updated.getTitle(), updated.getQuestions());
 
-        quizMap.put(quizId, updated);
-        lessonToQuiz.put(updated.getLessonId(), quizId);
-        notifyQuizChanged(updated.getLessonId());
-        return updated;
+        // replace in map keyed by lessonId
+        quizMap.put(lessonId, newQuiz);
+        notifyQuizChanged(lessonId);
+        return newQuiz;
     }
 
     @Override
     public synchronized boolean deleteQuiz(String quizId) {
         if (quizId == null) return false;
-        Quiz removed = quizMap.remove(quizId);
-        if (removed != null) {
-            lessonToQuiz.remove(removed.getLessonId());
-            notifyQuizChanged(removed.getLessonId());
+        String foundLessonId = null;
+        for (Map.Entry<String, Quiz> e : quizMap.entrySet()) {
+            if (quizId.equals(e.getValue().getId())) {
+                foundLessonId = e.getKey();
+                break;
+            }
+        }
+        if (foundLessonId != null) {
+            quizMap.remove(foundLessonId);
+            notifyQuizChanged(foundLessonId);
             return true;
         }
         return false;
@@ -264,7 +213,7 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
         // Notify (UI may refresh attempts list)
         notifyQuizChanged(lessonId);
 
-        // NEW: notify attempt listeners about new submission
+        // notify attempt listeners about new submission
         notifyAttemptSubmitted(attempt);
 
         return attempt;
@@ -322,12 +271,6 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
         return lessonId + "|" + (studentId == null ? "_GLOBAL_" : studentId);
     }
 
-    private void saveQuizInternal(Quiz q) {
-        quizMap.put(q.getId(), q);
-        lessonToQuiz.put(q.getLessonId(), q.getId());
-        notifyQuizChanged(q.getLessonId());
-    }
-
     private void notifyQuizChanged(String lessonId) {
         List<LessonQuizApi.QuizUpdateListener> copy = new ArrayList<>(quizListeners);
         for (LessonQuizApi.QuizUpdateListener l : copy) {
@@ -373,6 +316,7 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
     private void seedFromJson() {
         try {
             JSONArray arr = new JSONArray(QUIZZES_JSON);
+            Set<String> seenLessons = new HashSet<>();
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject o = arr.getJSONObject(i);
                 String id = o.optString("id", null);
@@ -402,7 +346,23 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
                 Quiz q = new Quiz(id, lessonId, title, qs);
                 // Only save if structure valid; otherwise skip (dev)
                 if (validateQuizStructure(q)) {
-                    saveQuizInternal(q);
+                    // skip quizzes without lessonId to avoid mapping null key
+                    if (lessonId == null || lessonId.trim().isEmpty()) continue;
+
+                    // If we have seen this lessonId earlier in the seed, SKIP this duplicate entirely.
+                    // Keep the first occurrence deterministic (lesson-like behavior).
+                    if (seenLessons.contains(lessonId)) {
+                        System.err.println("Warning: Duplicate lessonId in seed JSON: " + lessonId + " (seed index " + i + "). Skipping this duplicate.");
+                        continue; // <-- do not save duplicate
+                    } else {
+                        seenLessons.add(lessonId);
+                    }
+
+                    // Save keyed by lessonId (keep first if duplicates)
+                    quizMap.putIfAbsent(lessonId, q);
+                    notifyQuizChanged(lessonId);
+                } else {
+                    System.err.println("Skipping invalid quiz for lessonId=" + lessonId + " at seed index " + i);
                 }
             }
         } catch (JSONException e) {
@@ -420,7 +380,6 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
      */
     public synchronized void clearAll() {
         quizMap.clear();
-        lessonToQuiz.clear();
         attemptMap.clear();
         attemptsIndex.clear();
         idCounter.set(1);
