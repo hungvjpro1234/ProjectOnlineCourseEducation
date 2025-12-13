@@ -78,4 +78,6 @@
     <color name="purple_accent">#7B61FF</color>
     <color name="card_bg">#FFFFFF</color>
     <color name="badge_text">#FFFFFF</color>
+
+    <color name="tab_selected_color">#2196F3</color>
 </resources>
