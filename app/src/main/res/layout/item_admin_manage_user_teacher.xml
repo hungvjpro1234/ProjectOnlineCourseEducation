@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Collapsed View (Header) -->
+        <!-- Collapsed View -->
         <LinearLayout
             android:id="@+id/collapsedView"
             android:layout_width="match_parent"
@@ -21,17 +21,13 @@
             android:gravity="center_vertical"
             android:padding="12dp">
 
-            <!-- Avatar -->
             <ImageView
                 android:id="@+id/imgTeacherAvatar"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ava_teacher"
-                android:scaleType="centerCrop"
-                android:contentDescription="@string/app_name"
                 android:layout_marginEnd="12dp" />
 
-            <!-- Name and Email -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -40,41 +36,34 @@
 
                 <TextView
                     android:id="@+id/tvTeacherName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Trần Thị B"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="@color/text_dark" />
+                    android:textColor="@color/text_dark"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
 
                 <TextView
                     android:id="@+id/tvTeacherEmail"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="tranthib@gmail.com"
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray"
-                    android:layout_marginTop="2dp" />
+                    android:layout_marginTop="2dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- Expand Icon -->
             <ImageView
                 android:id="@+id/imgExpandTeacher"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_expand"
-                android:contentDescription="@string/app_name"
-                android:scaleType="centerInside" />
+                android:src="@drawable/ic_expand" />
         </LinearLayout>
 
-        <!-- Divider -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/light_gray"
-            android:id="@+id/divider1" />
+            android:background="@color/light_gray" />
 
-        <!-- Expanded View (Details) -->
+        <!-- Expanded View -->
         <LinearLayout
             android:id="@+id/expandedView"
             android:layout_width="match_parent"
@@ -83,85 +72,48 @@
             android:visibility="gone"
             android:padding="12dp">
 
-            <!-- Total Courses -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
                 android:layout_marginBottom="12dp">
 
                 <TextView
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Tổng khóa học:"
                     android:textSize="13sp"
-                    android:textColor="@color/text_dark" />
+                    android:layout_height="wrap_content" />
 
                 <TextView
                     android:id="@+id/tvTotalCourses"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="8 khóa"
-                    android:textSize="13sp"
                     android:textStyle="bold"
-                    android:textColor="@color/blue_700" />
+                    android:textColor="@color/blue_700"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- Total Revenue -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Tổng thu nhập:"
-                    android:textSize="13sp"
-                    android:textColor="@color/text_dark" />
-
-                <TextView
-                    android:id="@+id/tvTotalRevenue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="89.500.000 VNĐ"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/green_success" />
-            </LinearLayout>
-
-            <!-- Average Rating -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
                 android:layout_marginBottom="16dp">
 
                 <TextView
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Trung bình rating:"
+                    android:text="Tổng thu nhập:"
                     android:textSize="13sp"
-                    android:textColor="@color/text_dark" />
+                    android:layout_height="wrap_content" />
 
                 <TextView
-                    android:id="@+id/tvAverageRating"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="4.8 ⭐"
-                    android:textSize="13sp"
+                    android:id="@+id/tvTotalRevenue"
                     android:textStyle="bold"
-                    android:textColor="@color/orange_main" />
+                    android:textColor="@color/green_success"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- View Details Button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnViewDetails"
                 android:layout_width="wrap_content"
@@ -170,11 +122,8 @@
                 android:textSize="12sp"
                 android:textColor="@android:color/white"
                 android:background="@drawable/bg_button_primary"
-                android:layout_gravity="right"
-                app:backgroundTint="@null"
-                android:paddingHorizontal="16dp" />
+                android:layout_gravity="end" />
         </LinearLayout>
 
     </LinearLayout>
-
 </androidx.cardview.widget.CardView>

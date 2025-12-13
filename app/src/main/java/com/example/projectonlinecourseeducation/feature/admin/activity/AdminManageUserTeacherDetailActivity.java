@@ -5,19 +5,19 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.UserTeacherOwnedCourseAdapter;
 
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Activity hiển thị chi tiết teacher: courses owned
@@ -29,8 +29,6 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private RecyclerView rvOwnedCourses;
     private android.widget.TextView tvTeacherName;
-    private android.widget.TextView tvTotalRevenue;
-    private android.widget.TextView tvOwnedCourseCount;
 
     private UserTeacherOwnedCourseAdapter ownedCourseAdapter;
     private CourseApi courseApi;
@@ -84,8 +82,6 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
         rvOwnedCourses = findViewById(R.id.rvOwnedCourses);
         tvTeacherName = findViewById(R.id.tvTeacherName);
-        tvTotalRevenue = findViewById(R.id.tvTotalRevenue);
-        tvOwnedCourseCount = findViewById(R.id.tvOwnedCourseCount);
 
         // Set teacher name
         if (userName != null && !userName.isEmpty()) {
@@ -109,6 +105,7 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
             // intent.putExtra("courseTitle", course.getTitle());
             // startActivity(intent);
         });
+
         rvOwnedCourses.setLayoutManager(new LinearLayoutManager(this));
         rvOwnedCourses.setAdapter(ownedCourseAdapter);
     }
@@ -118,7 +115,7 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
     }
 
     /**
-     * Load teacher's owned courses and calculate stats
+     * Load teacher's owned courses
      */
     private void loadTeacherData() {
         // Get all courses
@@ -140,21 +137,6 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
                 ownedCourses.add(course);
             }
         }
-
-        // Set course count
-        tvOwnedCourseCount.setText("Khóa học sở hữu (" + ownedCourses.size() + " khóa)");
-
-        // Calculate total revenue (price × students)
-        double totalRevenue = 0;
-        for (Course c : ownedCourses) {
-            try {
-                totalRevenue += c.getPrice() * c.getStudents();
-            } catch (Exception e) {
-                Log.w(TAG, "Error calculating revenue for course, skipping. course=" + (c != null ? c.getTitle() : "null"), e);
-            }
-        }
-        NumberFormat currencyFormat = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
-        tvTotalRevenue.setText("Tổng thu nhập: " + currencyFormat.format(totalRevenue) + " VNĐ");
 
         // Set courses to adapter
         ownedCourseAdapter.setCourses(ownedCourses);

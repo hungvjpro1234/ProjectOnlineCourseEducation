@@ -6,8 +6,10 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.feature.admin.model.TeacherStats;
 
@@ -16,9 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Adapter hiển thị danh sách giảng viên với real data (expandable)
- */
 public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.TeacherViewHolder> {
 
     private List<TeacherStats> teacherList = new ArrayList<>();
@@ -32,9 +31,6 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
         this.listener = listener;
     }
 
-    /**
-     * Set danh sách teachers (đã có stats)
-     */
     public void setTeachers(List<TeacherStats> teachers) {
         this.teacherList = teachers != null ? teachers : new ArrayList<>();
         notifyDataSetChanged();
@@ -50,8 +46,7 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
 
     @Override
     public void onBindViewHolder(@NonNull TeacherViewHolder holder, int position) {
-        TeacherStats stats = teacherList.get(position);
-        holder.bind(stats, listener);
+        holder.bind(teacherList.get(position), listener);
     }
 
     @Override
@@ -59,18 +54,14 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
         return teacherList.size();
     }
 
-    public class TeacherViewHolder extends RecyclerView.ViewHolder {
-        private LinearLayout collapsedView;
-        private LinearLayout expandedView;
-        private ImageView imgExpand;
-        private boolean isExpanded = false;
+    static class TeacherViewHolder extends RecyclerView.ViewHolder {
 
-        private TextView tvTeacherName;
-        private TextView tvTeacherEmail;
-        private TextView tvTotalCourses;
-        private TextView tvTotalRevenue;
+        LinearLayout collapsedView, expandedView;
+        ImageView imgExpand;
+        TextView tvTeacherName, tvTeacherEmail, tvTotalCourses, tvTotalRevenue;
+        boolean isExpanded = false;
 
-        public TeacherViewHolder(@NonNull View itemView) {
+        TeacherViewHolder(@NonNull View itemView) {
             super(itemView);
             collapsedView = itemView.findViewById(R.id.collapsedView);
             expandedView = itemView.findViewById(R.id.expandedView);
@@ -82,37 +73,22 @@ public class UserTeacherAdapter extends RecyclerView.Adapter<UserTeacherAdapter.
             tvTotalRevenue = itemView.findViewById(R.id.tvTotalRevenue);
         }
 
-        public void bind(TeacherStats stats, OnTeacherClickListener listener) {
-            if (stats == null || stats.getUser() == null) return;
-
-            // Teacher name and email
+        void bind(TeacherStats stats, OnTeacherClickListener listener) {
             tvTeacherName.setText(stats.getUser().getName());
             tvTeacherEmail.setText(stats.getUser().getEmail());
-
-            // Total courses
             tvTotalCourses.setText(stats.getTotalCourses() + " khóa");
 
-            // Total revenue with currency format
-            NumberFormat currencyFormat = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
-            tvTotalRevenue.setText(currencyFormat.format(stats.getTotalRevenue()) + " VNĐ");
+            NumberFormat format = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
+            tvTotalRevenue.setText(format.format(stats.getTotalRevenue()) + " VNĐ");
 
-            // Toggle expand/collapse
             collapsedView.setOnClickListener(v -> {
                 isExpanded = !isExpanded;
-                if (isExpanded) {
-                    expandedView.setVisibility(View.VISIBLE);
-                    imgExpand.setRotation(180);
-                } else {
-                    expandedView.setVisibility(View.GONE);
-                    imgExpand.setRotation(0);
-                }
+                expandedView.setVisibility(isExpanded ? View.VISIBLE : View.GONE);
+                imgExpand.setRotation(isExpanded ? 180 : 0);
             });
 
-            // View details button
             itemView.findViewById(R.id.btnViewDetails).setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onViewDetailsClick(stats);
-                }
+                if (listener != null) listener.onViewDetailsClick(stats);
             });
         }
     }
