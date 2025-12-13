@@ -118,11 +118,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
             // Background color
             if (notification.shouldHighlight()) {
-                // UNREAD hoặc VIEWED → background sẫm màu
-                layoutBackground.setBackgroundColor(Color.parseColor("#F0F4FF"));
+                // UNREAD hoặc VIEWED → background màu xanh nhạt đậm (dễ phân biệt)
+                layoutBackground.setBackgroundColor(Color.parseColor("#E3F2FD"));
             } else {
-                // READ → background transparent
-                layoutBackground.setBackgroundColor(Color.TRANSPARENT);
+                // READ → background trắng/transparent (màu mặc định)
+                layoutBackground.setBackgroundColor(Color.parseColor("#FFFFFF"));
             }
 
             // Click listener

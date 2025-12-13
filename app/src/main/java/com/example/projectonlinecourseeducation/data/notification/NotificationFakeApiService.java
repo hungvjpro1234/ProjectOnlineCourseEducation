@@ -109,7 +109,9 @@ public class NotificationFakeApiService implements NotificationApi {
                 .lessonTitle("Functions and Methods")
                 .build());
 
-        notificationsByUser.put("student1", studentNotifications);
+        // Map cho cả userId và username để đảm bảo student nào cũng thấy thông báo fake
+        notificationsByUser.put("student1", studentNotifications); // username
+        notificationsByUser.put("u1", studentNotifications);      // id của Student One (theo AuthFakeApiService)
 
         // ========== TEACHER NOTIFICATIONS (teacher) ==========
         List<Notification> teacherNotifications = new ArrayList<>();
