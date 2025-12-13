@@ -121,8 +121,10 @@
                 android:text="Xem chi tiết"
                 android:textSize="12sp"
                 android:textColor="@android:color/white"
-                android:background="@drawable/bg_button_primary"
-                android:layout_gravity="end" />
+                android:background="@drawable/bg_badge_blue"
+                android:layout_gravity="right"
+                app:backgroundTint="@null"
+                android:paddingHorizontal="16dp" />
         </LinearLayout>
 
     </LinearLayout>

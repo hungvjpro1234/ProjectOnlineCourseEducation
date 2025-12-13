@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,19 +21,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Activity hiển thị chi tiết teacher: courses owned
+ * Admin - Xem chi tiết teacher:
+ * - Thông tin cơ bản
+ * - Tổng số khóa học
+ * - Tổng doanh thu
+ * - Danh sách khóa học sở hữu
+ *
+ * Đồng bộ logic với FakeApi:
+ * - students tăng khi recordPurchase()
+ * - revenue = price * students
+ * - teacher xác định bằng username (unique)
  */
 public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
 
-    private static final String TAG = "AdminManageUserTeacherDetail";
+    private static final String TAG = "AdminTeacherDetail";
 
+    // Views
     private ImageButton btnBack;
     private RecyclerView rvOwnedCourses;
-    private android.widget.TextView tvTeacherName;
+    private TextView tvTeacherName;
+    private TextView tvTotalRevenue;
+    private TextView tvOwnedCourseCount;
 
+    // Adapter & API
     private UserTeacherOwnedCourseAdapter ownedCourseAdapter;
     private CourseApi courseApi;
 
+    // Data from Intent
     private String userId;
     private String userName;
 
@@ -41,19 +56,22 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_manage_teacher_detail);
 
-        initAPIs();
+        initApis();
         getIntentData();
         initViews();
         setupAdapter();
         setupListeners();
 
-        // Nếu userId hợp lệ thì load dữ liệu, nếu không thì activity đã finish trong getIntentData()
-        if (userId != null && !userId.trim().isEmpty()) {
+        if (userName != null && !userName.trim().isEmpty()) {
             loadTeacherData();
         }
     }
 
-    private void initAPIs() {
+    // ---------------------------------------------------------------------
+    // Init
+    // ---------------------------------------------------------------------
+
+    private void initApis() {
         courseApi = ApiProvider.getCourseApi();
     }
 
@@ -62,19 +80,13 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         userId = intent.getStringExtra("userId");
         userName = intent.getStringExtra("userName");
 
-        Log.d(TAG, "Received intent extras: userId=" + userId + " userName=" + userName);
+        Log.d(TAG, "Intent: userId=" + userId + ", userName=" + userName);
 
-        if (userId == null || userId.trim().isEmpty()) {
-            // Nếu không có userId thì báo và finish() để tránh activity ở trạng thái lửng
-            Toast.makeText(this, "Không tìm thấy thông tin teacher (userId trống).", Toast.LENGTH_LONG).show();
-            Log.e(TAG, "userId is null or empty - finishing activity to avoid undefined behavior.");
+        if (userName == null || userName.trim().isEmpty()) {
+            Toast.makeText(this,
+                    "Không tìm thấy thông tin giảng viên.",
+                    Toast.LENGTH_LONG).show();
             finish();
-            return;
-        }
-
-        // đảm bảo userName không null
-        if (userName == null) {
-            userName = "";
         }
     }
 
@@ -82,28 +94,19 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
         rvOwnedCourses = findViewById(R.id.rvOwnedCourses);
         tvTeacherName = findViewById(R.id.tvTeacherName);
+        tvTotalRevenue = findViewById(R.id.tvTotalRevenue);
+        tvOwnedCourseCount = findViewById(R.id.tvOwnedCourseCount);
 
-        // Set teacher name
-        if (userName != null && !userName.isEmpty()) {
-            tvTeacherName.setText(userName);
-        } else {
-            tvTeacherName.setText(getString(R.string.unknown_teacher));
-        }
+        tvTeacherName.setText(userName);
+        tvTotalRevenue.setText("0 VNĐ");
+        tvOwnedCourseCount.setText("0");
     }
 
     private void setupAdapter() {
-        // Setup owned courses adapter (with click listener for course details)
         ownedCourseAdapter = new UserTeacherOwnedCourseAdapter(course -> {
-            // Keep the callback (optional) — you can remove or change this if you don't need the toast.
             Toast.makeText(this,
-                    "Xem chi tiết khóa học: " + course.getTitle(),
+                    "Khóa học: " + course.getTitle(),
                     Toast.LENGTH_SHORT).show();
-
-            // Optionally you could navigate from here instead of adapter.
-            // Intent intent = new Intent(this, AdminCourseManagementDetailActivity.class);
-            // intent.putExtra("courseId", course.getId());
-            // intent.putExtra("courseTitle", course.getTitle());
-            // startActivity(intent);
         });
 
         rvOwnedCourses.setLayoutManager(new LinearLayoutManager(this));
@@ -114,31 +117,61 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
     }
 
+    // ---------------------------------------------------------------------
+    // Load & Calculate Data
+    // ---------------------------------------------------------------------
+
     /**
-     * Load teacher's owned courses
+     * Load toàn bộ dữ liệu teacher:
+     * - Courses owned
+     * - Tổng số khóa học
+     * - Tổng doanh thu
      */
     private void loadTeacherData() {
-        // Get all courses
         List<Course> allCourses;
+
         try {
             allCourses = courseApi.listAll();
         } catch (Exception e) {
-            Log.e(TAG, "Failed to load courses from API", e);
-            Toast.makeText(this, "Tải khóa học thất bại.", Toast.LENGTH_SHORT).show();
-            allCourses = new ArrayList<>();
+            Log.e(TAG, "Load courses failed", e);
+            Toast.makeText(this,
+                    "Không thể tải danh sách khóa học.",
+                    Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        // Filter courses owned by this teacher (so sánh theo tên hiện có trong model)
         List<Course> ownedCourses = new ArrayList<>();
+        long totalRevenue = 0;
+
         for (Course course : allCourses) {
             if (course == null) continue;
-            String courseTeacher = course.getTeacher();
-            if (courseTeacher != null && courseTeacher.equals(userName)) {
+
+            // Đồng bộ với toàn hệ thống: so sánh theo username teacher
+            if (userName.equals(course.getTeacher())) {
                 ownedCourses.add(course);
+
+                // Doanh thu = price * students
+                long revenue = (long) (course.getPrice() * course.getStudents());
+                totalRevenue += revenue;
             }
         }
 
-        // Set courses to adapter
+        // Update UI
         ownedCourseAdapter.setCourses(ownedCourses);
+        tvOwnedCourseCount.setText(
+                "Tổng khóa học sở hữu : " + ownedCourses.size()
+        );
+        tvTotalRevenue.setText(formatCurrencyVND(totalRevenue));
+    }
+
+    // ---------------------------------------------------------------------
+    // Utils
+    // ---------------------------------------------------------------------
+
+    /**
+     * Format tiền VNĐ: 45.600.000 VNĐ
+     */
+    private String formatCurrencyVND(long amount) {
+        return String.format("%,d VNĐ", amount).replace(',', '.');
     }
 }

@@ -6,6 +6,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -106,34 +107,32 @@ public class AdminCourseApprovalFragment extends Fragment {
     }
 
     private void setupTabs() {
-        tabLayout.addTab(tabLayout.newTab().setText("Khóa học mới").setIcon(R.drawable.ic_new_course));
-        tabLayout.addTab(tabLayout.newTab().setText("Chỉnh sửa").setIcon(R.drawable.ic_edit_pending));
-        tabLayout.addTab(tabLayout.newTab().setText("Yêu cầu xóa").setIcon(R.drawable.ic_delete_request));
+        addCustomTab(0, "Khóa mới", R.drawable.ic_new_course, R.color.green_success);
+        addCustomTab(1, "Chỉnh sửa", R.drawable.ic_edit_pending, R.color.orange_main);
+        addCustomTab(2, "Xóa khóa", R.drawable.ic_delete_request, R.color.error_red);
 
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                int position = tab.getPosition();
-                switch (position) {
-                    case 0:
-                        currentType = ApprovalType.INITIAL;
-                        break;
-                    case 1:
-                        currentType = ApprovalType.EDIT;
-                        break;
-                    case 2:
-                        currentType = ApprovalType.DELETE;
-                        break;
-                }
+                updateTabColor(tab, true);
+                currentType = ApprovalType.values()[tab.getPosition()];
                 loadPendingCourses(currentType);
             }
 
             @Override
-            public void onTabUnselected(TabLayout.Tab tab) {}
+            public void onTabUnselected(TabLayout.Tab tab) {
+                updateTabColor(tab, false);
+            }
 
-            @Override
-            public void onTabReselected(TabLayout.Tab tab) {}
+            @Override public void onTabReselected(TabLayout.Tab tab) {}
         });
+
+        // Select first tab by default
+        TabLayout.Tab firstTab = tabLayout.getTabAt(0);
+        if (firstTab != null) {
+            firstTab.select();
+            updateTabColor(firstTab, true);
+        }
     }
 
     private void setupRecyclerView() {
@@ -838,5 +837,42 @@ public class AdminCourseApprovalFragment extends Fragment {
         boolean isEmpty() {
             return added.isEmpty() && modified.isEmpty() && deleted.isEmpty();
         }
+    }
+
+
+    private void addCustomTab(int position, String text, int iconRes, int colorRes) {
+        TabLayout.Tab tab = tabLayout.newTab();
+
+        View view = LayoutInflater.from(getContext())
+                .inflate(R.layout.item_admin_tab, null);
+
+        ImageView icon = view.findViewById(R.id.tabIcon);
+        TextView title = view.findViewById(R.id.tabText);
+
+        icon.setImageResource(iconRes);
+        title.setText(text);
+
+        // Lưu màu selected vào tag
+        view.setTag(colorRes);
+
+        tab.setCustomView(view);
+        tabLayout.addTab(tab, position);
+    }
+
+    private void updateTabColor(TabLayout.Tab tab, boolean selected) {
+        if (tab == null || tab.getCustomView() == null) return;
+
+        View view = tab.getCustomView();
+        ImageView icon = view.findViewById(R.id.tabIcon);
+        TextView text = view.findViewById(R.id.tabText);
+
+        int colorRes = (int) view.getTag();
+
+        int color = selected
+                ? requireContext().getColor(colorRes)
+                : requireContext().getColor(R.color.text_secondary);
+
+        icon.setColorFilter(color);
+        text.setTextColor(color);
     }
 }
