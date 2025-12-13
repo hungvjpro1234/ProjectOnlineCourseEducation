@@ -40,6 +40,16 @@ public class StudentHomeActivity extends AppCompatActivity {
     private boolean doubleBackToExitPressedOnce = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    // Listener cập nhật badge khi có thay đổi thông báo
+    private final NotificationApi.NotificationUpdateListener notificationListener = new NotificationApi.NotificationUpdateListener() {
+        @Override
+        public void onNotificationsChanged(String userId) {
+            if (currentUserId != null && currentUserId.equals(userId)) {
+                runOnUiThread(() -> updateNotificationBadge());
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -72,33 +82,6 @@ public class StudentHomeActivity extends AppCompatActivity {
                 f = new StudentMyCourseFragment();
             } else if (id == R.id.nav_notification) {
                 f = new StudentNotificationFragment();
-                @Override
-                protected void onStart() {
-                    super.onStart();
-                    // Đăng ký listener để cập nhật badge khi có thay đổi thông báo
-                    if (notificationApi != null && currentUserId != null) {
-                        notificationApi.addNotificationUpdateListener(notificationListener);
-                    }
-                }
-
-                @Override
-                protected void onStop() {
-                    super.onStop();
-                    // Hủy đăng ký listener để tránh leak
-                    if (notificationApi != null && currentUserId != null) {
-                        notificationApi.removeNotificationUpdateListener(notificationListener);
-                    }
-                }
-
-                // Listener cập nhật badge khi có thay đổi thông báo
-                private final NotificationApi.NotificationUpdateListener notificationListener = new NotificationApi.NotificationUpdateListener() {
-                    @Override
-                    public void onNotificationsChanged(String userId) {
-                        if (currentUserId != null && currentUserId.equals(userId)) {
-                            runOnUiThread(() -> updateNotificationBadge());
-                        }
-                    }
-                };
             } else { // R.id.nav_user
                 f = new StudentUserFragment();
             }
@@ -133,6 +116,24 @@ public class StudentHomeActivity extends AppCompatActivity {
                 requestLogoutWithDoubleCheck();
             }
         });
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Đăng ký listener để cập nhật badge khi có thay đổi thông báo
+        if (notificationApi != null && currentUserId != null) {
+            notificationApi.addNotificationUpdateListener(notificationListener);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Hủy đăng ký listener để tránh leak
+        if (notificationApi != null && currentUserId != null) {
+            notificationApi.removeNotificationUpdateListener(notificationListener);
+        }
     }
 
     @Override
