@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
@@ -395,6 +396,9 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
             LessonComment updated = lessonCommentApi.addReply(comment.getId(), teacherName, replyContent);
 
             if (updated != null) {
+                // 🔔 TẠO THÔNG BÁO CHO STUDENT khi teacher reply
+                createNotificationForStudent(updated, teacherName);
+
                 DialogConfirmHelper.showSuccessDialog(
                         this,
                         "Thành công",
@@ -576,5 +580,32 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
         };
 
         youTubePlayerView.addYouTubePlayerListener(currentYouTubeListener);
+    }
+
+    /**
+     * Tạo thông báo cho student khi teacher reply comment
+     */
+    private void createNotificationForStudent(LessonComment comment, String teacherName) {
+        try {
+            // Lấy thông tin course và lesson để có đầy đủ thông tin cho notification
+            Course course = ApiProvider.getCourseApi().getCourseDetail(courseId);
+            Lesson lesson = ApiProvider.getLessonApi().getLessonDetail(comment.getLessonId());
+
+            if (course == null || lesson == null) return;
+
+            // 🔔 Tạo thông báo cho student (comment owner)
+            ApiProvider.getNotificationApi().createTeacherReplyNotification(
+                    comment.getUserId(),        // studentId - người comment
+                    teacherName,                // tên teacher reply
+                    comment.getLessonId(),      // ID bài học
+                    lesson.getTitle(),          // tên bài học
+                    courseId,                   // ID khóa học
+                    course.getTitle(),          // tên khóa học
+                    comment.getId()             // ID comment
+            );
+        } catch (Exception e) {
+            // Không crash app nếu tạo notification thất bại
+            e.printStackTrace();
+        }
     }
 }

@@ -699,4 +699,24 @@ public class NotificationFakeApiService implements NotificationApi {
             listener.onNotificationsChanged(userId);
         }
     }
+
+    /**
+     * Helper method: Map tên teacher → userId
+     * Dùng cho FakeApiService để tìm teacherId từ tên teacher
+     *
+     * NOTE: Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
+     */
+    public String getTeacherIdByName(String teacherName) {
+        if (teacherName == null) return "u2"; // Fallback: Nguyễn A
+
+        // Map tên teacher trong sample data → userId từ AuthFakeApiService
+        switch (teacherName.trim()) {
+            case "Nguyễn A":
+                return "u2";  // Teacher chính (username: teacher)
+            case "Teacher Assistant":
+                return "u5";  // Teacher phụ (username: teacher2)
+            default:
+                return "u2";  // Fallback: mặc định là Nguyễn A
+        }
+    }
 }
