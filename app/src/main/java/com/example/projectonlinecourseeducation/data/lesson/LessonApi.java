@@ -112,6 +112,20 @@ public interface LessonApi {
      */
     boolean cancelDeleteRequest(String lessonId);
 
+    /**
+     * Admin phê duyệt TẤT CẢ thay đổi lesson của một course (thêm/sửa/xóa)
+     * Method này được gọi khi admin approve EDIT của course
+     * @param courseId ID của course
+     */
+    void approveAllPendingLessonsForCourse(String courseId);
+
+    /**
+     * Admin từ chối TẤT CẢ thay đổi lesson của một course (hủy thêm/sửa/xóa)
+     * Method này được gọi khi admin reject EDIT của course
+     * @param courseId ID của course
+     */
+    void rejectAllPendingLessonsForCourse(String courseId);
+
     // ------------------------------------------------------------
     // Listener / observer support
     //

@@ -362,14 +362,18 @@ public class AdminCourseApprovalFragment extends Fragment {
                         success = courseApi.approveCourseEdit(course.getId());
                         if (success) totalApproved++;
 
-                        // 2. Approve ALL lesson edits of this course
-                        List<Lesson> editedLessons = lessonApi.getPendingLessonsForCourse(course.getId());
-                        for (Lesson lesson : editedLessons) {
-                            if (!lesson.isEditApproved() && !lesson.isDeleteRequested()) {
-                                if (lessonApi.approveLessonEdit(lesson.getId())) {
-                                    totalApproved++;
-                                }
-                            }
+                        // 2. Approve ALL lesson changes (add/edit/delete) of this course
+                        // CRITICAL FIX: Use approveAllPendingLessonsForCourse instead of manual loop
+                        // This handles: added lessons, edited lessons, deleted lessons
+                        try {
+                            // Count pending lessons BEFORE approving
+                            List<Lesson> pendingLessonsForEdit = lessonApi.getPendingLessonsForCourse(course.getId());
+                            totalApproved += pendingLessonsForEdit.size();
+
+                            // Now approve all
+                            lessonApi.approveAllPendingLessonsForCourse(course.getId());
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error approving lessons", e);
                         }
 
                         // 3. TODO: Approve ALL quiz edits of this course
@@ -447,14 +451,18 @@ public class AdminCourseApprovalFragment extends Fragment {
                         success = courseApi.rejectCourseEdit(course.getId());
                         if (success) totalRejected++;
 
-                        // 2. Reject ALL lesson edits of this course
-                        List<Lesson> editedLessons = lessonApi.getPendingLessonsForCourse(course.getId());
-                        for (Lesson lesson : editedLessons) {
-                            if (!lesson.isEditApproved() && !lesson.isDeleteRequested()) {
-                                if (lessonApi.rejectLessonEdit(lesson.getId())) {
-                                    totalRejected++;
-                                }
-                            }
+                        // 2. Reject ALL lesson changes (add/edit/delete) of this course
+                        // CRITICAL FIX: Use rejectAllPendingLessonsForCourse instead of manual loop
+                        // This handles: reject added lessons, reject edited lessons, cancel deleted lessons
+                        try {
+                            // Count pending lessons BEFORE rejecting
+                            List<Lesson> pendingLessonsForReject = lessonApi.getPendingLessonsForCourse(course.getId());
+                            totalRejected += pendingLessonsForReject.size();
+
+                            // Now reject all
+                            lessonApi.rejectAllPendingLessonsForCourse(course.getId());
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error rejecting lessons", e);
                         }
 
                         // 3. TODO: Reject ALL quiz edits of this course
