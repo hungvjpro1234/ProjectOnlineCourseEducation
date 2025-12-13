@@ -79,10 +79,11 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         // Mark all as read button
         tvMarkAllRead.setOnClickListener(v -> markAllAsRead());
 
-        // Register listener
+        // Register listener TRƯỚC KHI mark as viewed để badge được update
         notificationApi.addNotificationUpdateListener(this);
 
         // Mark all as VIEWED when fragment is opened
+        // Điều này sẽ trigger listener → TeacherHomeActivity update badge → badge về 0
         notificationApi.markAllAsViewed(currentUserId);
 
         return view;
