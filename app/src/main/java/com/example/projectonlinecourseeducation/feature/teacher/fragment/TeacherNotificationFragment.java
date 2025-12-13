@@ -116,11 +116,11 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         NotificationType type = notification.getType();
 
         if (type == NotificationType.STUDENT_LESSON_COMMENT) {
+            // Student đã comment vào bài học cụ thể
             navigateToLessonManagement(notification);
-        } else if (type == NotificationType.STUDENT_COURSE_REVIEW) {
+        } else if (type == NotificationType.STUDENT_COURSE_COMMENT) {
+            // Student đã review/đánh giá khóa học
             navigateToCourseManagement(notification);
-        } else if (type == NotificationType.COURSE_APPROVED || type == NotificationType.COURSE_REJECTED) {
-            navigateToTeacherHome();
         } else {
             Toast.makeText(requireContext(), "Loại thông báo không hợp lệ", Toast.LENGTH_SHORT).show();
         }

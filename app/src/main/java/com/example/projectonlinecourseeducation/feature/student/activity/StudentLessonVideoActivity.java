@@ -720,7 +720,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             String teacherId = ((NotificationFakeApiService) notificationApi)
                     .getTeacherIdByName(course.getTeacher());
 
-            notificationApi.createStudentCommentNotification(
+            notificationApi.createStudentLessonCommentNotification(
                     teacherId,              // teacherId - map từ teacher name
                     student.getName(),      // tên student
                     lessonId,               // ID bài học

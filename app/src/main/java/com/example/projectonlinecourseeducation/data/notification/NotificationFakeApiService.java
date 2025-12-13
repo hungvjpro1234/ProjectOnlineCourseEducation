@@ -139,11 +139,11 @@ public class NotificationFakeApiService implements NotificationApi {
         teacherNotifications.add(new Notification.Builder()
                 .id(UUID.randomUUID().toString())
                 .userId("teacher")
-                .type(NotificationType.STUDENT_COURSE_REVIEW)
+                .type(NotificationType.STUDENT_COURSE_COMMENT)  // Updated type
                 .status(NotificationStatus.UNREAD)
                 .createdAt(twoDaysAgo)
                 .title("Học viên mới đánh giá khóa học")
-                .message("Trần Học Sinh đã đánh giá khóa học \"Lập trình Java từ cơ bản đến nâng cao\" - 5 sao")
+                .message("Trần Học Sinh đã đánh giá khóa học \"Lập trình Java từ cơ bản đến nâng cao\" - 5.0 sao")
                 .avatarUrl(null)
                 .targetCourseId("1")
                 .targetLessonId(null)
@@ -154,40 +154,40 @@ public class NotificationFakeApiService implements NotificationApi {
                 .lessonTitle(null)
                 .build());
 
-        // Thông báo 3: Course approved (VIEWED)
+        // Thông báo 3: Student comment in another lesson (VIEWED)
         teacherNotifications.add(new Notification.Builder()
                 .id(UUID.randomUUID().toString())
                 .userId("teacher")
-                .type(NotificationType.COURSE_APPROVED)
+                .type(NotificationType.STUDENT_LESSON_COMMENT)
                 .status(NotificationStatus.VIEWED)
                 .createdAt(threeDaysAgo)
-                .title("Khóa học đã được phê duyệt")
-                .message("Admin đã phê duyệt khóa học \"Lập trình Java từ cơ bản đến nâng cao\"")
+                .title("Học viên mới bình luận trong bài học")
+                .message("Lê Văn C đã bình luận trong bài \"Variables and Data Types\"")
                 .avatarUrl(null)
                 .targetCourseId("1")
-                .targetLessonId(null)
-                .targetCommentId(null)
+                .targetLessonId("c1_l2")
+                .targetCommentId("C888")
                 .targetReviewId(null)
-                .senderName("Admin")
+                .senderName("Lê Văn C")
                 .courseTitle("Lập trình Java từ cơ bản đến nâng cao")
-                .lessonTitle(null)
+                .lessonTitle("Variables and Data Types")
                 .build());
 
-        // Thông báo 4: Course rejected (READ)
+        // Thông báo 4: Student course review (READ)
         teacherNotifications.add(new Notification.Builder()
                 .id(UUID.randomUUID().toString())
                 .userId("teacher")
-                .type(NotificationType.COURSE_REJECTED)
+                .type(NotificationType.STUDENT_COURSE_COMMENT)
                 .status(NotificationStatus.READ)
                 .createdAt(oneWeekAgo)
-                .title("Khóa học bị từ chối")
-                .message("Admin đã từ chối chỉnh sửa khóa học \"Python cho người mới bắt đầu\". Lý do: Nội dung chưa đầy đủ")
+                .title("Học viên mới đánh giá khóa học")
+                .message("Nguyễn Thị D đã đánh giá khóa học \"Python cho người mới bắt đầu\" - 4.5 sao")
                 .avatarUrl(null)
                 .targetCourseId("2")
                 .targetLessonId(null)
                 .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Admin")
+                .targetReviewId("R456")
+                .senderName("Nguyễn Thị D")
                 .courseTitle("Python cho người mới bắt đầu")
                 .lessonTitle(null)
                 .build());
@@ -195,87 +195,6 @@ public class NotificationFakeApiService implements NotificationApi {
         // Map cho cả userId và username để đảm bảo teacher nào cũng thấy thông báo fake
         notificationsByUser.put("teacher", teacherNotifications); // username
         notificationsByUser.put("u2", teacherNotifications);      // id của Nguyễn A (theo AuthFakeApiService)
-
-        // ========== ADMIN NOTIFICATIONS (admin) ==========
-        List<Notification> adminNotifications = new ArrayList<>();
-
-        // Thông báo 1: Course create pending (UNREAD)
-        adminNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("admin")
-                .type(NotificationType.COURSE_CREATE_PENDING)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(oneHourAgo)
-                .title("Yêu cầu tạo khóa học mới")
-                .message("Nguyễn Văn A đã tạo khóa học mới \"Lập trình C++ nâng cao\" cần phê duyệt")
-                .avatarUrl(null)
-                .targetCourseId("10")
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Nguyễn Văn A")
-                .courseTitle("Lập trình C++ nâng cao")
-                .lessonTitle(null)
-                .build());
-
-        // Thông báo 2: Course edit pending (UNREAD)
-        adminNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("admin")
-                .type(NotificationType.COURSE_EDIT_PENDING)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(twoDaysAgo)
-                .title("Yêu cầu chỉnh sửa khóa học")
-                .message("Trần Thị B đã chỉnh sửa khóa học \"Python cho người mới bắt đầu\" cần phê duyệt")
-                .avatarUrl(null)
-                .targetCourseId("2")
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Trần Thị B")
-                .courseTitle("Python cho người mới bắt đầu")
-                .lessonTitle(null)
-                .build());
-
-        // Thông báo 3: Course delete pending (VIEWED)
-        adminNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("admin")
-                .type(NotificationType.COURSE_DELETE_PENDING)
-                .status(NotificationStatus.VIEWED)
-                .createdAt(threeDaysAgo)
-                .title("Yêu cầu xóa khóa học")
-                .message("Lê Văn C đã yêu cầu xóa khóa học \"JavaScript ES6 toàn tập\"")
-                .avatarUrl(null)
-                .targetCourseId("3")
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Lê Văn C")
-                .courseTitle("JavaScript ES6 toàn tập")
-                .lessonTitle(null)
-                .build());
-
-        // Thông báo 4: Course create pending (READ)
-        adminNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("admin")
-                .type(NotificationType.COURSE_CREATE_PENDING)
-                .status(NotificationStatus.READ)
-                .createdAt(oneWeekAgo)
-                .title("Yêu cầu tạo khóa học mới")
-                .message("Phạm Văn D đã tạo khóa học mới \"React Native từ A-Z\" cần phê duyệt")
-                .avatarUrl(null)
-                .targetCourseId("11")
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Phạm Văn D")
-                .courseTitle("React Native từ A-Z")
-                .lessonTitle(null)
-                .build());
-
-        notificationsByUser.put("admin", adminNotifications);
     }
 
     // ================ QUERY NOTIFICATIONS ================
@@ -430,89 +349,14 @@ public class NotificationFakeApiService implements NotificationApi {
     }
 
     @Override
-    public Notification createCourseCreateNotification(String adminId, String teacherName,
-                                                       String courseId, String courseTitle) {
-        Notification notification = new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId(adminId)
-                .type(NotificationType.COURSE_CREATE_PENDING)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(System.currentTimeMillis())
-                .title("Yêu cầu tạo khóa học mới")
-                .message(teacherName + " đã tạo khóa học mới \"" + courseTitle + "\" cần phê duyệt")
-                .avatarUrl(null)
-                .targetCourseId(courseId)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName(teacherName)
-                .courseTitle(courseTitle)
-                .lessonTitle(null)
-                .build();
-
-        addNotificationToUser(adminId, notification);
-        return notification;
-    }
-
-    @Override
-    public Notification createCourseEditNotification(String adminId, String teacherName,
-                                                     String courseId, String courseTitle) {
-        Notification notification = new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId(adminId)
-                .type(NotificationType.COURSE_EDIT_PENDING)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(System.currentTimeMillis())
-                .title("Yêu cầu chỉnh sửa khóa học")
-                .message(teacherName + " đã chỉnh sửa khóa học \"" + courseTitle + "\" cần phê duyệt")
-                .avatarUrl(null)
-                .targetCourseId(courseId)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName(teacherName)
-                .courseTitle(courseTitle)
-                .lessonTitle(null)
-                .build();
-
-        addNotificationToUser(adminId, notification);
-        return notification;
-    }
-
-    @Override
-    public Notification createCourseDeleteNotification(String adminId, String teacherName,
-                                                       String courseId, String courseTitle) {
-        Notification notification = new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId(adminId)
-                .type(NotificationType.COURSE_DELETE_PENDING)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(System.currentTimeMillis())
-                .title("Yêu cầu xóa khóa học")
-                .message(teacherName + " đã yêu cầu xóa khóa học \"" + courseTitle + "\"")
-                .avatarUrl(null)
-                .targetCourseId(courseId)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName(teacherName)
-                .courseTitle(courseTitle)
-                .lessonTitle(null)
-                .build();
-
-        addNotificationToUser(adminId, notification);
-        return notification;
-    }
-
-    @Override
-    public Notification createStudentReviewNotification(String teacherId, String studentName,
-                                                        String courseId, String courseTitle,
-                                                        String reviewId, float rating) {
+    public Notification createStudentCourseReviewNotification(String teacherId, String studentName,
+                                                              String courseId, String courseTitle,
+                                                              String reviewId, float rating) {
         String ratingText = String.format("%.1f sao", rating);
         Notification notification = new Notification.Builder()
                 .id(UUID.randomUUID().toString())
                 .userId(teacherId)
-                .type(NotificationType.STUDENT_COURSE_REVIEW)
+                .type(NotificationType.STUDENT_COURSE_COMMENT)  // Changed from STUDENT_COURSE_REVIEW
                 .status(NotificationStatus.UNREAD)
                 .createdAt(System.currentTimeMillis())
                 .title("Học viên mới đánh giá khóa học")
@@ -532,10 +376,10 @@ public class NotificationFakeApiService implements NotificationApi {
     }
 
     @Override
-    public Notification createStudentCommentNotification(String teacherId, String studentName,
-                                                         String lessonId, String lessonTitle,
-                                                         String courseId, String courseTitle,
-                                                         String commentId) {
+    public Notification createStudentLessonCommentNotification(String teacherId, String studentName,
+                                                               String lessonId, String lessonTitle,
+                                                               String courseId, String courseTitle,
+                                                               String commentId) {
         Notification notification = new Notification.Builder()
                 .id(UUID.randomUUID().toString())
                 .userId(teacherId)
@@ -552,72 +396,6 @@ public class NotificationFakeApiService implements NotificationApi {
                 .senderName(studentName)
                 .courseTitle(courseTitle)
                 .lessonTitle(lessonTitle)
-                .build();
-
-        addNotificationToUser(teacherId, notification);
-        return notification;
-    }
-
-    @Override
-    public Notification createCourseApprovedNotification(String teacherId, String adminName,
-                                                         String courseId, String courseTitle,
-                                                         String approvalType) {
-        String actionText = approvalType.equals("create") ? "tạo" : "chỉnh sửa";
-        Notification notification = new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId(teacherId)
-                .type(NotificationType.COURSE_APPROVED)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(System.currentTimeMillis())
-                .title("Khóa học đã được phê duyệt")
-                .message(adminName + " đã phê duyệt " + actionText + " khóa học \"" + courseTitle + "\"")
-                .avatarUrl(null)
-                .targetCourseId(courseId)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName(adminName)
-                .courseTitle(courseTitle)
-                .lessonTitle(null)
-                .build();
-
-        addNotificationToUser(teacherId, notification);
-        return notification;
-    }
-
-    @Override
-    public Notification createCourseRejectedNotification(String teacherId, String adminName,
-                                                         String courseId, String courseTitle,
-                                                         String rejectType, String reason) {
-        String actionText;
-        switch (rejectType) {
-            case "create": actionText = "tạo"; break;
-            case "edit": actionText = "chỉnh sửa"; break;
-            case "delete": actionText = "xóa"; break;
-            default: actionText = "cập nhật";
-        }
-
-        String messageText = adminName + " đã từ chối " + actionText + " khóa học \"" + courseTitle + "\"";
-        if (reason != null && !reason.trim().isEmpty()) {
-            messageText += ". Lý do: " + reason;
-        }
-
-        Notification notification = new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId(teacherId)
-                .type(NotificationType.COURSE_REJECTED)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(System.currentTimeMillis())
-                .title("Khóa học bị từ chối")
-                .message(messageText)
-                .avatarUrl(null)
-                .targetCourseId(courseId)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName(adminName)
-                .courseTitle(courseTitle)
-                .lessonTitle(null)
                 .build();
 
         addNotificationToUser(teacherId, notification);

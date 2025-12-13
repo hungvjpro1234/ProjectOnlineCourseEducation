@@ -11,16 +11,9 @@ public class Notification {
         // Student notifications
         TEACHER_REPLY_COMMENT,           // Teacher reply comment của student trong lesson
 
-        // Admin notifications
-        COURSE_CREATE_PENDING,           // Teacher tạo khóa học mới cần duyệt
-        COURSE_EDIT_PENDING,             // Teacher chỉnh sửa khóa học cần duyệt
-        COURSE_DELETE_PENDING,           // Teacher yêu cầu xóa khóa học
-
-        // Teacher notifications
-        STUDENT_COURSE_REVIEW,           // Student review khóa học
-        STUDENT_LESSON_COMMENT,          // Student comment trong lesson
-        COURSE_APPROVED,                 // Admin phê duyệt khóa học (create/edit)
-        COURSE_REJECTED                  // Admin từ chối khóa học (create/edit/delete)
+        // Teacher notifications (Student → Teacher)
+        STUDENT_COURSE_COMMENT,          // Student comment vào khóa học (review/đánh giá)
+        STUDENT_LESSON_COMMENT           // Student comment vào bài học cụ thể
     }
 
     // ========== NOTIFICATION STATUS ==========

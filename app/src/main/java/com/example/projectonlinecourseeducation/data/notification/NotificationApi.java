@@ -8,12 +8,11 @@ import java.util.List;
 
 /**
  * Interface cho API quản lý thông báo
- * Hỗ trợ 3 role: Student, Teacher, Admin với các loại thông báo khác nhau
+ * Hỗ trợ 2 role: Student và Teacher
  *
  * NOTIFICATION FLOW:
  * - Student: Nhận thông báo khi teacher reply comment
- * - Teacher: Nhận thông báo khi student comment/review, admin approve/reject course
- * - Admin: Nhận thông báo khi teacher create/edit/delete course
+ * - Teacher: Nhận thông báo khi student comment vào lesson hoặc review course
  */
 public interface NotificationApi {
 
@@ -107,40 +106,8 @@ public interface NotificationApi {
                                                 String commentId);
 
     /**
-     * Tạo thông báo cho admin khi teacher tạo khóa học mới
-     * @param adminId ID của admin nhận thông báo
-     * @param teacherName Tên teacher
-     * @param courseId ID của course
-     * @param courseTitle Tên course
-     * @return Notification vừa tạo
-     */
-    Notification createCourseCreateNotification(String adminId, String teacherName,
-                                                String courseId, String courseTitle);
-
-    /**
-     * Tạo thông báo cho admin khi teacher chỉnh sửa khóa học
-     * @param adminId ID của admin nhận thông báo
-     * @param teacherName Tên teacher
-     * @param courseId ID của course
-     * @param courseTitle Tên course
-     * @return Notification vừa tạo
-     */
-    Notification createCourseEditNotification(String adminId, String teacherName,
-                                              String courseId, String courseTitle);
-
-    /**
-     * Tạo thông báo cho admin khi teacher yêu cầu xóa khóa học
-     * @param adminId ID của admin nhận thông báo
-     * @param teacherName Tên teacher
-     * @param courseId ID của course
-     * @param courseTitle Tên course
-     * @return Notification vừa tạo
-     */
-    Notification createCourseDeleteNotification(String adminId, String teacherName,
-                                                String courseId, String courseTitle);
-
-    /**
-     * Tạo thông báo cho teacher khi student review khóa học
+     * Tạo thông báo cho teacher khi student review khóa học (đánh giá + comment)
+     * Type: STUDENT_COURSE_COMMENT
      * @param teacherId ID của teacher nhận thông báo
      * @param studentName Tên student
      * @param courseId ID của course
@@ -149,12 +116,13 @@ public interface NotificationApi {
      * @param rating Rating của student (1-5 sao)
      * @return Notification vừa tạo
      */
-    Notification createStudentReviewNotification(String teacherId, String studentName,
-                                                 String courseId, String courseTitle,
-                                                 String reviewId, float rating);
+    Notification createStudentCourseReviewNotification(String teacherId, String studentName,
+                                                       String courseId, String courseTitle,
+                                                       String reviewId, float rating);
 
     /**
-     * Tạo thông báo cho teacher khi student comment trong lesson
+     * Tạo thông báo cho teacher khi student comment trong lesson cụ thể
+     * Type: STUDENT_LESSON_COMMENT
      * @param teacherId ID của teacher nhận thông báo
      * @param studentName Tên student
      * @param lessonId ID của lesson
@@ -164,37 +132,10 @@ public interface NotificationApi {
      * @param commentId ID của comment
      * @return Notification vừa tạo
      */
-    Notification createStudentCommentNotification(String teacherId, String studentName,
-                                                  String lessonId, String lessonTitle,
-                                                  String courseId, String courseTitle,
-                                                  String commentId);
-
-    /**
-     * Tạo thông báo cho teacher khi admin phê duyệt khóa học
-     * @param teacherId ID của teacher nhận thông báo
-     * @param adminName Tên admin
-     * @param courseId ID của course
-     * @param courseTitle Tên course
-     * @param approvalType "create" hoặc "edit"
-     * @return Notification vừa tạo
-     */
-    Notification createCourseApprovedNotification(String teacherId, String adminName,
-                                                  String courseId, String courseTitle,
-                                                  String approvalType);
-
-    /**
-     * Tạo thông báo cho teacher khi admin từ chối khóa học
-     * @param teacherId ID của teacher nhận thông báo
-     * @param adminName Tên admin
-     * @param courseId ID của course
-     * @param courseTitle Tên course
-     * @param rejectType "create", "edit" hoặc "delete"
-     * @param reason Lý do từ chối (optional)
-     * @return Notification vừa tạo
-     */
-    Notification createCourseRejectedNotification(String teacherId, String adminName,
-                                                  String courseId, String courseTitle,
-                                                  String rejectType, String reason);
+    Notification createStudentLessonCommentNotification(String teacherId, String studentName,
+                                                        String lessonId, String lessonTitle,
+                                                        String courseId, String courseTitle,
+                                                        String commentId);
 
     // ================ DELETE NOTIFICATIONS ================
 
