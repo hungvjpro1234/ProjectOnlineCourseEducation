@@ -23,6 +23,10 @@ import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizFakeAp
 import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;
 import com.example.projectonlinecourseeducation.data.course.CourseStudentFakeApiService;
 
+// NEW imports for NotificationApi
+import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
+import com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService;
+
 public class ApiProvider {
 
     // Mặc định đang dùng FakeApi cho Course + Auth + Cart + Lesson + Review + LessonProgress
@@ -42,6 +46,9 @@ public class ApiProvider {
 
     // -------- CourseStudentApi (NEW) --------
     private static CourseStudentApi courseStudentApi = CourseStudentFakeApiService.getInstance();
+
+    // NotificationApi: quản lý thông báo cho 3 role (Student, Teacher, Admin)
+    private static NotificationApi notificationApi = NotificationFakeApiService.getInstance();
 
     // -------- Getters / Setters --------
     // -------- Auth --------
@@ -155,5 +162,18 @@ public class ApiProvider {
      */
     public static void setQuizApi(LessonQuizApi api) {
         lessonQuizApi = api;
+    }
+
+    // -------- Notification --------
+    public static NotificationApi getNotificationApi() {
+        return notificationApi;
+    }
+
+    /**
+     * Khi có remote implementation, set ở Application.onCreate()
+     * ApiProvider.setNotificationApi(new NotificationRemoteApiService(retrofit));
+     */
+    public static void setNotificationApi(NotificationApi api) {
+        notificationApi = api;
     }
 }
