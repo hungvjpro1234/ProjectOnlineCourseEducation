@@ -202,41 +202,49 @@ public class StudentCartFragment extends Fragment {
                 String msg = "Bạn có chắc muốn thanh toán " + count + " khóa học\n" +
                         "Tổng tiền: " + nf.format(totalPrice) + " ?";
 
-                // Thanh toán toàn bộ giỏ hàng (fake): dialog confirm -> dialog thành công
+                // Thanh toán toàn bộ giỏ hàng: dialog confirm -> gọi checkout() -> dialog thành công
                 showPaymentConfirmDialog(msg, () -> {
-                    // BEFORE marking purchased, call recordPurchase for each course (backend action)
-                    List<Course> current = cartApi.getCartCourses();
-                    if (courseApi != null) {
-                        for (Course c : current) {
-                            if (c != null) {
-                                courseApi.recordPurchase(c.getId());
-                            }
-                        }
-                    }
+                    // ✅ NEW: Use checkout() method instead of inline logic
+                    // checkout() handles: recordPurchase, addToMyCourses, clearCart
+                    com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper.execute(
+                            () -> cartApi.checkout(),
+                            new com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper.ApiCallback<List<Course>>() {
+                                @Override
+                                public void onSuccess(List<Course> purchasedCourses) {
+                                    if (purchasedCourses.isEmpty()) {
+                                        Toast.makeText(requireContext(),
+                                                "Thanh toán thất bại, vui lòng thử lại",
+                                                Toast.LENGTH_SHORT).show();
+                                        return;
+                                    }
 
-                    showPaymentSuccessDialog(
-                            "Thanh toán toàn bộ giỏ hàng thành công",
-                            true,
-                            () -> {
-                                // 1. Lấy danh sách hiện tại trong giỏ (trước khi clear) - already in 'current'
-                                // 2. Thêm tất cả vào My Course
-                                if (myCourseApi != null) {
-                                    myCourseApi.addPurchasedCourses(current);
+                                    showPaymentSuccessDialog(
+                                            "Thanh toán toàn bộ giỏ hàng thành công",
+                                            true,
+                                            () -> {
+                                                // Update UI
+                                                cartList.clear();
+                                                cartAdapter.notifyDataSetChanged();
+                                                updateSummary();
+
+                                                // Navigate to My Course tab
+                                                Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                                intent.putExtra("open_my_course", true);
+                                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                                startActivity(intent);
+
+                                                // Close current activity
+                                                requireActivity().finish();
+                                            }
+                                    );
                                 }
-                                // 3. Clear giỏ
-                                cartApi.clearCart();
-                                cartList.clear();
-                                cartAdapter.notifyDataSetChanged();
-                                updateSummary();
 
-                                // 4. Quay về My Course tab
-                                Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
-                                intent.putExtra("open_my_course", true);
-                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);
-
-                                // 5. Đóng Activity chứa fragment
-                                requireActivity().finish();
+                                @Override
+                                public void onError(Exception e) {
+                                    Toast.makeText(requireContext(),
+                                            "Lỗi thanh toán: " + e.getMessage(),
+                                            Toast.LENGTH_SHORT).show();
+                                }
                             }
                     );
                 });

@@ -3,6 +3,8 @@ package com.example.projectonlinecourseeducation.data.network;
 import android.content.Context;
 
 import com.example.projectonlinecourseeducation.data.auth.remote.AuthRetrofitService;
+import com.example.projectonlinecourseeducation.data.cart.remote.CartRetrofitService;
+import com.example.projectonlinecourseeducation.data.course.remote.CourseRetrofitService;
 
 import java.util.concurrent.TimeUnit;
 
@@ -29,6 +31,8 @@ public class RetrofitClient {
     private static RetrofitClient instance;
     private final Retrofit retrofit;
     private final AuthRetrofitService authService;
+    private final CartRetrofitService cartService;
+    private final CourseRetrofitService courseService;
     private final SessionManager sessionManager;
 
     private RetrofitClient(Context context) {
@@ -68,6 +72,8 @@ public class RetrofitClient {
 
         // Create services
         authService = retrofit.create(AuthRetrofitService.class);
+        cartService = retrofit.create(CartRetrofitService.class);
+        courseService = retrofit.create(CourseRetrofitService.class);
     }
 
     /**
@@ -98,6 +104,20 @@ public class RetrofitClient {
      */
     public static AuthRetrofitService getAuthService() {
         return getInstance().authService;
+    }
+
+    /**
+     * Get Cart API service
+     */
+    public static CartRetrofitService getCartService() {
+        return getInstance().cartService;
+    }
+
+    /**
+     * Get Course API service
+     */
+    public static CourseRetrofitService getCourseService() {
+        return getInstance().courseService;
     }
 
     /**

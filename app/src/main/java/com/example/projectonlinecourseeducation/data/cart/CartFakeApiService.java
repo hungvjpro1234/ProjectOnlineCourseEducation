@@ -181,4 +181,37 @@ public class CartFakeApiService implements CartApi {
         }
         return total;
     }
+
+    // ------------------ CHECKOUT ------------------
+
+    @Override
+    public synchronized List<Course> checkout() {
+        // 1. Lấy danh sách courses trong giỏ hiện tại
+        List<Course> currentCart = getCartCourses();
+        if (currentCart.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 2. Record purchase cho từng course
+        com.example.projectonlinecourseeducation.data.course.CourseApi courseApi =
+            ApiProvider.getCourseApi();
+        if (courseApi != null) {
+            for (Course c : currentCart) {
+                courseApi.recordPurchase(c.getId());
+            }
+        }
+
+        // 3. Thêm vào My Courses
+        com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi myCourseApi =
+            ApiProvider.getMyCourseApi();
+        if (myCourseApi != null) {
+            myCourseApi.addPurchasedCourses(currentCart);
+        }
+
+        // 4. Xóa giỏ hàng
+        clearCart();
+
+        // 5. Trả về danh sách courses đã thanh toán
+        return currentCart;
+    }
 }

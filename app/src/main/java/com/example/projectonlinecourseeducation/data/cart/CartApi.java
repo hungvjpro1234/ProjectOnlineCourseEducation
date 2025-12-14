@@ -83,4 +83,18 @@ public interface CartApi {
      * @return Tổng giá trị giỏ hàng
      */
     double getTotalPriceForUser(String userId);
+
+    // ------------------ CHECKOUT ------------------
+
+    /**
+     * Checkout toàn bộ giỏ hàng (quy trình thanh toán).
+     * Thực hiện các bước:
+     * 1. Lấy danh sách courses trong giỏ
+     * 2. Gọi courseApi.recordPurchase() cho từng course
+     * 3. Thêm vào myCourseApi
+     * 4. Xóa giỏ hàng
+     *
+     * @return Danh sách courses đã thanh toán
+     */
+    List<Course> checkout();
 }
