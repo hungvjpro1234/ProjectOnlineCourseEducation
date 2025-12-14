@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_statistics"
+        android:icon="@drawable/statistic"
+        android:title="Thống kê" />
+
+    <item
+        android:id="@+id/nav_user_management"
+        android:icon="@drawable/man"
+        android:title="Quản lý User" />
+
+    <item
+        android:id="@+id/nav_course_management"
+        android:icon="@drawable/course"
+        android:title="Quản lý Khóa" />
+
+    <item
+        android:id="@+id/nav_course_approval"
+        android:icon="@drawable/stamp"
+        android:title="Phê duyệt" />
+
+    <item
+        android:id="@+id/nav_profile"
+        android:icon="@drawable/ic_person_profile"
+        android:title="Thông tin" />
+</menu>

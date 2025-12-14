@@ -42,6 +42,90 @@ public interface LessonApi {
      */
     boolean deleteLesson(String lessonId);
 
+    // ------------------ APPROVAL WORKFLOW ------------------
+    /**
+     * Lấy danh sách tất cả lessons đang chờ phê duyệt
+     * @return List lessons có isPendingApproval() = true
+     */
+    List<Lesson> getPendingLessons();
+
+    /**
+     * Lấy danh sách lessons chờ duyệt của một course
+     * @param courseId ID của course
+     * @return List lessons pending của course đó
+     */
+    List<Lesson> getPendingLessonsForCourse(String courseId);
+
+    /**
+     * Admin phê duyệt khởi tạo lesson
+     * @param lessonId ID của lesson cần duyệt
+     * @return true nếu thành công, false nếu không tìm thấy
+     */
+    boolean approveInitialCreation(String lessonId);
+
+    /**
+     * Admin từ chối khởi tạo lesson (xóa lesson khỏi database)
+     * @param lessonId ID của lesson cần từ chối
+     * @return true nếu thành công, false nếu không tìm thấy
+     */
+    boolean rejectInitialCreation(String lessonId);
+
+    /**
+     * Admin phê duyệt chỉnh sửa lesson (áp dụng thay đổi từ pending version)
+     * @param lessonId ID của lesson cần duyệt
+     * @return true nếu thành công, false nếu không tìm thấy
+     */
+    boolean approveLessonEdit(String lessonId);
+
+    /**
+     * Admin từ chối chỉnh sửa lesson (hủy thay đổi, giữ nguyên original)
+     * @param lessonId ID của lesson cần từ chối
+     * @return true nếu thành công, false nếu không tìm thấy
+     */
+    boolean rejectLessonEdit(String lessonId);
+
+    /**
+     * Lấy phiên bản pending của lesson (để xem trước thay đổi)
+     * @param lessonId ID của lesson
+     * @return Lesson pending version, hoặc null nếu không có pending edit
+     */
+    Lesson getPendingEdit(String lessonId);
+
+    /**
+     * Kiểm tra xem lesson có pending edit không
+     * @param lessonId ID của lesson
+     * @return true nếu có pending edit
+     */
+    boolean hasPendingEdit(String lessonId);
+
+    /**
+     * Admin phê duyệt xóa lesson (xóa vĩnh viễn khỏi database)
+     * @param lessonId ID của lesson cần xóa
+     * @return true nếu thành công, false nếu không tìm thấy
+     */
+    boolean permanentlyDeleteLesson(String lessonId);
+
+    /**
+     * Admin từ chối xóa lesson (hủy yêu cầu xóa, khôi phục lesson)
+     * @param lessonId ID của lesson cần khôi phục
+     * @return true nếu thành công, false nếu không tìm thấy
+     */
+    boolean cancelDeleteRequest(String lessonId);
+
+    /**
+     * Admin phê duyệt TẤT CẢ thay đổi lesson của một course (thêm/sửa/xóa)
+     * Method này được gọi khi admin approve EDIT của course
+     * @param courseId ID của course
+     */
+    void approveAllPendingLessonsForCourse(String courseId);
+
+    /**
+     * Admin từ chối TẤT CẢ thay đổi lesson của một course (hủy thêm/sửa/xóa)
+     * Method này được gọi khi admin reject EDIT của course
+     * @param courseId ID của course
+     */
+    void rejectAllPendingLessonsForCourse(String courseId);
+
     // ------------------------------------------------------------
     // Listener / observer support
     //

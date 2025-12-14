@@ -67,6 +67,18 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     private List<Lesson> localLessons = new ArrayList<>(); // deep-ish copy used for UI + edit
     private Map<String, Lesson> originalLessonsMap = new HashMap<>(); // original snapshot to detect deletes/updates
 
+    // Flag đơn giản báo có thay đổi liên quan tới quiz cần lưu (nháp)
+    // Các fragment/adapter có thể gọi setHasStagedQuizChanges(true) khi cần.
+    private boolean hasStagedQuizChanges = false;
+
+    /**
+     * Cho phép các component khác (ví dụ QuizDialogFragment nếu muốn) báo Activity biết
+     * rằng có thay đổi quiz chưa được persist.
+     */
+    public void setHasStagedQuizChanges(boolean hasChanges) {
+        this.hasStagedQuizChanges = hasChanges;
+    }
+
     // Fixed category list
     private static final String[] FIXED_CATEGORIES = new String[]{
             "Java","JavaScript","Python","C","C++","C#","PHP","SQL","HTML","CSS","TypeScript",
@@ -174,12 +186,16 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         // UI back button
         btnBack.setOnClickListener(v -> handleBackWithConfirm());
 
-        // Save button shows confirm first
+        // Save button shows confirm first (updated to include short quiz-warning if needed)
         btnSave.setOnClickListener(v -> {
+            String baseTitle = "Xác nhận lưu";
+            String baseMsg = "Bạn chắc chắn muốn lưu các thay đổi cho khóa học?";
+            String fullMsg = buildSaveConfirmMessage(baseMsg);
+
             DialogConfirmHelper.showConfirmDialog(
                     TeacherCourseEditActivity.this,
-                    "Xác nhận lưu",
-                    "Bạn chắc chắn muốn lưu các thay đổi cho khóa học?",
+                    baseTitle,
+                    fullMsg,
                     R.drawable.save_check,
                     "Lưu",
                     "Hủy",
@@ -230,6 +246,26 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                         }
                 );
             }
+
+            @Override
+            public void onEditQuiz(Lesson lesson, int position) {
+                // If lesson not yet persisted, ask user to save lesson first
+                if (lesson == null || lesson.getId() == null || lesson.getId().trim().isEmpty()) {
+                    Toast.makeText(TeacherCourseEditActivity.this, "Vui lòng lưu bài học trước khi tạo/sửa quiz.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                // Open QuizDialogFragment (DialogFragment implementation required)
+                try {
+                    com.example.projectonlinecourseeducation.feature.teacher.quiz.QuizDialogFragment f =
+                            com.example.projectonlinecourseeducation.feature.teacher.quiz.QuizDialogFragment.newInstance(lesson.getId());
+                    // Optionally, the fragment can call ((TeacherCourseEditActivity)getActivity()).setHasStagedQuizChanges(true)
+                    // when the user edits quiz locally but hasn't persisted it yet.
+                    f.show(getSupportFragmentManager(), "quiz_dialog_" + lesson.getId());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(TeacherCourseEditActivity.this, "Không thể mở trình soạn quiz.", Toast.LENGTH_SHORT).show();
+                }
+            }
         });
     }
 
@@ -239,10 +275,13 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
      */
     private void handleBackWithConfirm() {
         if (hasUnsavedChanges()) {
+            String title = "Thoát mà không lưu?";
+            String msg = buildLeaveConfirmMessage();
+
             DialogConfirmHelper.showConfirmDialog(
                     this,
-                    "Thoát mà không lưu?",
-                    "Bạn có thay đổi chưa lưu. Nếu thoát, các thay đổi sẽ không được lưu lại.",
+                    title,
+                    msg,
                     R.drawable.back_warning_purple,
                     "Thoát",
                     "Hủy",
@@ -705,6 +744,9 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         }
         if (!origIds.equals(curIds)) return true;
 
+        // Additionally, if there are staged quiz changes, consider as unsaved
+        if (hasStagedQuizChanges) return true;
+
         return false;
     }
 
@@ -763,17 +805,25 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 }
             }
 
-            currentCourse.setTitle(title);
-            String joinedCategories = String.join(", ", stagedCategoryTags);
-            currentCourse.setCategory(joinedCategories);
-            currentCourse.setPrice(price);
-            currentCourse.setDescription(description);
-            currentCourse.setSkills(skills);
-            currentCourse.setRequirements(requirements);
-
-            if (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty()) {
-                currentCourse.setImageUrl(stagedImageUrl);
-            }
+            // CRITICAL FIX: Create a NEW Course object instead of modifying currentCourse
+            // This prevents changes from being visible immediately before admin approval
+            Course updatedCourse = new Course(
+                    currentCourse.getId(),
+                    title,
+                    currentCourse.getTeacher(),
+                    (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty()) ? stagedImageUrl : currentCourse.getImageUrl(),
+                    String.join(", ", stagedCategoryTags),
+                    currentCourse.getLectures(),
+                    currentCourse.getStudents(),
+                    currentCourse.getRating(),
+                    price,
+                    description,
+                    currentCourse.getCreatedAt(),
+                    currentCourse.getRatingCount(),
+                    currentCourse.getTotalDurationMinutes(),
+                    skills,
+                    requirements
+            );
 
             for (int i = 0; i < localLessons.size(); i++) {
                 localLessons.get(i).setOrder(i + 1);
@@ -800,8 +850,8 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
             Set<String> toDeleteIds = new HashSet<>(originalIds);
             toDeleteIds.removeAll(newIds);
 
-            // Update course first
-            courseApi.updateCourse(courseId, currentCourse);
+            // Update course with the NEW object (not the original)
+            courseApi.updateCourse(courseId, updatedCourse);
 
             // Create new lessons
             for (Lesson c : toCreate) {
@@ -821,17 +871,38 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
                 lessonApi.deleteLesson(delId);
             }
 
-            DialogConfirmHelper.showSuccessDialog(
-                    this,
-                    "Thành công",
-                    "Lưu khóa học thành công",
-                    R.drawable.ic_check_success,
-                    "Đóng",
-                    () -> finish()
-            );
+            // Optionally: if staged quiz changes exist and need persisting, ensure the component
+            // that set hasStagedQuizChanges=true performs persistence (e.g. QuizDialogFragment should call API).
+            // After saving course, reset flag.
+            hasStagedQuizChanges = false;
+
+            // NOTE: removed the success dialog. Show a short toast and finish instead.
+            Toast.makeText(this, "Lưu khóa học thành công", Toast.LENGTH_SHORT).show();
+            finish();
 
         } catch (NumberFormatException e) {
             Toast.makeText(this, "Giá phải là một số hợp lệ", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * Nội dung thông báo khi rời đi mà chưa lưu.
+     * Nếu có thay đổi quiz chưa được persist (hasStagedQuizChanges==true),
+     * chỉ hiển thị 1 câu cảnh báo ngắn gọn.
+     */
+    private String buildLeaveConfirmMessage() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Bạn có thay đổi chưa lưu. Nếu thoát, các thay đổi sẽ không được lưu lại.");
+        return sb.toString();
+    }
+
+    /**
+     * Nội dung thông báo khi xác nhận Lưu.
+     * Nếu có thay đổi quiz chưa persist, thêm 1 câu ngắn gọn rằng chúng sẽ được lưu khi xác nhận.
+     */
+    private String buildSaveConfirmMessage(String baseMsg) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(baseMsg);
+        return sb.toString();
     }
 }

@@ -14,7 +14,6 @@
         android:padding="12dp"
         android:gravity="center_vertical">
 
-        <!-- Order indicator -->
         <TextView
             android:id="@+id/tvOrder"
             android:layout_width="40dp"
@@ -23,10 +22,9 @@
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@color/white"
-            android:background="@drawable/bg_circular_blue"
+            android:background="@drawable/bg_circular_purple"
             android:gravity="center" />
 
-        <!-- Lesson content -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -34,14 +32,35 @@
             android:orientation="vertical"
             android:paddingHorizontal="12dp">
 
-            <TextView
-                android:id="@+id/tvLessonTitle"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Bài 1: Giới thiệu"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/black" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvLessonTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Bài 1: Giới thiệu"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:id="@+id/tvApprovalStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chờ duyệt"
+                    android:textSize="10sp"
+                    android:textColor="@color/white"
+                    android:background="@drawable/bg_tag_orange"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvDuration"
@@ -53,23 +72,33 @@
                 android:layout_marginTop="4dp" />
         </LinearLayout>
 
-        <!-- Edit button -->
         <ImageButton
             android:id="@+id/btnEditLesson"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="?selectableItemBackgroundBorderless"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_edit"
             android:contentDescription="@string/edit"
             android:scaleType="centerInside"
             app:tint="@color/purple_500" />
 
-        <!-- Delete button -->
+        <ImageButton
+            android:id="@+id/btnEditQuiz"
+            android:layout_width="38dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_quiz"
+            android:contentDescription="@string/edit_quiz"
+            android:scaleType="centerInside"
+            android:padding="6dp"
+            app:tint="@color/purple_500" />
+
         <ImageButton
             android:id="@+id/btnDeleteLesson"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="?selectableItemBackgroundBorderless"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_delete"
             android:contentDescription="@string/delete"
             android:scaleType="centerInside"

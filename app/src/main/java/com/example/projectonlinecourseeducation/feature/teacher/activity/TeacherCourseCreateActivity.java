@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -18,22 +19,30 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.feature.teacher.adapter.LessonEditAdapter;
+import com.example.projectonlinecourseeducation.feature.teacher.adapter.LessonCreateAdapter;
+import com.example.projectonlinecourseeducation.feature.teacher.quiz.QuizDraftDialogFragment;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Activity tạo khóa học mới (Teacher)
+ *
+ * Sửa: dùng LessonCreateAdapter + hỗ trợ quiz-draft per local lesson position.
  */
 public class TeacherCourseCreateActivity extends AppCompatActivity {
 
@@ -50,11 +59,14 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
 
     private CourseApi courseApi;
     private LessonApi lessonApi;
-    private LessonEditAdapter lessonAdapter;
+    private LessonCreateAdapter lessonAdapter;
 
     private String stagedImageUrl = null;
     private final List<String> stagedCategoryTags = new ArrayList<>();
     private final List<Lesson> localLessons = new ArrayList<>();
+
+    // Map position -> draft Quiz (used in create-flow)
+    private final Map<Integer, Quiz> draftQuizzes = new HashMap<>();
 
     private static final String[] FIXED_CATEGORIES = new String[]{
             "Java","JavaScript","Python","C","C++","C#","PHP","SQL","HTML","CSS","TypeScript",
@@ -70,11 +82,20 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         initApis();
         bindViews();
 
-        // init RecyclerView + Adapter BEFORE setupListeners to avoid NPE when setupListeners uses adapter
+        // init RecyclerView + Adapter BEFORE setupListeners to avoid NPE
         rvLessons.setLayoutManager(new LinearLayoutManager(this));
-        lessonAdapter = new LessonEditAdapter();
+        lessonAdapter = new LessonCreateAdapter();
         rvLessons.setAdapter(lessonAdapter);
+        lessonAdapter.submitList(new ArrayList<>(localLessons));
         refreshLessonsUi();
+
+        // register back-gesture / back-press callback with OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackWithConfirm();
+            }
+        });
 
         // Now it's safe to set listeners (they may reference lessonAdapter)
         setupListeners();
@@ -108,7 +129,8 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        btnBack.setOnClickListener(v -> finish());
+        // keep UI back button behavior (calls same confirm logic)
+        btnBack.setOnClickListener(v -> handleBackWithConfirm());
 
         btnConfirmImage.setOnClickListener(v -> {
             String url = etImageUrl.getText().toString().trim();
@@ -138,11 +160,18 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         btnAddSkill.setOnClickListener(v -> showAddSkillDialog());
         btnAddRequirement.setOnClickListener(v -> showAddRequirementDialog());
 
-        btnAddLesson.setOnClickListener(v -> showLessonDialog(null, -1));
+        btnAddLesson.setOnClickListener(v -> {
+            // add new local lesson
+            int order = localLessons.size() + 1;
+            Lesson l = new Lesson(null, /*courseId*/ null, "Bài " + order, "", /*videoId*/ "", "Đang tính...", order);
+            localLessons.add(l);
+            lessonAdapter.submitList(new ArrayList<>(localLessons));
+            refreshLessonsUi();
+        });
 
         // Set adapter listener
         if (lessonAdapter != null) {
-            lessonAdapter.setOnLessonActionListener(new LessonEditAdapter.OnLessonActionListener() {
+            lessonAdapter.setOnLessonActionListener(new LessonCreateAdapter.OnLessonActionListener() {
                 @Override
                 public void onEditLesson(Lesson lesson, int position) {
                     showLessonDialog(lesson, position);
@@ -150,12 +179,92 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
 
                 @Override
                 public void onDeleteLesson(Lesson lesson, int position) {
-                    confirmDeleteLessonLocal(lesson, position);
+                    // use confirm helper
+                    DialogConfirmHelper.showConfirmDialog(
+                            TeacherCourseCreateActivity.this,
+                            "Xóa bài học",
+                            "Bạn có chắc muốn xóa bài học này? (Thao tác chỉ áp dụng khi nhấn Tạo)",
+                            R.drawable.delete_check,
+                            "Xóa",
+                            "Hủy",
+                            R.color.blue_300,
+                            () -> {
+                                if (position >= 0 && position < localLessons.size()) {
+                                    localLessons.remove(position);
+                                } else {
+                                    localLessons.remove(lesson);
+                                }
+                                // also remove any draft quiz for this position and shift drafts if needed
+                                // simplest approach: clear all drafts to avoid position mismatch
+                                draftQuizzes.clear();
+                                lessonAdapter.submitList(new ArrayList<>(localLessons));
+                                refreshLessonsUi();
+                            }
+                    );
+                }
+
+                @Override
+                public void onEditQuiz(Lesson lesson, int position) {
+                    // open QuizDraftDialogFragment for this position
+                    int pos = position;
+                    String lessonKey = "POS#" + pos; // used by dialog; we will parse back pos
+                    QuizDraftDialogFragment f = QuizDraftDialogFragment.newInstanceForPosition(pos, lessonKey);
+
+                    // prefill if draft exists
+                    Quiz existingDraft = draftQuizzes.get(pos);
+                    if (existingDraft != null) {
+                        f.setInitialDraft(existingDraft);
+                    }
+
+                    f.setListener((lk, quiz) -> {
+                        // lk is "POS#<pos>"
+                        int parsedPos = pos;
+                        try {
+                            if (lk != null && lk.startsWith("POS#")) {
+                                String p = lk.substring(4);
+                                parsedPos = Integer.parseInt(p);
+                            }
+                        } catch (Exception ignored) {}
+
+                        draftQuizzes.put(parsedPos, quiz);
+                        Toast.makeText(TeacherCourseCreateActivity.this, "Đã lưu nháp quiz cho bài " + (parsedPos + 1), Toast.LENGTH_SHORT).show();
+                        // you may want to update UI to indicate quiz exists for this item
+                    });
+
+                    f.show(getSupportFragmentManager(), "quiz_draft_" + lessonKey);
                 }
             });
         }
 
-        btnCreate.setOnClickListener(v -> createCourseFlow());
+        btnCreate.setOnClickListener(v -> {
+            // show confirm before creating; include info about draft quizzes (they will be saved)
+            String title = "Xác nhận tạo khóa học";
+            String baseMsg = "Bạn có chắc muốn tạo khóa học với thông tin hiện tại?";
+            String createMsg = buildCreateConfirmMessage(baseMsg);
+
+            DialogConfirmHelper.showConfirmDialog(
+                    TeacherCourseCreateActivity.this,
+                    title,
+                    createMsg,
+                    R.drawable.save_create_course,
+                    "Tạo",
+                    "Hủy",
+                    R.color.blue_700,
+                    () -> {
+                        boolean ok = performCreateCourse();
+                        if (ok) {
+                            DialogConfirmHelper.showSuccessDialog(
+                                    TeacherCourseCreateActivity.this,
+                                    "Tạo khóa học thành công",
+                                    "Khóa học đã được tạo thành công.",
+                                    R.drawable.confirm_success,
+                                    "Đóng",
+                                    () -> finish()
+                            );
+                        }
+                    }
+            );
+        });
     }
 
     private void showAddSkillDialog() {
@@ -199,7 +308,18 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
 
         Button btnDel = new Button(this);
         btnDel.setText("X");
-        btnDel.setOnClickListener(v -> skillsContainer.removeView(row));
+        btnDel.setOnClickListener(v -> {
+            DialogConfirmHelper.showConfirmDialog(
+                    TeacherCourseCreateActivity.this,
+                    "Xóa kỹ năng",
+                    "Bạn có chắc muốn xóa kỹ năng này?",
+                    R.drawable.delete_check,
+                    "Xóa",
+                    "Hủy",
+                    R.color.blue_300,
+                    () -> skillsContainer.removeView(row)
+            );
+        });
 
         row.addView(et);
         row.addView(btnDel);
@@ -219,7 +339,18 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
 
         Button btnDel = new Button(this);
         btnDel.setText("X");
-        btnDel.setOnClickListener(v -> requirementsContainer.removeView(row));
+        btnDel.setOnClickListener(v -> {
+            DialogConfirmHelper.showConfirmDialog(
+                    TeacherCourseCreateActivity.this,
+                    "Xóa yêu cầu",
+                    "Bạn có chắc muốn xóa yêu cầu này?",
+                    R.drawable.delete_check,
+                    "Xóa",
+                    "Hủy",
+                    R.color.blue_300,
+                    () -> requirementsContainer.removeView(row)
+            );
+        });
 
         row.addView(et);
         row.addView(btnDel);
@@ -255,8 +386,20 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
             chip.setText(tag);
             chip.setCloseIconVisible(true);
             chip.setOnCloseIconClickListener(v -> {
-                stagedCategoryTags.remove(tag);
-                chipGroupSelectedCategories.removeView(chip);
+                // confirm before removing category
+                DialogConfirmHelper.showConfirmDialog(
+                        TeacherCourseCreateActivity.this,
+                        "Xóa danh mục",
+                        "Bạn có chắc muốn xóa danh mục này?",
+                        R.drawable.delete_check,
+                        "Xóa",
+                        "Hủy",
+                        R.color.blue_300,
+                        () -> {
+                            stagedCategoryTags.remove(tag);
+                            chipGroupSelectedCategories.removeView(chip);
+                        }
+                );
             });
             chipGroupSelectedCategories.addView(chip);
         }
@@ -271,10 +414,10 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         layout.setPadding(pad, pad, pad, pad);
 
-        final EditText etTitle = new EditText(this);
-        etTitle.setHint("Tên bài học");
-        if (lesson != null) etTitle.setText(lesson.getTitle());
-        layout.addView(etTitle);
+        final EditText etTitleLocal = new EditText(this);
+        etTitleLocal.setHint("Tên bài học");
+        if (lesson != null) etTitleLocal.setText(lesson.getTitle());
+        layout.addView(etTitleLocal);
 
         final EditText etVideo = new EditText(this);
         etVideo.setHint("Video URL hoặc ID");
@@ -294,7 +437,7 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         builder.setView(layout);
 
         builder.setPositiveButton("Lưu", (d, w) -> {
-            String title = etTitle.getText().toString().trim();
+            String title = etTitleLocal.getText().toString().trim();
             String videoInput = etVideo.getText().toString().trim();
             String desc = etDesc.getText().toString().trim();
 
@@ -328,23 +471,6 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         builder.show();
     }
 
-    private void confirmDeleteLessonLocal(Lesson lesson, int position) {
-        new AlertDialog.Builder(this)
-                .setTitle("Xóa bài học")
-                .setMessage("Bạn có chắc muốn xóa bài học này? (Thao tác chỉ áp dụng khi nhấn Tạo)")
-                .setPositiveButton("Xóa", (d, w) -> {
-                    if (position >= 0 && position < localLessons.size()) {
-                        localLessons.remove(position);
-                    } else {
-                        localLessons.remove(lesson);
-                    }
-                    lessonAdapter.submitList(new ArrayList<>(localLessons));
-                    refreshLessonsUi();
-                })
-                .setNegativeButton("Hủy", (d, w) -> d.cancel())
-                .show();
-    }
-
     private void refreshLessonsUi() {
         if (localLessons.isEmpty()) {
             rvLessons.setVisibility(View.GONE);
@@ -355,22 +481,22 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         }
     }
 
-    private void createCourseFlow() {
+    private boolean performCreateCourse() {
         String title = etTitle.getText().toString().trim();
         String priceStr = etPrice.getText().toString().trim();
         String desc = etDescription.getText().toString().trim();
 
         if (title.isEmpty()) {
             Toast.makeText(this, "Tên khóa học không được để trống", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
         if (stagedCategoryTags.isEmpty()) {
             Toast.makeText(this, "Vui lòng chọn ít nhất 1 danh mục", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
         if (priceStr.isEmpty()) {
             Toast.makeText(this, "Vui lòng nhập giá", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
 
         double price;
@@ -378,7 +504,7 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
             price = Double.parseDouble(priceStr);
         } catch (NumberFormatException ex) {
             Toast.makeText(this, "Giá không hợp lệ", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
 
         // collect skills
@@ -423,14 +549,14 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
 
-        // SỬA CHÍNH: khởi tạo Course với lectureCount = 0 (không đếm trước localLessons.size())
+        // Khởi tạo Course
         Course newCourse = new Course(
                 null, // id - createCourse assigns it
                 title,
                 teacherName,
                 stagedImageUrl != null ? stagedImageUrl : "",
                 String.join(", ", stagedCategoryTags),
-                0, // <-- set lecture count to 0 to avoid double-counting
+                0, // lecture count: backend will compute
                 0,
                 0.0,
                 price,
@@ -442,14 +568,14 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
                 requirements
         );
 
-        // Create course via CourseApi (may be fake or remote depending on ApiProvider)
+        // Create course via CourseApi
         Course created = courseApi.createCourse(newCourse);
         if (created == null || created.getId() == null) {
             Toast.makeText(this, "Tạo khóa học thất bại", Toast.LENGTH_SHORT).show();
-            return;
+            return false;
         }
 
-        // Create lessons for this course via LessonApi
+        // Create lessons for this course via LessonApi and persist draft quizzes (if any)
         for (int i = 0; i < localLessons.size(); i++) {
             Lesson l = localLessons.get(i);
             l.setCourseId(created.getId());
@@ -458,10 +584,78 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
             if (createdLesson != null && createdLesson.getId() != null) {
                 l.setId(createdLesson.getId());
                 l.setDuration(createdLesson.getDuration());
+                // if there is a draft quiz for this position -> persist it
+                Quiz draft = draftQuizzes.get(i);
+                if (draft != null) {
+                    // attach lessonId and call createQuiz
+                    Quiz toSave = new Quiz(null, createdLesson.getId(), draft.getTitle(), draft.getQuestions());
+                    try {
+                        ApiProvider.getLessonQuizApi().createQuiz(toSave);
+                    } catch (Throwable ignored) {}
+                }
             }
         }
 
         Toast.makeText(this, "Tạo khóa học thành công", Toast.LENGTH_SHORT).show();
-        finish();
+        return true;
+    }
+
+    private void handleBackWithConfirm() {
+        if (hasUnsavedChanges()) {
+            // Build message including info about draft quizzes (they will be lost if leaving)
+            String title = "Thoát mà chưa lưu";
+            String msg = buildLeaveConfirmMessage();
+
+            DialogConfirmHelper.showConfirmDialog(
+                    this,
+                    title,
+                    msg,
+                    R.drawable.back_warning_purple,
+                    "Rời đi",
+                    "Ở lại",
+                    R.color.purple_500,
+                    () -> finish()
+            );
+        } else {
+            finish();
+        }
+    }
+
+    private boolean hasUnsavedChanges() {
+        if (stagedImageUrl != null && !stagedImageUrl.isEmpty()) return true;
+        if (!stagedCategoryTags.isEmpty()) return true;
+        if (!localLessons.isEmpty()) return true;
+        if (!draftQuizzes.isEmpty()) return true; // drafts present
+        if (!etTitle.getText().toString().trim().isEmpty()) return true;
+        if (!etPrice.getText().toString().trim().isEmpty()) return true;
+        if (!etDescription.getText().toString().trim().isEmpty()) return true;
+        if (skillsContainer.getChildCount() > 0) return true;
+        if (requirementsContainer.getChildCount() > 0) return true;
+        return false;
+    }
+
+    /**
+     * Xây dựng nội dung thông báo khi rời đi mà chưa lưu.
+     * Nếu có draft quizzes, liệt kê số lượng và các vị trí bài học (1-based) có nháp.
+     * Thông báo rõ là nháp quiz sẽ bị mất nếu rời đi.
+     */
+    /**
+     * Xây dựng nội dung thông báo khi rời đi mà chưa lưu.
+     * Nếu có draft quizzes, chỉ hiển thị 1 câu cảnh báo ngắn gọn (không liệt kê chi tiết).
+     */
+    private String buildLeaveConfirmMessage() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Có thay đổi chưa được lưu. Rời đi sẽ không lưu những thay đổi này.");
+        return sb.toString();
+    }
+
+    /**
+     * Xây dựng nội dung thông báo khi xác nhận tạo khóa học.
+     * Nếu có draft quizzes, chỉ thêm 1 câu ngắn gọn báo rằng nháp sẽ được lưu.
+     */
+    private String buildCreateConfirmMessage(String baseMsg) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(baseMsg);
+        return sb.toString();
     }
 }

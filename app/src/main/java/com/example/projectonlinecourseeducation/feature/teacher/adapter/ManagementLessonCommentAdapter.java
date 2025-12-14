@@ -167,15 +167,23 @@ public class ManagementLessonCommentAdapter extends RecyclerView.Adapter<Managem
                 layoutTeacherReply.setVisibility(View.GONE);
             }
 
-            // Ẩn nút Reply nếu đã có reply hoặc đã xóa
-            if (comment.hasTeacherReply() || comment.isDeleted()) {
+            // FIX: Nút Reply luôn hiển thị, đổi text tùy theo trạng thái
+            if (comment.isDeleted()) {
+                // Comment đã xóa → ẩn cả 2 nút
                 btnReply.setVisibility(View.GONE);
+                btnDelete.setVisibility(View.GONE);
             } else {
+                // Comment còn → hiển thị nút Reply (text thay đổi)
                 btnReply.setVisibility(View.VISIBLE);
-            }
+                if (comment.hasTeacherReply()) {
+                    btnReply.setText("Sửa trả lời"); // Đã có reply → "Sửa trả lời"
+                } else {
+                    btnReply.setText("Trả lời"); // Chưa có reply → "Trả lời"
+                }
 
-            // Nút Delete luôn hiển thị (teacher có thể xóa bất kỳ comment nào)
-            btnDelete.setVisibility(View.VISIBLE);
+                // Nút Delete luôn hiển thị (teacher có thể xóa bất kỳ comment nào)
+                btnDelete.setVisibility(View.VISIBLE);
+            }
         }
 
         private String formatDate(long timestamp) {

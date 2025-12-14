@@ -26,6 +26,9 @@ import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
+import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.ManagementCourseLessonAdapter;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.ManagementCourseReviewAdapter;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.ManagementCourseStudentAdapter;
@@ -47,6 +50,9 @@ import java.util.concurrent.Executors;
  * - Thêm Log để debug notify events
  * - Khi nhận course update, cập nhật cả course metadata và fetch student list (đồng bộ số học viên từ CourseStudentApi)
  * - Sửa animation rotate icon: dùng property animation (view.animate().rotation(...)) và đặt rotation ban đầu phù hợp
+ *
+ * MỚI: fetchStudentsFromApi() giờ lấy thêm thông tin quiz attempts cho từng lesson/student và truyền quizCorrect & quizTotal
+ * vào ManagementCourseStudentAdapter.LessonProgressDetail để hiển thị tiến độ quiz (ví dụ "8/10").
  */
 public class TeacherCourseManagementActivity extends AppCompatActivity {
 
@@ -187,11 +193,15 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
     /**
      * NEW: Fetch students từ CourseStudentApi (thực sự) và lấy progress per-student qua
      * LessonProgressApi.getLessonProgress(lessonId, studentId) (default impl fallback nếu provider cũ).
+     *
+     * MỞ RỘNG: Lấy thêm attempts quiz (LessonQuizApi) cho mỗi lesson/student -> gắn quizCorrect & quizTotal
+     * vào LessonProgressDetail để hiển thị "x/10".
      */
     private void fetchStudentsFromApi() {
         final CourseStudentApi csApi = ApiProvider.getCourseStudentApi();
         final LessonApi lessonApi = ApiProvider.getLessonApi();
         final LessonProgressApi lpApi = ApiProvider.getLessonProgressApi();
+        final LessonQuizApi quizApi = ApiProvider.getLessonQuizApi(); // may be null
 
         if (csApi == null) {
             // fallback: giữ adapter rỗng và cập nhật count = 0
@@ -230,6 +240,7 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
                         Lesson lesson = lessons.get(j);
                         int progressPercent = 0;
                         boolean isCompleted = false;
+
                         try {
                             if (lpApi != null && lesson != null) {
                                 // gọi phiên bản mới có studentId (default impl sẽ fallback nếu provider cũ)
@@ -241,12 +252,61 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
                             }
                         } catch (Exception ignored) {}
 
-                        ldetails.add(new ManagementCourseStudentAdapter.LessonProgressDetail(
-                                j + 1,
-                                lesson.getTitle() != null ? lesson.getTitle() : ("Bài " + (j + 1)),
-                                progressPercent,
-                                isCompleted
-                        ));
+                        // NEW: Lấy quiz attempts cho student + lesson, chọn latest attempt để hiển thị quizCorrect
+                        int quizCorrect = -1; // -1 => chưa làm
+                        int quizTotal = 10;   // fallback
+                        try {
+                            if (quizApi != null && lesson != null) {
+                                // determine quiz total if quiz exists
+                                try {
+                                    Quiz q = quizApi.getQuizForLesson(lesson.getId());
+                                    if (q != null && q.getQuestions() != null) {
+                                        quizTotal = q.getQuestions().size();
+                                        if (quizTotal <= 0) quizTotal = 10;
+                                    }
+                                } catch (Exception ignored) {}
+
+                                // get attempts for this lesson/student (FakeApi returns newest-first)
+                                try {
+                                    List<QuizAttempt> attempts = quizApi.getAttemptsForLesson(lesson.getId(), student != null ? student.getId() : null);
+                                    if (attempts != null && !attempts.isEmpty()) {
+                                        QuizAttempt latest = attempts.get(0);
+                                        if (latest != null) {
+                                            // Some implementations store correctCount or similar
+                                            try {
+                                                quizCorrect = latest.getCorrectCount();
+                                                // clamp
+                                                if (quizCorrect < 0) quizCorrect = -1;
+                                                else if (quizCorrect > quizTotal) quizCorrect = quizTotal;
+                                            } catch (Exception ignored) {
+                                                // fallback: try getScore -> convert to count if possible
+                                                try {
+                                                    int scorePercent = latest.getScore();
+                                                    // derive approx correctCount = round(scorePercent/100.0 * quizTotal)
+                                                    int approx = (int) Math.round(((double) scorePercent / 100.0) * quizTotal);
+                                                    quizCorrect = Math.max(0, Math.min(quizTotal, approx));
+                                                } catch (Exception ignored2) {
+                                                    quizCorrect = -1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                        } catch (Exception ignored) {}
+
+                        // create detail with quiz info
+                        ManagementCourseStudentAdapter.LessonProgressDetail detail =
+                                new ManagementCourseStudentAdapter.LessonProgressDetail(
+                                        j + 1,
+                                        lesson.getTitle() != null ? lesson.getTitle() : ("Bài " + (j + 1)),
+                                        progressPercent,
+                                        isCompleted,
+                                        quizCorrect,
+                                        quizTotal
+                                );
+
+                        ldetails.add(detail);
                     }
                 }
 

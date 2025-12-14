@@ -67,4 +67,20 @@ public interface CartApi {
      * Hủy đăng ký listener.
      */
     void removeCartUpdateListener(CartUpdateListener listener);
+
+    // ------------------ ADMIN: Get data for specific user ------------------
+
+    /**
+     * (ADMIN) Lấy giỏ hàng của user cụ thể
+     * @param userId ID của user cần xem
+     * @return Danh sách courses trong giỏ hàng của user đó
+     */
+    List<Course> getCartCoursesForUser(String userId);
+
+    /**
+     * (ADMIN) Lấy tổng giá trị giỏ hàng của user cụ thể
+     * @param userId ID của user cần xem
+     * @return Tổng giá trị giỏ hàng
+     */
+    double getTotalPriceForUser(String userId);
 }

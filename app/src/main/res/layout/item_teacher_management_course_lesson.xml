@@ -22,7 +22,7 @@
         android:textStyle="bold"
         android:gravity="center"
         android:background="@color/blue_700"
-        android:textColor="@color/purple_text_primary"
+        android:textColor="@color/white"
         android:padding="4dp" />
 
     <!-- Title & Duration -->

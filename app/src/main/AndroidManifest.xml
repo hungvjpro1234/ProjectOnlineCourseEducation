@@ -28,9 +28,13 @@
         <activity android:name=".feature.student.activity.StudentCourseProductDetailActivity" />
         <activity android:name=".feature.student.activity.StudentLessonVideoActivity"
             android:exported="false" />
+        <activity android:name=".feature.student.activity.StudentLessonQuizActivity"
+            android:exported="false" />
 
         <!-- TEACHER -->
         <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />
+        <activity android:name=".feature.teacher.activity.TeacherEditProfileActivity"
+            android:exported="false" />
         <activity android:name=".feature.teacher.activity.TeacherCourseCreateActivity"
             android:exported="false" />
         <activity android:name=".feature.teacher.activity.TeacherCourseEditActivity"
@@ -42,6 +46,21 @@
 
         <!-- ADMIN -->
         <activity android:name=".feature.admin.activity.AdminHomeActivity" />
+        <activity android:name=".feature.admin.activity.AdminManageUserStudentDetailActivity"
+            android:exported="false" />
+        <activity android:name=".feature.admin.activity.AdminManageUserTeacherDetailActivity"
+            android:exported="false" />
+        <activity android:name=".feature.admin.activity.AdminManageCourseDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.admin.activity.AdminLessonDetailActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".feature.admin.activity.AdminCoursePreviewActivity"
+            android:exported="false" />
+        <activity android:name=".feature.admin.activity.AdminLessonVideoPreviewActivity"
+            android:exported="false" />
 
         <!-- MAIN LAUNCHER -->
         <activity

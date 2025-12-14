@@ -24,15 +24,31 @@ import com.example.projectonlinecourseeducation.feature.student.fragment.Student
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentUserFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
+import com.google.android.material.badge.BadgeDrawable;
+
 public class StudentHomeActivity extends AppCompatActivity {
 
     private TextView tvGreeting;
     private Button btnLogout;
     private BottomNavigationView bottomNav;
 
+    private NotificationApi notificationApi;
+    private String currentUserId;
+
     // biến flag để kiểm tra double-back
     private boolean doubleBackToExitPressedOnce = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    // Listener cập nhật badge khi có thay đổi thông báo
+    private final NotificationApi.NotificationUpdateListener notificationListener = new NotificationApi.NotificationUpdateListener() {
+        @Override
+        public void onNotificationsChanged(String userId) {
+            if (currentUserId != null && currentUserId.equals(userId)) {
+                runOnUiThread(() -> updateNotificationBadge());
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +59,11 @@ public class StudentHomeActivity extends AppCompatActivity {
         tvGreeting = findViewById(R.id.tvGreeting);
         btnLogout = findViewById(R.id.btnLogout);
         bottomNav = findViewById(R.id.bottomNav);
+
+        // Lấy NotificationApi và userId
+        notificationApi = com.example.projectonlinecourseeducation.data.ApiProvider.getNotificationApi();
+        User currentUser = com.example.projectonlinecourseeducation.data.ApiProvider.getAuthApi().getCurrentUser();
+        currentUserId = currentUser != null ? currentUser.getId() : null;
 
         // 👉 Lấy user hiện tại từ AuthApi (fake session) để hiển thị đúng tên
         updateGreeting();
@@ -84,6 +105,9 @@ public class StudentHomeActivity extends AppCompatActivity {
             bottomNav.setSelectedItemId(R.id.nav_home);
         }
 
+        // Cập nhật badge lần đầu khi vào màn hình
+        updateNotificationBadge();
+
         // 🚀 Back Press Callback mới theo chuẩn AndroidX
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -95,10 +119,31 @@ public class StudentHomeActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        // Đăng ký listener để cập nhật badge khi có thay đổi thông báo
+        if (notificationApi != null && currentUserId != null) {
+            notificationApi.addNotificationUpdateListener(notificationListener);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Hủy đăng ký listener để tránh leak
+        if (notificationApi != null && currentUserId != null) {
+            notificationApi.removeNotificationUpdateListener(notificationListener);
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         // Mỗi lần quay lại màn StudentHomeActivity, đọc lại currentUser để greeting luôn mới
         updateGreeting();
+
+        // Cập nhật lại badge mỗi lần quay lại activity
+        updateNotificationBadge();
     }
 
     /**
@@ -141,5 +186,29 @@ public class StudentHomeActivity extends AppCompatActivity {
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * Cập nhật badge số lượng thông báo chưa xem lên icon chuông
+     */
+    private void updateNotificationBadge() {
+        if (notificationApi == null || currentUserId == null) return;
+        int unreadCount = notificationApi.getUnreadCount(currentUserId);
+        setNotificationBadge(unreadCount);
+    }
+
+    /**
+     * Hiển thị hoặc ẩn badge trên tab Thông báo
+     */
+    private void setNotificationBadge(int count) {
+        if (bottomNav == null) return;
+        BadgeDrawable badge = bottomNav.getOrCreateBadge(R.id.nav_notification);
+        if (count > 0) {
+            badge.setVisible(true);
+            badge.setNumber(count);
+        } else {
+            badge.clearNumber();
+            badge.setVisible(false);
+        }
     }
 }

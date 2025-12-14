@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- selected = active quiz -->
+    <item android:state_selected="true" android:color="@color/colorPrimary" />
+    <!-- default = inactive -->
+    <item android:color="@color/gray" />
+</selector>

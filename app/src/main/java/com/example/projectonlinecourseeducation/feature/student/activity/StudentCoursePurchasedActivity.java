@@ -1,5 +1,6 @@
 package com.example.projectonlinecourseeducation.feature.student.activity;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -9,6 +10,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -27,6 +29,7 @@ import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCardAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.google.android.material.button.MaterialButton;
@@ -44,6 +47,8 @@ import java.util.Locale;
  *  - Thêm course-level progress bar tổng hợp từ LessonProgress
  *  - Dùng LessonProgressApi để lấy progress từng bài (single source of truth)
  *  - Khi listener notify, UI được cập nhật thông qua bindLessonsWithProgress() -> updateCourseProgress()
+ *  - Bổ sung hasQuiz flag cho LessonItemUiModel (adapter sẽ hiển thị nút "Làm quiz")
+ *  - Sửa hành vi back: luôn chuyển về StudentHomeActivity và mở tab MyCourse
  */
 public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
@@ -70,6 +75,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     private LessonApi lessonApi;
     private ReviewApi reviewApi;
     private LessonProgressApi lessonProgressApi;
+    private LessonQuizApi lessonQuizApi; // NEW: để kiểm tra hasQuiz per lesson
 
     // Listeners
     private LessonProgressApi.LessonProgressUpdateListener lessonProgressListener;
@@ -95,6 +101,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         lessonApi = ApiProvider.getLessonApi();
         reviewApi = ApiProvider.getReviewApi();
         lessonProgressApi = ApiProvider.getLessonProgressApi();
+        lessonQuizApi = ApiProvider.getLessonQuizApi(); // NEW
 
         // Get intent data
         courseId = getIntent().getStringExtra("course_id");
@@ -106,6 +113,14 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         // Lần đầu vào: load info khóa học + lessons + reviews
         loadCourseData(courseId);
         setupActions();
+
+        // Bắt back-press hệ thống để hành vi giống nút back trên UI
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                navigateToHomeMyCourses();
+            }
+        });
     }
 
     @Override
@@ -273,12 +288,23 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
         bindLessonsWithProgress(lessons);
 
-        // NEW: update course progress now (bindLessonsWithProgress also calls it)
+        // NEW: update course progress now (bindLessonsWithProgress cũng gọi nó)
         updateCourseProgress(lessons);
 
         reviewAdapter.submitList(reviews);
     }
 
+    /**
+     * Bind lessons -> build UI models with per-student progress + quiz state.
+     *
+     * Fix: ensure unlocking is strictly sequential:
+     *  - To unlock lesson N+1, lesson N must have video completed AND (if lesson N has quiz) quiz must be passed.
+     *
+     * This method now:
+     *  - queries LessonProgress per student
+     *  - queries LessonQuizApi to detect hasQuiz and attempts to see if passed
+     *  - passes completed + quizPassed into LessonItemUiModel so adapter can show correct buttons
+     */
     private void bindLessonsWithProgress(List<Lesson> lessons) {
         if (lessons == null || lessons.isEmpty()) {
             lessonAdapter.submitItems(null);
@@ -289,14 +315,19 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
         List<LessonCardAdapter.LessonItemUiModel> items = new ArrayList<>();
 
-        boolean allPreviousCompleted = true;
+        // allPreviousUnlocked: true nếu tất cả lesson trước đó đã hoàn thành *và* (nếu có quiz) đã pass
+        boolean allPreviousUnlocked = true;
 
         // Lấy current user để query progress per-student
         User currentUser = SessionManager.getInstance(this).getCurrentUser();
         String studentId = currentUser != null ? currentUser.getId() : null;
 
         for (Lesson lesson : lessons) {
-            LessonProgress progress = lessonProgressApi.getLessonProgress(lesson.getId(), studentId);
+            // Lấy progress per-student
+            LessonProgress progress = null;
+            try {
+                progress = lessonProgressApi.getLessonProgress(lesson.getId(), studentId);
+            } catch (Exception ignored) {}
 
             int percent = 0;
             boolean completed = false;
@@ -306,20 +337,53 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 completed = progress.isCompleted();
             }
 
-            boolean isLocked = !allPreviousCompleted;
+            // Check if lesson has quiz
+            boolean hasQuiz = false;
+            boolean quizPassed = false;
+            try {
+                if (lessonQuizApi != null) {
+                    hasQuiz = lessonQuizApi.getQuizForLesson(lesson.getId()) != null;
+                    if (hasQuiz) {
+                        // check attempts for this student; if any attempt.passed == true => quizPassed
+                        List<com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt> attempts =
+                                lessonQuizApi.getAttemptsForLesson(lesson.getId(), studentId);
+                        if (attempts != null) {
+                            for (com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt a : attempts) {
+                                if (a != null && a.isPassed()) {
+                                    quizPassed = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) { }
 
+            // determine lock state for THIS lesson:
+            // unlocked only when all previous lessons are unlocked
+            boolean isLocked = !allPreviousUnlocked;
+
+            // create UI model with completed + quizPassed so adapter can enable quiz button correctly
             items.add(new LessonCardAdapter.LessonItemUiModel(
                     lesson,
                     percent,
-                    isLocked
+                    isLocked,
+                    hasQuiz,
+                    completed,
+                    quizPassed
             ));
 
-            allPreviousCompleted = allPreviousCompleted && completed;
+            // Update allPreviousUnlocked for next lesson:
+            // current lesson counts as "unlocked" for the next one only if:
+            // - video completed AND
+            // - if it has a quiz, quizPassed must be true
+            boolean thisLessonUnlocksNext = completed && (!hasQuiz || quizPassed);
+            allPreviousUnlocked = allPreviousUnlocked && thisLessonUnlocksNext;
         }
 
         lessonAdapter.submitItems(items);
 
-        // NEW: update tổng tiến độ khi lessons + progress đã được bind
+        // Update tổng tiến độ khi lessons + progress đã được bind
         updateCourseProgress(lessons);
     }
 
@@ -396,7 +460,8 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     private void setupActions() {
-        btnBack.setOnClickListener(v -> finish());
+        // Thay finish() bằng điều hướng tới StudentHomeActivity mở tab My Course
+        btnBack.setOnClickListener(v -> navigateToHomeMyCourses());
 
         fabQAndA.setOnClickListener(v -> Toast.makeText(this, "Phần hỏi đáp đang được phát triển", Toast.LENGTH_SHORT).show());
 
@@ -446,9 +511,52 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 // OPTIONAL: if you want optimistic update, you could append to adapter here,
                 // but to avoid duplication we rely on the listener notify path.
 
+                // 🔔 TẠO THÔNG BÁO CHO TEACHER khi student review course
+                createNotificationForTeacher(newReview, rating, studentName);
+
             } else {
                 Toast.makeText(this, "Lỗi khi gửi đánh giá. Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * Điều hướng về StudentHomeActivity và mở tab MyCourse
+     */
+    private void navigateToHomeMyCourses() {
+        Intent intent = new Intent(this, StudentHomeActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra("open_my_course", true);
+        startActivity(intent);
+        finish();
+    }
+
+    /**
+     * Tạo thông báo cho teacher khi student review course
+     */
+    private void createNotificationForTeacher(CourseReview newReview, float rating, String studentName) {
+        try {
+            if (currentCourse == null) return;
+
+            // 🔔 Tạo thông báo cho teacher
+            // NOTE: Vì Course model không có teacherId, dùng helper method map tên → userId
+            // Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
+            com.example.projectonlinecourseeducation.data.notification.NotificationApi notificationApi =
+                    ApiProvider.getNotificationApi();
+            String teacherId = ((com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService) notificationApi)
+                    .getTeacherIdByName(currentCourse.getTeacher());
+
+            notificationApi.createStudentCourseReviewNotification(
+                    teacherId,                  // teacherId - map từ teacher name
+                    studentName,                // tên student
+                    courseId,                   // ID khóa học
+                    currentCourse.getTitle(),   // tên khóa học
+                    newReview.getId(),          // ID review
+                    rating                      // rating (1-5 sao)
+            );
+        } catch (Exception e) {
+            // Không crash app nếu tạo notification thất bại
+            e.printStackTrace();
+        }
     }
 }

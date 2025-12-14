@@ -2,6 +2,7 @@ package com.example.projectonlinecourseeducation.feature.student.adapter;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,39 +17,39 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.feature.student.activity.StudentLessonQuizActivity;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentLessonVideoActivity;
+import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Adapter hiển thị danh sách bài học dưới dạng card
- * Mỗi card chứa: thumbnail, tiêu đề, duration, play icon, thanh progress (% hoàn thành)
- *
- * Rule:
- *   - Chỉ cho phép bấm nút Play nếu bài học không bị khóa.
- *   - Các bài sau sẽ bị khóa nếu bài trước chưa completed (>= 90%) - phần này được tính ở Activity.
- *
- * UI chỉ nhận dữ liệu từ StudentCourseLessonActivity thông qua LessonItemUiModel,
- * không quan tâm dữ liệu đó đến từ Fake API hay Backend.
- */
 public class LessonCardAdapter extends RecyclerView.Adapter<LessonCardAdapter.VH> {
 
-    /**
-     * UI model cho từng item bài học:
-     *  - lesson: thông tin bài học
-     *  - completionPercentage: 0-100%
-     *  - locked: true nếu không được phép học (bài trước chưa đạt 90%)
-     */
     public static class LessonItemUiModel {
         public final Lesson lesson;
         public final int completionPercentage;
         public final boolean locked;
+        public final boolean hasQuiz;
+        public final boolean completed; // video completion flag (LessonProgress.isCompleted())
+        public final boolean quizPassed; // whether student already passed quiz for this lesson
 
-        public LessonItemUiModel(Lesson lesson, int completionPercentage, boolean locked) {
+        public LessonItemUiModel(Lesson lesson, int completionPercentage, boolean locked, boolean hasQuiz, boolean completed, boolean quizPassed) {
             this.lesson = lesson;
             this.completionPercentage = completionPercentage;
             this.locked = locked;
+            this.hasQuiz = hasQuiz;
+            this.completed = completed;
+            this.quizPassed = quizPassed;
+        }
+
+        // backward-compatible constructors
+        public LessonItemUiModel(Lesson lesson, int completionPercentage, boolean locked, boolean hasQuiz) {
+            this(lesson, completionPercentage, locked, hasQuiz, false, false);
+        }
+
+        public LessonItemUiModel(Lesson lesson, int completionPercentage, boolean locked) {
+            this(lesson, completionPercentage, locked, false, false, false);
         }
     }
 
@@ -59,10 +60,6 @@ public class LessonCardAdapter extends RecyclerView.Adapter<LessonCardAdapter.VH
         this.context = context;
     }
 
-    /**
-     * Nhận list LessonItemUiModel (Lesson + progress + trạng thái khóa)
-     * (được build ở StudentCourseLessonActivity)
-     */
     public void submitItems(List<LessonItemUiModel> list) {
         data.clear();
         if (list != null) data.addAll(list);
@@ -82,64 +79,148 @@ public class LessonCardAdapter extends RecyclerView.Adapter<LessonCardAdapter.VH
         LessonItemUiModel item = data.get(position);
         Lesson lesson = item.lesson;
 
-        // Lesson number
         holder.tvLessonNumber.setText("Bài " + (position + 1));
-
-        // Lesson title
-        holder.tvLessonTitle.setText(lesson.getTitle());
-
-        // Lesson duration (nếu có)
+        holder.tvLessonTitle.setText(lesson.getTitle() != null ? lesson.getTitle() : "(Không có tiêu đề)");
         String duration = lesson.getDuration();
         holder.tvLessonDuration.setText(duration != null && !duration.isEmpty() ? duration : "00:00");
 
-        // Placeholder màu theo vị trí
         int[] placeholderDrawables = {
                 R.drawable.ic_lesson_placeholder_purple,
                 R.drawable.ic_lesson_placeholder_blue,
                 R.drawable.ic_lesson_placeholder_cyan
         };
-        int placeholderIndex = position % placeholderDrawables.length;
-        holder.ivLessonThumbnail.setImageResource(placeholderDrawables[placeholderIndex]);
+        holder.ivLessonThumbnail.setImageResource(placeholderDrawables[position % placeholderDrawables.length]);
 
-        // ====== Bind progress bar + % ======
         int percent = Math.max(0, Math.min(100, item.completionPercentage));
         holder.progressBar.setProgress(percent);
         holder.tvLessonProgressPercent.setText(percent + "%");
 
-        // ====== Trạng thái khóa/mở bài học ======
-        if (item.locked) {
-            // Bị khóa: mờ card + icon play xám, chỉ cho bấm để báo message
-            holder.itemView.setAlpha(0.6f);
-            holder.ivPlay.setColorFilter(
-                    ContextCompat.getColor(context, R.color.divider)
-            );
-            holder.ivPlay.setOnClickListener(v -> {
-                Toast.makeText(context,
-                        "Hãy hoàn thành bài học trước đó (>= 90%) để mở bài này",
-                        Toast.LENGTH_SHORT
-                ).show();
-            });
-            // Không cho click cả item
-            holder.itemView.setOnClickListener(null);
+        // compute nextLessonId
+        final String nextLessonId;
+        if (position + 1 < data.size() && data.get(position + 1) != null && data.get(position + 1).lesson != null) {
+            nextLessonId = data.get(position + 1).lesson.getId();
         } else {
-            // Mở: card bình thường, icon play theo màu secondary
-            holder.itemView.setAlpha(1f);
-            holder.ivPlay.setColorFilter(
-                    ContextCompat.getColor(context, R.color.colorSecondary)
+            nextLessonId = null;
+        }
+
+        /* =============================== */
+        /* ========= STATE COLORS ========= */
+        /* =============================== */
+
+        ColorStateList colorGray = ContextCompat.getColorStateList(context, R.color.text_secondary);
+        ColorStateList colorEnabled = ContextCompat.getColorStateList(context, R.color.colorSecondary);
+        ColorStateList colorPassedBg = ContextCompat.getColorStateList(context, R.color.green_success);
+        ColorStateList colorPassedText = ContextCompat.getColorStateList(context, R.color.white);
+        ColorStateList colorNormalBg = ContextCompat.getColorStateList(context, R.color.white);
+
+        /* =============================== */
+        /* ========== HANDLE LOCKED ====== */
+        /* =============================== */
+
+        if (item.locked) {
+            holder.itemView.setAlpha(0.6f);
+
+            // Play lesson icon disabled
+            holder.ivPlay.setColorFilter(ContextCompat.getColor(context, R.color.divider));
+            holder.ivPlay.setOnClickListener(v ->
+                    Toast.makeText(context, "Hãy hoàn thành bài học trước đó để mở bài này", Toast.LENGTH_SHORT).show()
             );
 
-            // Chỉ bắt click trên nút play, bỏ click toàn bộ item (theo yêu cầu)
-            View.OnClickListener playClickListener = v -> {
-                Intent intent = new Intent(context, StudentLessonVideoActivity.class);
-                intent.putExtra("lesson_id", lesson.getId());
-                intent.putExtra("lesson_title", lesson.getTitle());
-                intent.putExtra("course_id", lesson.getCourseId());
-                context.startActivity(intent);
-            };
-            holder.ivPlay.setOnClickListener(playClickListener);
-            holder.itemView.setOnClickListener(null);
+            // Quiz button but LOCKED
+            holder.btnQuiz.setVisibility(item.hasQuiz ? View.VISIBLE : View.GONE);
+            holder.btnQuiz.setText("Làm quiz");
+            holder.btnQuiz.setTextColor(colorGray);
+            holder.btnQuiz.setBackgroundTintList(colorNormalBg);
+            holder.btnQuiz.setAlpha(0.5f);
+
+            holder.btnQuiz.setOnClickListener(v ->
+                    Toast.makeText(context, "Hoàn thành bài học trước khi làm quiz", Toast.LENGTH_SHORT).show()
+            );
+
+            return;
+        }
+
+        /* =============================== */
+        /* ===== LESSON UNLOCKED ========= */
+        /* =============================== */
+
+        holder.itemView.setAlpha(1f);
+
+        // Play button active
+        holder.ivPlay.setColorFilter(ContextCompat.getColor(context, R.color.colorSecondary));
+        holder.ivPlay.setOnClickListener(v -> {
+            Intent intent = new Intent(context, StudentLessonVideoActivity.class);
+            intent.putExtra("lesson_id", lesson.getId());
+            intent.putExtra("lesson_title", lesson.getTitle());
+            intent.putExtra("course_id", lesson.getCourseId());
+            if (nextLessonId != null) intent.putExtra("next_lesson_id", nextLessonId);
+            context.startActivity(intent);
+        });
+
+        /* =============================== */
+        /* ====== QUIZ BUTTON STATES ===== */
+        /* =============================== */
+
+        if (item.hasQuiz) {
+            // ensure visible and consistent
+            holder.btnQuiz.setVisibility(View.VISIBLE);
+            holder.btnQuiz.setText("Làm quiz");
+            holder.btnQuiz.setAllCaps(false);
+            holder.btnQuiz.setIcon(null); // remove any icon that may affect layout
+            holder.btnQuiz.bringToFront();
+
+            // stroke color (so button outline visible on white background)
+            ColorStateList strokeColor = ContextCompat.getColorStateList(context, R.color.divider);
+            int strokeWidthPx = (int) (1 * context.getResources().getDisplayMetrics().density); // 1dp
+
+            if (!item.completed) {
+                // LOCKED: gray text, subdued background, not clickable
+                holder.btnQuiz.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
+                holder.btnQuiz.setBackgroundTintList(ContextCompat.getColorStateList(context, R.color.white));
+                holder.btnQuiz.setAlpha(0.6f);
+                holder.btnQuiz.setStrokeWidth(strokeWidthPx);
+                holder.btnQuiz.setStrokeColor(strokeColor);
+
+                holder.btnQuiz.setOnClickListener(v ->
+                        Toast.makeText(context, "Bạn cần hoàn thành video trước khi làm quiz", Toast.LENGTH_SHORT).show()
+                );
+
+            } else if (item.quizPassed) {
+                // PASSED: green background, white text
+                holder.btnQuiz.setAlpha(1f);
+                holder.btnQuiz.setStrokeWidth(0);
+                holder.btnQuiz.setBackgroundTintList(ContextCompat.getColorStateList(context, R.color.green_success));
+                holder.btnQuiz.setTextColor(ContextCompat.getColor(context, R.color.white));
+
+                holder.btnQuiz.setOnClickListener(v -> {
+                    Intent intent = new Intent(context, StudentLessonQuizActivity.class);
+                    intent.putExtra("lesson_id", lesson.getId());
+                    intent.putExtra("course_id", lesson.getCourseId());
+                    if (nextLessonId != null) intent.putExtra("next_lesson_id", nextLessonId);
+                    context.startActivity(intent);
+                });
+
+            } else {
+                // READY: white background, outline + colored text
+                holder.btnQuiz.setAlpha(1f);
+                holder.btnQuiz.setBackgroundTintList(ContextCompat.getColorStateList(context, R.color.white));
+                holder.btnQuiz.setTextColor(ContextCompat.getColor(context, R.color.colorSecondary));
+                holder.btnQuiz.setStrokeWidth(strokeWidthPx);
+                holder.btnQuiz.setStrokeColor(strokeColor);
+
+                holder.btnQuiz.setOnClickListener(v -> {
+                    Intent intent = new Intent(context, StudentLessonQuizActivity.class);
+                    intent.putExtra("lesson_id", lesson.getId());
+                    intent.putExtra("course_id", lesson.getCourseId());
+                    if (nextLessonId != null) intent.putExtra("next_lesson_id", nextLessonId);
+                    context.startActivity(intent);
+                });
+            }
+        } else {
+            holder.btnQuiz.setVisibility(View.GONE);
         }
     }
+
 
     @Override
     public int getItemCount() {
@@ -152,6 +233,7 @@ public class LessonCardAdapter extends RecyclerView.Adapter<LessonCardAdapter.VH
         ImageView ivPlay;
         ProgressBar progressBar;
         TextView tvLessonProgressPercent;
+        MaterialButton btnQuiz;
 
         VH(@NonNull View itemView) {
             super(itemView);
@@ -162,6 +244,7 @@ public class LessonCardAdapter extends RecyclerView.Adapter<LessonCardAdapter.VH
             ivPlay = itemView.findViewById(R.id.ivPlay);
             progressBar = itemView.findViewById(R.id.progressLesson);
             tvLessonProgressPercent = itemView.findViewById(R.id.tvLessonProgressPercent);
+            btnQuiz = itemView.findViewById(R.id.btnQuiz);
         }
     }
 }

@@ -105,6 +105,17 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
             }
         }
 
+        // Approval Status Tag
+        if (h.tvApprovalStatus != null) {
+            String statusText = c.getApprovalStatusText();
+            if (statusText != null && !statusText.isEmpty()) {
+                h.tvApprovalStatus.setVisibility(View.VISIBLE);
+                h.tvApprovalStatus.setText(statusText);
+            } else {
+                h.tvApprovalStatus.setVisibility(View.GONE);
+            }
+        }
+
         // Buttons
         if (h.btnEdit != null) {
             h.btnEdit.setOnClickListener(view -> {
@@ -125,7 +136,7 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
 
     static class VH extends RecyclerView.ViewHolder {
         ImageView img;
-        TextView tvTitle, tvCategory, tvLectures, tvPrice;
+        TextView tvTitle, tvCategory, tvLectures, tvPrice, tvApprovalStatus;
         Button btnEdit, btnDelete;
 
         VH(@NonNull View v) {
@@ -135,6 +146,7 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
             tvCategory = v.findViewById(R.id.tvCategory);
             tvLectures = v.findViewById(R.id.tvLectures);
             tvPrice = v.findViewById(R.id.tvPrice);
+            tvApprovalStatus = v.findViewById(R.id.tvApprovalStatus);
             btnEdit = v.findViewById(R.id.btnEditCourse);
             btnDelete = v.findViewById(R.id.btnDeleteCourse);
 

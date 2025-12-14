@@ -52,7 +52,7 @@ public class AuthFakeApiService implements AuthApi {
             "    \"name\": \"Admin Boss\",\n" +
             "    \"username\": \"admin\",\n" +
             "    \"email\": \"admin@example.com\",\n" +
-            "    \"password\": \"Admin123\",\n" +
+            "    \"password\": \"admin\",\n" +
             "    \"verified\": true,\n" +
             "    \"role\": \"ADMIN\"\n" +
             "  },\n" +
@@ -64,6 +64,15 @@ public class AuthFakeApiService implements AuthApi {
             "    \"password\": \"Pass456\",\n" +
             "    \"verified\": true,\n" +
             "    \"role\": \"STUDENT\"\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"id\": \"u5\",\n" +
+            "    \"name\": \"Teacher Assistant\",\n" +
+            "    \"username\": \"teacher2\",\n" +
+            "    \"email\": \"teacher2@example.com\",\n" +
+            "    \"password\": \"Teach789\",\n" +
+            "    \"verified\": true,\n" +
+            "    \"role\": \"TEACHER\"\n" +
             "  }\n" +
             "]";
 
@@ -253,5 +262,20 @@ public class AuthFakeApiService implements AuthApi {
 
         currentUser.setPassword(newPassword);
         return ApiResult.ok("Đổi mật khẩu thành công.", true);
+    }
+
+    // ====== ADMIN: Lấy danh sách users theo role ======
+
+    @Override
+    public List<User> getAllUsersByRole(Role role) {
+        if (role == null) return new ArrayList<>();
+
+        List<User> result = new ArrayList<>();
+        for (User u : users) {
+            if (u.getRole() == role) {
+                result.add(u);
+            }
+        }
+        return result;
     }
 }

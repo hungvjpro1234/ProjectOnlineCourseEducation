@@ -16,8 +16,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Fake Course API Service (in-memory)
@@ -42,6 +44,10 @@ public class CourseFakeApiService implements CourseApi {
     }
 
     private final List<Course> allCourses = new ArrayList<>();
+
+    // PENDING CHANGES: Lưu các thay đổi course chưa được admin duyệt
+    // Key = courseId, Value = bản course đã sửa (chờ duyệt)
+    private final Map<String, Course> pendingCourseEdits = new HashMap<>();
 
     // dùng cho create khóa học mới (vì đã có c1..c3)
     private int nextId = 100;
@@ -73,7 +79,9 @@ public class CourseFakeApiService implements CourseApi {
             "    \"ratingCount\":3,\n" +
             "    \"totalDurationMinutes\":106,\n" +
             "    \"skills\":[\"Nắm cú pháp\", \"Hiểu OOP\", \"Collection\", \"Build console app đơn giản\"],\n" +
-            "    \"requirements\":[\"Biết máy tính cơ bản\", \"Dành 6-8 giờ/tuần\", \"Cài JDK\"]\n" +
+            "    \"requirements\":[\"Biết máy tính cơ bản\", \"Dành 6-8 giờ/tuần\", \"Cài JDK\"],\n" +
+            "    \"isInitialApproved\":true,\n" +
+            "    \"isEditApproved\":true\n" +
             "  },\n" +
             "  {\n" +
             "    \"id\":\"c2\",\n" +
@@ -90,7 +98,9 @@ public class CourseFakeApiService implements CourseApi {
             "    \"ratingCount\":3,\n" +
             "    \"totalDurationMinutes\":112,\n" +
             "    \"skills\":[\"Spring Boot cơ bản\", \"REST API\", \"JPA/Hibernate\", \"Spring Security cơ bản\"],\n" +
-            "    \"requirements\":[\"Nắm Java cơ bản\", \"Kiến thức OOP\", \"Biết SQL cơ bản\"]\n" +
+            "    \"requirements\":[\"Nắm Java cơ bản\", \"Kiến thức OOP\", \"Biết SQL cơ bản\"],\n" +
+            "    \"isInitialApproved\":true,\n" +
+            "    \"isEditApproved\":true\n" +
             "  },\n" +
             "  {\n" +
             "    \"id\":\"c3\",\n" +
@@ -107,7 +117,9 @@ public class CourseFakeApiService implements CourseApi {
             "    \"ratingCount\":3,\n" +
             "    \"totalDurationMinutes\":109,\n" +
             "    \"skills\":[\"Cú pháp JS cơ bản\", \"DOM manipulation\", \"Async/await\", \"Build web mini project\"],\n" +
-            "    \"requirements\":[\"Biết HTML/CSS cơ bản\", \"Biết sử dụng trình duyệt\"]\n" +
+            "    \"requirements\":[\"Biết HTML/CSS cơ bản\", \"Biết sử dụng trình duyệt\"],\n" +
+            "    \"isInitialApproved\":true,\n" +
+            "    \"isEditApproved\":true\n" +
             "  }\n" +
             "]";
 
@@ -143,6 +155,12 @@ public class CourseFakeApiService implements CourseApi {
                         skills,
                         requirements
                 );
+
+                // Set approval fields from JSON (default to false if not present)
+                c.setInitialApproved(o.optBoolean("isInitialApproved", false));
+                c.setEditApproved(o.optBoolean("isEditApproved", false));
+                c.setDeleteRequested(o.optBoolean("isDeleteRequested", false));
+
                 allCourses.add(c);
             }
         } catch (JSONException e) {
@@ -203,6 +221,38 @@ public class CourseFakeApiService implements CourseApi {
         return null;
     }
 
+    /**
+     * Clone một course object (deep copy)
+     */
+    private Course cloneCourse(Course original) {
+        if (original == null) return null;
+
+        Course clone = new Course(
+            original.getId(),
+            original.getTitle(),
+            original.getTeacher(),
+            original.getImageUrl(),
+            original.getCategory(),
+            original.getLectures(),
+            original.getStudents(),
+            original.getRating(),
+            original.getPrice(),
+            original.getDescription(),
+            original.getCreatedAt(),
+            original.getRatingCount(),
+            original.getTotalDurationMinutes(),
+            new ArrayList<>(original.getSkills()),
+            new ArrayList<>(original.getRequirements())
+        );
+
+        // Copy approval fields
+        clone.setInitialApproved(original.isInitialApproved());
+        clone.setEditApproved(original.isEditApproved());
+        clone.setDeleteRequested(original.isDeleteRequested());
+
+        return clone;
+    }
+
     // Notify helpers
     private void notifyCourseUpdated(String courseId, Course course) {
         for (CourseApi.CourseUpdateListener l : new ArrayList<>(courseUpdateListeners)) {
@@ -229,6 +279,13 @@ public class CourseFakeApiService implements CourseApi {
 
         List<Course> res = new ArrayList<>();
         for (Course c : allCourses) {
+            // FILTER: Student chỉ thấy course đã được duyệt KHỞI TẠO
+            // Course đang chờ duyệt EDIT hoặc DELETE vẫn hiển thị (student thấy version cũ)
+            // Chỉ khi admin APPROVE DELETE thì course mới bị xóa vĩnh viễn (permanentlyDeleteCourse)
+            if (!c.isInitialApproved()) {
+                continue; // Skip courses chưa được duyệt khởi tạo
+            }
+
             boolean catOk = cat.equals("All") || hasCategory(c.getCategory(), cat);
             boolean matches = q.isEmpty()
                     || (c.getTitle() != null && c.getTitle().toLowerCase(Locale.US).contains(q))
@@ -290,6 +347,12 @@ public class CourseFakeApiService implements CourseApi {
         for (Course c : allCourses) {
             if (c.getId().equals(base.getId())) continue;
 
+            // FILTER: Student chỉ thấy course đã được duyệt KHỞI TẠO
+            // Course đang chờ duyệt EDIT hoặc DELETE vẫn hiển thị
+            if (!c.isInitialApproved()) {
+                continue;
+            }
+
             boolean sameTeacher = c.getTeacher() != null
                     && base.getTeacher() != null
                     && c.getTeacher().equalsIgnoreCase(base.getTeacher());
@@ -331,6 +394,20 @@ public class CourseFakeApiService implements CourseApi {
         // Important: when creating course in system (admin/teacher), initial students = 0
         newCourse.setStudents(0);
 
+        // FIX: Auto-set teacher name from current user (phân quyền courses theo teacher)
+        if (newCourse.getTeacher() == null || newCourse.getTeacher().trim().isEmpty()) {
+            User currentUser = ApiProvider.getAuthApi() != null
+                ? ApiProvider.getAuthApi().getCurrentUser()
+                : null;
+            if (currentUser != null && currentUser.getRole() == User.Role.TEACHER) {
+                newCourse.setTeacher(currentUser.getName());
+            }
+        }
+
+        // APPROVAL LOGIC: Khi tạo mới khóa học, cả 2 trường đều false (chờ admin duyệt)
+        newCourse.setInitialApproved(false);
+        newCourse.setEditApproved(false);
+
         allCourses.add(newCourse);
 
         // Notify listeners about new course
@@ -344,37 +421,200 @@ public class CourseFakeApiService implements CourseApi {
         Course existing = findById(id);
         if (existing == null) return null;
 
-        existing.setTitle(updatedCourse.getTitle());
-        existing.setTeacher(updatedCourse.getTeacher());
-        existing.setImageUrl(updatedCourse.getImageUrl());
-        existing.setCategory(updatedCourse.getCategory());
-        existing.setLectures(updatedCourse.getLectures());
-        existing.setStudents(updatedCourse.getStudents());
-        existing.setRating(updatedCourse.getRating());
-        existing.setPrice(updatedCourse.getPrice());
-        existing.setDescription(updatedCourse.getDescription());
-        existing.setCreatedAt(updatedCourse.getCreatedAt());
-        existing.setRatingCount(updatedCourse.getRatingCount());
-        existing.setTotalDurationMinutes(updatedCourse.getTotalDurationMinutes());
-        existing.setSkills(updatedCourse.getSkills());
-        existing.setRequirements(updatedCourse.getRequirements());
+        // CRITICAL FIX: KHÔNG update course gốc, lưu vào pending thay vì
+        // Course gốc giữ nguyên để student vẫn thấy version cũ
 
-        // Notify listeners that a course was updated
+        // Clone course hiện tại để lưu các thay đổi
+        Course pendingVersion = cloneCourse(updatedCourse);
+        pendingVersion.setId(id); // Ensure same ID
+
+        // Đánh dấu là có thay đổi chờ duyệt
+        existing.setEditApproved(false);
+
+        // Lưu pending version (bản đã sửa chờ duyệt)
+        pendingCourseEdits.put(id, pendingVersion);
+
+        // Notify listeners
         notifyCourseUpdated(id, existing);
 
-        return existing;
+        return existing; // Trả về course gốc, KHÔNG phải pending version
     }
 
     @Override
     public boolean deleteCourse(String id) {
         Course existing = findById(id);
         if (existing == null) return false;
+
+        // SOFT DELETE: Đánh dấu course là đang chờ duyệt xóa thay vì xóa thật
+        // Teacher xóa → chờ admin duyệt
+        existing.setDeleteRequested(true);
+        existing.setEditApproved(false); // Đánh dấu có thay đổi cần duyệt
+
+        // Notify listeners that course status changed
+        notifyCourseUpdated(id, existing);
+
+        return true;
+    }
+
+    // ============ APPROVAL WORKFLOW METHODS ============
+
+    /**
+     * Lấy danh sách tất cả courses đang chờ phê duyệt
+     * (khởi tạo, chỉnh sửa, hoặc xóa)
+     */
+    @Override
+    public List<Course> getPendingCourses() {
+        List<Course> pending = new ArrayList<>();
+        for (Course c : allCourses) {
+            if (c.isPendingApproval()) {
+                pending.add(c);
+            }
+        }
+        return pending;
+    }
+
+    /**
+     * Admin phê duyệt khởi tạo course
+     * Cho phép course hiển thị với students
+     */
+    @Override
+    public boolean approveInitialCreation(String courseId) {
+        Course existing = findById(courseId);
+        if (existing == null) return false;
+
+        existing.setInitialApproved(true);
+        existing.setEditApproved(true); // Cũng set edit approved luôn
+
+        notifyCourseUpdated(courseId, existing);
+        return true;
+    }
+
+    /**
+     * Admin từ chối khởi tạo course
+     * Xóa course khỏi database (chưa được duyệt thì xóa luôn)
+     */
+    @Override
+    public boolean rejectInitialCreation(String courseId) {
+        Course existing = findById(courseId);
+        if (existing == null) return false;
+
+        // Nếu course chưa được duyệt khởi tạo thì xóa luôn
+        if (!existing.isInitialApproved()) {
+            boolean removed = allCourses.remove(existing);
+            if (removed) {
+                notifyCourseUpdated(courseId, null);
+            }
+            return removed;
+        }
+
+        // Nếu đã được duyệt rồi thì không cho xóa bằng method này
+        return false;
+    }
+
+    /**
+     * HARD DELETE: Xóa course vĩnh viễn khỏi hệ thống
+     * Chỉ admin mới được gọi method này sau khi duyệt yêu cầu xóa
+     */
+    @Override
+    public boolean permanentlyDeleteCourse(String id) {
+        Course existing = findById(id);
+        if (existing == null) return false;
+
         boolean removed = allCourses.remove(existing);
         if (removed) {
-            // Notify listeners that course was deleted (updatedCourse = null)
+            // Notify listeners that course was permanently deleted
             notifyCourseUpdated(id, null);
         }
         return removed;
+    }
+
+    /**
+     * Hủy yêu cầu xóa course (admin từ chối xóa)
+     */
+    @Override
+    public boolean cancelDeleteRequest(String id) {
+        Course existing = findById(id);
+        if (existing == null) return false;
+
+        existing.setDeleteRequested(false);
+        existing.setEditApproved(true); // Quay lại trạng thái đã duyệt
+
+        notifyCourseUpdated(id, existing);
+        return true;
+    }
+
+    /**
+     * Duyệt chỉnh sửa course (admin approve edit)
+     * Apply pending changes vào course gốc
+     */
+    @Override
+    public boolean approveCourseEdit(String id) {
+        Course existing = findById(id);
+        if (existing == null) return false;
+
+        Course pendingVersion = pendingCourseEdits.get(id);
+        if (pendingVersion == null) {
+            // Không có pending changes, chỉ cần set approved = true
+            existing.setEditApproved(true);
+            notifyCourseUpdated(id, existing);
+            return true;
+        }
+
+        // Apply tất cả thay đổi từ pending version vào course gốc
+        existing.setTitle(pendingVersion.getTitle());
+        existing.setTeacher(pendingVersion.getTeacher());
+        existing.setImageUrl(pendingVersion.getImageUrl());
+        existing.setCategory(pendingVersion.getCategory());
+        existing.setLectures(pendingVersion.getLectures());
+        existing.setPrice(pendingVersion.getPrice());
+        existing.setDescription(pendingVersion.getDescription());
+        existing.setSkills(pendingVersion.getSkills());
+        existing.setRequirements(pendingVersion.getRequirements());
+
+        // Set approved
+        existing.setEditApproved(true);
+
+        // Remove pending version
+        pendingCourseEdits.remove(id);
+
+        notifyCourseUpdated(id, existing);
+        return true;
+    }
+
+    /**
+     * Từ chối chỉnh sửa course (admin reject edit)
+     * Xóa pending changes, giữ nguyên course gốc
+     */
+    @Override
+    public boolean rejectCourseEdit(String id) {
+        Course existing = findById(id);
+        if (existing == null) return false;
+
+        // Remove pending version
+        pendingCourseEdits.remove(id);
+
+        // Set approved (quay lại trạng thái đã duyệt)
+        existing.setEditApproved(true);
+
+        notifyCourseUpdated(id, existing);
+        return true;
+    }
+
+    /**
+     * Lấy pending edit của course (cho admin/teacher xem)
+     * @return pending version nếu có, null nếu không
+     */
+    @Override
+    public Course getPendingEdit(String id) {
+        return pendingCourseEdits.get(id);
+    }
+
+    /**
+     * Kiểm tra course có pending edit không
+     */
+    @Override
+    public boolean hasPendingEdit(String id) {
+        return pendingCourseEdits.containsKey(id);
     }
 
     @Override

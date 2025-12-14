@@ -16,10 +16,16 @@ import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseFakeApiService;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentFakeApiService;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizFakeApiService;
 
 // NEW imports for CourseStudentApi
 import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;
 import com.example.projectonlinecourseeducation.data.course.CourseStudentFakeApiService;
+
+// NEW imports for NotificationApi
+import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
+import com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService;
 
 public class ApiProvider {
 
@@ -30,6 +36,7 @@ public class ApiProvider {
     private static LessonProgressApi lessonProgressApi = LessonProgressFakeApiService.getInstance();
     private static ReviewApi reviewApi = ReviewFakeApiService.getInstance();
     private static CartApi cartApi = CartFakeApiService.getInstance();
+    private static LessonQuizApi lessonQuizApi = LessonQuizFakeApiService.getInstance();
 
     // MyCourseApi: quản lý các khóa học student đã mua
     private static MyCourseApi myCourseApi = MyCourseFakeApiService.getInstance();
@@ -39,6 +46,9 @@ public class ApiProvider {
 
     // -------- CourseStudentApi (NEW) --------
     private static CourseStudentApi courseStudentApi = CourseStudentFakeApiService.getInstance();
+
+    // NotificationApi: quản lý thông báo cho 3 role (Student, Teacher, Admin)
+    private static NotificationApi notificationApi = NotificationFakeApiService.getInstance();
 
     // -------- Getters / Setters --------
     // -------- Auth --------
@@ -139,5 +149,31 @@ public class ApiProvider {
      */
     public static void setCourseStudentApi(CourseStudentApi api) {
         courseStudentApi = api;
+    }
+
+    // -------- LessonQuiz --------
+    public static LessonQuizApi getLessonQuizApi() {
+        return lessonQuizApi;
+    }
+
+    /**
+     * Khi có remote implementation, set ở Application.onCreate()
+     * ApiProvider.setQuizApi(new QuizRemoteApiService(retrofit));
+     */
+    public static void setQuizApi(LessonQuizApi api) {
+        lessonQuizApi = api;
+    }
+
+    // -------- Notification --------
+    public static NotificationApi getNotificationApi() {
+        return notificationApi;
+    }
+
+    /**
+     * Khi có remote implementation, set ở Application.onCreate()
+     * ApiProvider.setNotificationApi(new NotificationRemoteApiService(retrofit));
+     */
+    public static void setNotificationApi(NotificationApi api) {
+        notificationApi = api;
     }
 }

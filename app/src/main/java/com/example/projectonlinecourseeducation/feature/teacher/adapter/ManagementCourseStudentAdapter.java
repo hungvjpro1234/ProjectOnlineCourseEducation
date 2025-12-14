@@ -253,6 +253,10 @@ public class ManagementCourseStudentAdapter extends RecyclerView.Adapter<Managem
 
     /**
      * Model cho chi tiết tiến độ mỗi bài học
+     *
+     * MỞ RỘNG: chứa thông tin quiz (quizCorrect / quizTotal).
+     * - quizCorrect == -1 => chưa làm quiz (hiển thị "—/10")
+     * - quizTotal default = 10
      */
     public static class LessonProgressDetail {
         private int order;
@@ -260,17 +264,40 @@ public class ManagementCourseStudentAdapter extends RecyclerView.Adapter<Managem
         private int progressPercentage;
         private boolean isCompleted;
 
+        // NEW: quiz fields
+        // quizCorrect: số câu đúng trong lần attempt (nếu có). Nếu chưa làm quiz -> -1 (meaning N/A)
+        private int quizCorrect;
+        private int quizTotal;
+
         public LessonProgressDetail(int order, String lessonTitle, int progressPercentage, boolean isCompleted) {
+            this(order, lessonTitle, progressPercentage, isCompleted, -1, 10);
+        }
+
+        public LessonProgressDetail(int order, String lessonTitle, int progressPercentage, boolean isCompleted,
+                                    int quizCorrect, int quizTotal) {
             this.order = order;
             this.lessonTitle = lessonTitle;
             this.progressPercentage = clampPercent(progressPercentage);
             this.isCompleted = isCompleted || this.progressPercentage >= 90;
+            this.quizTotal = quizTotal <= 0 ? 10 : quizTotal;
+            // allow quizCorrect = -1 to denote "chưa làm quiz"
+            if (quizCorrect < -1) quizCorrect = -1;
+            this.quizCorrect = Math.max(-1, Math.min(this.quizTotal, quizCorrect));
         }
 
         public int getOrder() { return order; }
         public String getLessonTitle() { return lessonTitle; }
         public int getProgressPercentage() { return progressPercentage; }
         public boolean isCompleted() { return isCompleted; }
+
+        // Quiz getters
+        public int getQuizCorrect() { return quizCorrect; } // -1 => chưa làm
+        public int getQuizTotal() { return quizTotal; }
+
+        public String getQuizScoreDisplay() {
+            if (quizCorrect < 0) return "—/" + quizTotal; // chưa làm
+            return quizCorrect + "/" + quizTotal;
+        }
 
         private int clampPercent(int p) {
             if (p < 0) return 0;

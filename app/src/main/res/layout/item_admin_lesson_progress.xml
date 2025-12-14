@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Top row: Title | Quiz box (optional) | Percent (always right) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Title expands -->
+        <TextView
+            android:id="@+id/tvLessonTitle"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="1. Giới thiệu Java &amp; cài đặt môi trường"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <!-- Quiz box: shown only when quiz exists -->
+        <TextView
+            android:id="@+id/tvLessonQuiz"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:text="Quiz: 0/10"
+            android:textSize="11sp"
+            android:visibility="gone"
+            android:background="@drawable/bg_quiz_box"/>
+
+        <!-- Percent always at right -->
+        <TextView
+            android:id="@+id/tvLessonPercent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0%"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvLessonCourse"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Course title"
+        android:textSize="11sp"
+        android:textColor="@android:color/darker_gray"/>
+
+    <ProgressBar
+        android:id="@+id/pbLesson"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:max="100"
+        android:progress="0"
+        android:layout_marginTop="4dp"/>
+</LinearLayout>
