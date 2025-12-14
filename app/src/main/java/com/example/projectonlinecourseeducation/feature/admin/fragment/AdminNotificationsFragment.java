@@ -15,6 +15,8 @@ public class AdminNotificationsFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        // Admin không sử dụng tính năng thông báo
         return inflater.inflate(R.layout.fragment_admin_notifications, container, false);
     }
+
 }

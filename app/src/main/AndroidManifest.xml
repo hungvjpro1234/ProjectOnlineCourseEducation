@@ -33,6 +33,8 @@
 
         <!-- TEACHER -->
         <activity android:name=".feature.teacher.activity.TeacherHomeActivity" />
+        <activity android:name=".feature.teacher.activity.TeacherEditProfileActivity"
+            android:exported="false" />
         <activity android:name=".feature.teacher.activity.TeacherCourseCreateActivity"
             android:exported="false" />
         <activity android:name=".feature.teacher.activity.TeacherCourseEditActivity"

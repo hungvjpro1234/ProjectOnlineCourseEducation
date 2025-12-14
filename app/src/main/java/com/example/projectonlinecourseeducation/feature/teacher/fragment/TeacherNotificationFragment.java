@@ -139,11 +139,10 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         }
 
         Intent intent = new Intent(requireContext(), TeacherLessonManagementActivity.class);
-        intent.putExtra("courseId", courseId);
-        if (lessonId != null) {
-            intent.putExtra("lessonId", lessonId); // Optional: scroll to specific lesson
-        }
+        intent.putExtra(TeacherLessonManagementActivity.EXTRA_COURSE_ID, courseId);
+        intent.putExtra(TeacherLessonManagementActivity.EXTRA_LESSON_ID, lessonId);
         startActivity(intent);
+
     }
 
     private void navigateToCourseManagement(Notification notification) {
@@ -155,8 +154,9 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         }
 
         Intent intent = new Intent(requireContext(), TeacherCourseManagementActivity.class);
-        intent.putExtra("courseId", courseId);
+        intent.putExtra("course_id", courseId);
         startActivity(intent);
+
     }
 
     private void navigateToTeacherHome() {
