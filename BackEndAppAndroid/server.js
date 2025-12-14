@@ -1168,9 +1168,10 @@ app.post("/course", upload.single("courseAvatar"), async (req, res) => {
         const payload = req.body || {};
 
         // image: note DB column is `imageurl` (snake_case / lowercase)
-        const imgSrc = req.file
+        const imageUrl = req.file
             ? `/uploads/${req.file.filename}`
-            : payload.imageUrl || payload.imageurl || "";
+            : "";
+
 
         // required fields
         const { title, description, teacher } = payload;
@@ -1222,7 +1223,7 @@ app.post("/course", upload.single("courseAvatar"), async (req, res) => {
                 title,
                 description,
                 teacher,
-                imgSrc,
+                imageUrl,
                 payload.category || "",
                 lectures,
                 students,
