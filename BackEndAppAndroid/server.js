@@ -115,45 +115,33 @@ function safeParseJson(input) {
 }
 
 function transformCourseRow(row) {
-    if (!row) return null;
-    // Map DB columns (course_id) to FE shape (id), normalize casing
-    const r = {};
-    r.id = row.course_id || row.id || row.courseId || null;
-    r.title = row.title || "";
-    r.description = row.description || "";
-    r.teacher = row.teacher || "";
-    // imageUrl might come as imageurl or imageUrl
-    r.imageUrl = row.imageUrl || row.imageurl || "";
-    r.category = row.category || "";
-    r.lectures = Number.isFinite(Number(row.lectures))
-        ? parseInt(row.lectures)
-        : 0;
-    r.students = Number.isFinite(Number(row.students))
-        ? parseInt(row.students)
-        : 0;
-    r.rating = row.rating !== undefined ? parseFloat(row.rating) : 0;
-    r.price = row.price !== undefined ? parseFloat(row.price) : 0;
-    r.createdAt = row.createdAt || row.created_at || "";
-    r.ratingCount =
-        row.ratingCount !== undefined
-            ? parseInt(row.ratingCount)
-            : row.ratingcount !== undefined
-            ? parseInt(row.ratingcount)
-            : 0;
-    r.totalDurationMinutes =
-        row.totalDurationMinutes !== undefined
-            ? parseInt(row.totalDurationMinutes)
-            : row.totaldurationminutes !== undefined
-            ? parseInt(row.totaldurationminutes)
-            : 0;
+  if (!row) return null;
 
-    // Parse skills/requirements (could be JSON-string, array, or CSV)
-    r.skills = safeParseJson(row.skills);
-    r.requirements = safeParseJson(row.requirements);
+  return {
+    id: String(row.course_id),
+    title: row.title || "",
+    description: row.description || "",
+    teacher: row.teacher || "",
+    imageUrl: row.imageurl || "",
+    category: row.category || "",
+    lectures: Number(row.lectures || 0),
+    students: Number(row.students || 0),
+    rating: Number(row.rating || 0),
+    price: Number(row.price || 0),
+    createdAt: row.created_at || "",
+    ratingCount: Number(row.ratingcount || 0),
+    totalDurationMinutes: Number(row.totaldurationminutes || 0),
 
-    // Keep any other fields if needed
-    return r;
+    skills: safeParseJson(row.skills),
+    requirements: safeParseJson(row.requirements),
+
+    // 🔥 QUAN TRỌNG
+    initialApproved: !!row.is_approved,
+    editApproved: !!row.is_edit_approved,
+    deleteRequested: !!row.is_delete_requested,
+  };
 }
+
 
 // optional: test connect once at startup
 (async () => {
@@ -281,6 +269,67 @@ function authMiddleware(req, res, next) {
         });
     }
 }
+
+// ================= ADMIN: Get users by role =================
+app.get("/admin/users", authMiddleware, async (req, res) => {
+    try {
+        // Check admin
+        const role = req.user?.role?.toUpperCase();
+        if (role !== "ADMIN") {
+            return res.status(403).send({
+                success: false,
+                message: "Chỉ ADMIN mới có quyền truy cập",
+            });
+        }
+
+        const { role: queryRole } = req.query;
+        if (!queryRole) {
+            return res.status(400).send({
+                success: false,
+                message: "Thiếu query param role",
+            });
+        }
+
+        const rows = await db.any(
+            `
+            SELECT 
+              u.user_id,
+              u.username,
+              u.email,
+              u.created_at,
+              r.role_name
+            FROM appuser u
+            JOIN role r ON u.role_id = r.role_id
+            WHERE UPPER(r.role_name) = UPPER($1)
+            ORDER BY u.created_at DESC
+            `,
+            [queryRole]
+        );
+
+        const users = rows.map((r) => ({
+            id: String(r.user_id),
+            name: r.username,          // DB không có full_name
+            username: r.username,
+            email: r.email,
+            verified: true,            // DB không có cột verified
+            avatar: null,
+            role: r.role_name.toUpperCase(),
+            createdAt: r.created_at,
+        }));
+
+        res.send({
+            success: true,
+            data: users,
+        });
+    } catch (err) {
+        console.error("GET /admin/users error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi hệ thống",
+        });
+    }
+});
+
 
 app.get("/", (req, res) => {
     res.send("Hello World");
@@ -709,6 +758,43 @@ app.post("/course/:id/approve-initial", authMiddleware, async (req, res) => {
   }
 });
 
+app.post("/course/:id/reject-initial", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).send({ success:false, message:"Chỉ admin" });
+    }
+
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId)) {
+      return res.status(400).send({ success:false, message:"Invalid id" });
+    }
+
+    const course = await db.oneOrNone(
+      "SELECT * FROM course WHERE course_id=$1",
+      [courseId]
+    );
+    if (!course) {
+      return res.status(404).send({ success:false, message:"Not found" });
+    }
+
+    if (course.is_approved) {
+      return res.status(400).send({
+        success:false,
+        message:"Course đã được duyệt, không thể reject initial",
+      });
+    }
+
+    await db.none("DELETE FROM course WHERE course_id=$1", [courseId]);
+    await db.none("DELETE FROM course_pending_edits WHERE course_id=$1", [courseId]);
+
+    res.send({ success:true, message:"Đã từ chối & xóa course" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ success:false, message:"Lỗi reject initial" });
+  }
+});
+
+
 
 // Get pending edit for a course
 app.get("/course/:id/pending", authMiddleware, async (req, res) => {
@@ -1037,52 +1123,111 @@ app.post("/course", upload.single("courseAvatar"), async (req, res) => {
     }
 });
 
-// READ list (only published by default; include_unapproved=true and admin required to see all)
 app.get("/course", async (req, res) => {
-    try {
-        const { teacher, include_unapproved } = req.query;
-        let rows;
-        if (include_unapproved === "true") {
-            // if caller wants unapproved too, require admin token
-            // We try to read auth header; if token missing -> deny
-            // optional: allow teacher to see their own unapproved courses by ?teacher=
-            const authHeader = req.headers.authorization || "";
-            let user = null;
-            if (authHeader.startsWith("Bearer ")) {
-                try {
-                    const payload = jwt.verify(authHeader.slice(7), secretKey);
-                    user = payload;
-                } catch (e) {
-                    user = null;
-                }
-            }
-            if (!user || String(user.role).toUpperCase() !== "ADMIN") {
-                return res.status(403).send({ success:false, message: "Chỉ admin mới xem được include_unapproved=true" });
-            }
-            if (teacher && teacher.trim() !== "") {
-                rows = await db.any("SELECT * FROM course WHERE teacher = $1", [teacher]);
-            } else {
-                rows = await db.any("SELECT * FROM course");
-            }
-        } else {
-            // normal clients -> only published
-            if (teacher && teacher.trim() !== "") {
-                rows = await db.any("SELECT * FROM course WHERE teacher = $1 AND is_approved = true", [teacher]);
-            } else {
-                rows = await db.any("SELECT * FROM course WHERE is_approved = true");
-            }
-        }
+  try {
+    const {
+      teacher,
+      query,
+      sort = "AZ",
+      limit,
+      include_unapproved
+    } = req.query;
 
-        const data = rows.map(transformCourseRow);
-        res.send({ success: true, data });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send({
-            success: false,
-            message: "Lỗi lấy danh sách khóa học",
-        });
+    let where = [];
+    let values = [];
+    let idx = 1;
+
+    // chỉ course đã duyệt (student)
+    if (include_unapproved !== "true") {
+      where.push(`is_approved = true`);
     }
+
+    if (teacher) {
+      where.push(`LOWER(teacher) = LOWER($${idx++})`);
+      values.push(teacher);
+    }
+
+    if (query) {
+      where.push(`(
+        LOWER(title) LIKE LOWER($${idx})
+        OR LOWER(teacher) LIKE LOWER($${idx})
+      )`);
+      values.push(`%${query}%`);
+      idx++;
+    }
+
+    let orderBy = "ORDER BY title ASC";
+    switch (sort) {
+      case "ZA":
+        orderBy = "ORDER BY title DESC";
+        break;
+      case "RATING_UP":
+        orderBy = "ORDER BY rating ASC";
+        break;
+      case "RATING_DOWN":
+        orderBy = "ORDER BY rating DESC";
+        break;
+    }
+
+    let limitSql = "";
+    if (limit && Number.isFinite(+limit)) {
+      limitSql = `LIMIT ${parseInt(limit, 10)}`;
+    }
+
+    const sql = `
+      SELECT * FROM course
+      ${where.length ? "WHERE " + where.join(" AND ") : ""}
+      ${orderBy}
+      ${limitSql}
+    `;
+
+    const rows = await db.any(sql, values);
+    res.send({ success: true, data: rows.map(transformCourseRow) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ success: false, message: "Lỗi lấy course" });
+  }
 });
+
+app.get("/course/:id/related", async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(courseId)) {
+      return res.status(400).send({ success:false, message:"Invalid id" });
+    }
+
+    const base = await db.oneOrNone(
+      "SELECT * FROM course WHERE course_id=$1 AND is_approved=true",
+      [courseId]
+    );
+    if (!base) {
+      return res.status(404).send({ success:false, message:"Course not found" });
+    }
+
+    const rows = await db.any(
+      `
+      SELECT * FROM course
+      WHERE is_approved = true
+        AND course_id != $1
+        AND (
+          LOWER(teacher) = LOWER($2)
+          OR category && string_to_array($3, ',')
+        )
+      `,
+      [courseId, base.teacher, base.category]
+    );
+
+    res.send({
+      success: true,
+      data: rows.map(transformCourseRow),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ success:false, message:"Lỗi related courses" });
+  }
+});
+
+
 
 app.get("/course/:id", async (req, res) => {
     try {
