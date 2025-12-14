@@ -38,9 +38,9 @@ async function getEnumValues(enumName = "course_payment_status_enum") {
 // Allowed transitions (logical). Nếu enum DB khác tên, hơi thay đổi map này.
 
 const allowedTransitions = {
-  NOT_PURCHASED: ['IN_CART', 'PURCHASED'],
-  IN_CART: ['NOT_PURCHASED', 'PURCHASED'], // ← thêm 'PURCHASED' ở đây
-  PURCHASED: []
+    NOT_PURCHASED: ["IN_CART", "PURCHASED"],
+    IN_CART: ["NOT_PURCHASED", "PURCHASED"], // ← thêm 'PURCHASED' ở đây
+    PURCHASED: [],
 };
 
 /**
@@ -115,33 +115,32 @@ function safeParseJson(input) {
 }
 
 function transformCourseRow(row) {
-  if (!row) return null;
+    if (!row) return null;
 
-  return {
-    id: String(row.course_id),
-    title: row.title || "",
-    description: row.description || "",
-    teacher: row.teacher || "",
-    imageUrl: row.imageurl || "",
-    category: row.category || "",
-    lectures: Number(row.lectures || 0),
-    students: Number(row.students || 0),
-    rating: Number(row.rating || 0),
-    price: Number(row.price || 0),
-    createdAt: row.created_at || "",
-    ratingCount: Number(row.ratingcount || 0),
-    totalDurationMinutes: Number(row.totaldurationminutes || 0),
+    return {
+        id: String(row.course_id),
+        title: row.title || "",
+        description: row.description || "",
+        teacher: row.teacher || "",
+        imageUrl: row.imageurl || "",
+        category: row.category || "",
+        lectures: Number(row.lectures || 0),
+        students: Number(row.students || 0),
+        rating: Number(row.rating || 0),
+        price: Number(row.price || 0),
+        createdAt: row.created_at || "",
+        ratingCount: Number(row.ratingcount || 0),
+        totalDurationMinutes: Number(row.totaldurationminutes || 0),
 
-    skills: safeParseJson(row.skills),
-    requirements: safeParseJson(row.requirements),
+        skills: safeParseJson(row.skills),
+        requirements: safeParseJson(row.requirements),
 
-    // 🔥 QUAN TRỌNG
-    initialApproved: !!row.is_approved,
-    editApproved: !!row.is_edit_approved,
-    deleteRequested: !!row.is_delete_requested,
-  };
+        // 🔥 QUAN TRỌNG
+        initialApproved: !!row.is_approved,
+        editApproved: !!row.is_edit_approved,
+        deleteRequested: !!row.is_delete_requested,
+    };
 }
-
 
 // optional: test connect once at startup
 (async () => {
@@ -308,10 +307,10 @@ app.get("/admin/users", authMiddleware, async (req, res) => {
 
         const users = rows.map((r) => ({
             id: String(r.user_id),
-            name: r.username,          // DB không có full_name
+            name: r.username, // DB không có full_name
             username: r.username,
             email: r.email,
-            verified: true,            // DB không có cột verified
+            verified: true, // DB không có cột verified
             avatar: null,
             role: r.role_name.toUpperCase(),
             createdAt: r.created_at,
@@ -329,7 +328,6 @@ app.get("/admin/users", authMiddleware, async (req, res) => {
         });
     }
 });
-
 
 app.get("/", (req, res) => {
     res.send("Hello World");
@@ -626,8 +624,8 @@ app.post("/forgot-password-update", async (req, res) => {
 async function upsertCoursePendingEdit(courseId, pendingData, createdBy) {
     // If exists -> replace pending_data & update created_at/status
     const existing = await db.oneOrNone(
-      `SELECT * FROM course_pending_edits WHERE course_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [courseId]
+        `SELECT * FROM course_pending_edits WHERE course_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [courseId]
     );
     if (existing) {
         const updated = await db.one(
@@ -656,7 +654,9 @@ async function getPendingEdit(courseId) {
 }
 
 async function deletePendingEditById(id) {
-    return await db.none(`DELETE FROM course_pending_edits WHERE id = $1`, [id]);
+    return await db.none(`DELETE FROM course_pending_edits WHERE id = $1`, [
+        id,
+    ]);
 }
 
 // ----------------- Helpers for lesson -> update course counters -----------------
@@ -667,13 +667,18 @@ async function deletePendingEditById(id) {
 function parseDurationToMinutes(durationText) {
     if (!durationText) return 0;
     try {
-        const parts = String(durationText).split(":").map(p => parseInt(p, 10) || 0);
+        const parts = String(durationText)
+            .split(":")
+            .map((p) => parseInt(p, 10) || 0);
         let seconds = 0;
-        if (parts.length === 2) { // mm:ss
+        if (parts.length === 2) {
+            // mm:ss
             seconds = parts[0] * 60 + parts[1];
-        } else if (parts.length === 3) { // hh:mm:ss
+        } else if (parts.length === 3) {
+            // hh:mm:ss
             seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
-        } else { // plain number -> treat as seconds
+        } else {
+            // plain number -> treat as seconds
             seconds = parts[0];
         }
         return Math.max(0, Math.round(seconds / 60));
@@ -713,111 +718,155 @@ async function removeLessonFromCourseDb(courseId, durationText) {
     );
 }
 
-
 // List all courses that have pending edits or not approved (admin)
 app.get("/course/pending", authMiddleware, async (req, res) => {
     try {
         // Optional: check admin role
-        const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-        if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+        const role =
+            req.user && req.user.role
+                ? String(req.user.role).toUpperCase()
+                : null;
+        if (role !== "ADMIN")
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
 
         // Get courses with is_approved=false OR is_edit_approved=false
-        const rows = await db.any(`SELECT * FROM course WHERE is_approved = false OR is_edit_approved = false`);
+        const rows = await db.any(
+            `SELECT * FROM course WHERE is_approved = false OR is_edit_approved = false`
+        );
         const data = rows.map(transformCourseRow);
         // Also attach pending edit if exists
         for (let c of data) {
             const pending = await getPendingEdit(c.id);
             c.pending = pending ? pending.pending_data : null;
         }
-        res.send({ success:true, data });
+        res.send({ success: true, data });
     } catch (err) {
         console.error(err);
-        res.status(500).send({ success:false, message:"Lỗi lấy pending courses" });
+        res.status(500).send({
+            success: false,
+            message: "Lỗi lấy pending courses",
+        });
     }
 });
 
 // Admin approve initial creation -> set is_approved = true and is_edit_approved = true
 app.post("/course/:id/approve-initial", authMiddleware, async (req, res) => {
-  try {
-    const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-    if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+    try {
+        const role =
+            req.user && req.user.role
+                ? String(req.user.role).toUpperCase()
+                : null;
+        if (role !== "ADMIN")
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
 
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId)) return res.status(400).send({ success:false, message:"Invalid course id" });
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId))
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
-    const updated = await db.oneOrNone(
-      `UPDATE course SET is_approved = true, is_edit_approved = true WHERE course_id = $1 RETURNING *`,
-      [courseId]
-    );
-    if (!updated) return res.status(404).send({ success:false, message:"Course not found" });
+        const updated = await db.oneOrNone(
+            `UPDATE course SET is_approved = true, is_edit_approved = true WHERE course_id = $1 RETURNING *`,
+            [courseId]
+        );
+        if (!updated)
+            return res
+                .status(404)
+                .send({ success: false, message: "Course not found" });
 
-    res.send({ success:true, message:"Đã duyệt khóa học", data: transformCourseRow(updated) });
-  } catch (err) {
-    console.error("POST /course/:id/approve-initial error", err);
-    res.status(500).send({ success:false, message:"Lỗi khi duyệt khóa học" });
-  }
+        res.send({
+            success: true,
+            message: "Đã duyệt khóa học",
+            data: transformCourseRow(updated),
+        });
+    } catch (err) {
+        console.error("POST /course/:id/approve-initial error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi duyệt khóa học",
+        });
+    }
 });
 
 app.post("/course/:id/reject-initial", authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== "ADMIN") {
-      return res.status(403).send({ success:false, message:"Chỉ admin" });
+    try {
+        if (req.user.role !== "ADMIN") {
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
+        }
+
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId)) {
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid id" });
+        }
+
+        const course = await db.oneOrNone(
+            "SELECT * FROM course WHERE course_id=$1",
+            [courseId]
+        );
+        if (!course) {
+            return res
+                .status(404)
+                .send({ success: false, message: "Not found" });
+        }
+
+        if (course.is_approved) {
+            return res.status(400).send({
+                success: false,
+                message: "Course đã được duyệt, không thể reject initial",
+            });
+        }
+
+        await db.none("DELETE FROM course WHERE course_id=$1", [courseId]);
+        await db.none("DELETE FROM course_pending_edits WHERE course_id=$1", [
+            courseId,
+        ]);
+
+        res.send({ success: true, message: "Đã từ chối & xóa course" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Lỗi reject initial" });
     }
-
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId)) {
-      return res.status(400).send({ success:false, message:"Invalid id" });
-    }
-
-    const course = await db.oneOrNone(
-      "SELECT * FROM course WHERE course_id=$1",
-      [courseId]
-    );
-    if (!course) {
-      return res.status(404).send({ success:false, message:"Not found" });
-    }
-
-    if (course.is_approved) {
-      return res.status(400).send({
-        success:false,
-        message:"Course đã được duyệt, không thể reject initial",
-      });
-    }
-
-    await db.none("DELETE FROM course WHERE course_id=$1", [courseId]);
-    await db.none("DELETE FROM course_pending_edits WHERE course_id=$1", [courseId]);
-
-    res.send({ success:true, message:"Đã từ chối & xóa course" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ success:false, message:"Lỗi reject initial" });
-  }
 });
-
-
 
 // Get pending edit for a course
 app.get("/course/:id/pending", authMiddleware, async (req, res) => {
     try {
         const courseId = parseInt(req.params.id, 10);
         const pending = await getPendingEdit(courseId);
-        if (!pending) return res.send({ success:true, data: null });
-        res.send({ success:true, data: pending.pending_data, meta: pending });
+        if (!pending) return res.send({ success: true, data: null });
+        res.send({ success: true, data: pending.pending_data, meta: pending });
     } catch (err) {
         console.error(err);
-        res.status(500).send({ success:false, message:"Lỗi" });
+        res.status(500).send({ success: false, message: "Lỗi" });
     }
 });
 
 // Approve pending edit (admin) -> apply pending_data to course row
 app.post("/course/:id/approve-edit", authMiddleware, async (req, res) => {
     try {
-        const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-        if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+        const role =
+            req.user && req.user.role
+                ? String(req.user.role).toUpperCase()
+                : null;
+        if (role !== "ADMIN")
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
 
         const courseId = parseInt(req.params.id, 10);
         const pending = await getPendingEdit(courseId);
-        if (!pending) return res.status(404).send({ success:false, message:"No pending edit" });
+        if (!pending)
+            return res
+                .status(404)
+                .send({ success: false, message: "No pending edit" });
 
         const pendingData = pending.pending_data || {};
 
@@ -825,66 +874,141 @@ app.post("/course/:id/approve-edit", authMiddleware, async (req, res) => {
         const setClauses = [];
         const values = [];
         let idx = 1;
-        if (pendingData.title !== undefined) { setClauses.push(`title=$${idx++}`); values.push(pendingData.title); }
-        if (pendingData.description !== undefined) { setClauses.push(`description=$${idx++}`); values.push(pendingData.description); }
-        if (pendingData.teacher !== undefined) { setClauses.push(`teacher=$${idx++}`); values.push(pendingData.teacher); }
-        if (pendingData.category !== undefined) { setClauses.push(`category=$${idx++}`); values.push(pendingData.category); }
-        if (pendingData.lectures !== undefined) { setClauses.push(`lectures=$${idx++}`); values.push(pendingData.lectures); }
-        if (pendingData.students !== undefined) { setClauses.push(`students=$${idx++}`); values.push(pendingData.students); }
-        if (pendingData.rating !== undefined) { setClauses.push(`rating=$${idx++}`); values.push(pendingData.rating); }
-        if (pendingData.price !== undefined) { setClauses.push(`price=$${idx++}`); values.push(pendingData.price); }
-        if (pendingData.createdAt !== undefined) { setClauses.push(`created_at=$${idx++}`); values.push(new Date(pendingData.createdAt)); }
-        if (pendingData.ratingCount !== undefined) { setClauses.push(`ratingcount=$${idx++}`); values.push(pendingData.ratingCount); }
-        if (pendingData.totalDurationMinutes !== undefined) { setClauses.push(`totaldurationminutes=$${idx++}`); values.push(pendingData.totalDurationMinutes); }
-        if (pendingData.imageUrl !== undefined) { setClauses.push(`imageurl=$${idx++}`); values.push(pendingData.imageUrl); }
-        if (pendingData.skills !== undefined) { setClauses.push(`skills=$${idx++}`); values.push(JSON.stringify(pendingData.skills)); }
-        if (pendingData.requirements !== undefined) { setClauses.push(`requirements=$${idx++}`); values.push(JSON.stringify(pendingData.requirements)); }
+        if (pendingData.title !== undefined) {
+            setClauses.push(`title=$${idx++}`);
+            values.push(pendingData.title);
+        }
+        if (pendingData.description !== undefined) {
+            setClauses.push(`description=$${idx++}`);
+            values.push(pendingData.description);
+        }
+        if (pendingData.teacher !== undefined) {
+            setClauses.push(`teacher=$${idx++}`);
+            values.push(pendingData.teacher);
+        }
+        if (pendingData.category !== undefined) {
+            setClauses.push(`category=$${idx++}`);
+            values.push(pendingData.category);
+        }
+        if (pendingData.lectures !== undefined) {
+            setClauses.push(`lectures=$${idx++}`);
+            values.push(pendingData.lectures);
+        }
+        if (pendingData.students !== undefined) {
+            setClauses.push(`students=$${idx++}`);
+            values.push(pendingData.students);
+        }
+        if (pendingData.rating !== undefined) {
+            setClauses.push(`rating=$${idx++}`);
+            values.push(pendingData.rating);
+        }
+        if (pendingData.price !== undefined) {
+            setClauses.push(`price=$${idx++}`);
+            values.push(pendingData.price);
+        }
+        if (pendingData.createdAt !== undefined) {
+            setClauses.push(`created_at=$${idx++}`);
+            values.push(new Date(pendingData.createdAt));
+        }
+        if (pendingData.ratingCount !== undefined) {
+            setClauses.push(`ratingcount=$${idx++}`);
+            values.push(pendingData.ratingCount);
+        }
+        if (pendingData.totalDurationMinutes !== undefined) {
+            setClauses.push(`totaldurationminutes=$${idx++}`);
+            values.push(pendingData.totalDurationMinutes);
+        }
+        if (pendingData.imageUrl !== undefined) {
+            setClauses.push(`imageurl=$${idx++}`);
+            values.push(pendingData.imageUrl);
+        }
+        if (pendingData.skills !== undefined) {
+            setClauses.push(`skills=$${idx++}`);
+            values.push(JSON.stringify(pendingData.skills));
+        }
+        if (pendingData.requirements !== undefined) {
+            setClauses.push(`requirements=$${idx++}`);
+            values.push(JSON.stringify(pendingData.requirements));
+        }
 
         if (setClauses.length === 0) {
             // nothing to apply
             // mark edit approved anyway
-            await db.none(`UPDATE course SET is_edit_approved = true WHERE course_id = $1`, [courseId]);
-            await db.none(`UPDATE course_pending_edits SET status='APPROVED' WHERE id = $1`, [pending.id]);
-            return res.send({ success:true, message: "No fields to apply. Marked approved." });
+            await db.none(
+                `UPDATE course SET is_edit_approved = true WHERE course_id = $1`,
+                [courseId]
+            );
+            await db.none(
+                `UPDATE course_pending_edits SET status='APPROVED' WHERE id = $1`,
+                [pending.id]
+            );
+            return res.send({
+                success: true,
+                message: "No fields to apply. Marked approved.",
+            });
         }
 
-        const sql = `UPDATE course SET ${setClauses.join(", ")}, is_edit_approved = true WHERE course_id = $${idx} RETURNING *`;
+        const sql = `UPDATE course SET ${setClauses.join(
+            ", "
+        )}, is_edit_approved = true WHERE course_id = $${idx} RETURNING *`;
         values.push(courseId);
         const updated = await db.one(sql, values);
 
         // mark pending as approved
-        await db.none(`UPDATE course_pending_edits SET status='APPROVED' WHERE id = $1`, [pending.id]);
+        await db.none(
+            `UPDATE course_pending_edits SET status='APPROVED' WHERE id = $1`,
+            [pending.id]
+        );
 
-        res.send({ success:true, data: transformCourseRow(updated) });
+        res.send({ success: true, data: transformCourseRow(updated) });
     } catch (err) {
         console.error(err);
-        res.status(500).send({ success:false, message:"Lỗi khi duyệt chỉnh sửa" });
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi duyệt chỉnh sửa",
+        });
     }
 });
 
 // Reject pending edit (admin)
 app.post("/course/:id/reject-edit", authMiddleware, async (req, res) => {
     try {
-        const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-        if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+        const role =
+            req.user && req.user.role
+                ? String(req.user.role).toUpperCase()
+                : null;
+        if (role !== "ADMIN")
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
 
         const courseId = parseInt(req.params.id, 10);
         const pending = await getPendingEdit(courseId);
-        if (!pending) return res.status(404).send({ success:false, message:"No pending edit" });
+        if (!pending)
+            return res
+                .status(404)
+                .send({ success: false, message: "No pending edit" });
 
         // delete pending or mark rejected
-        await db.none(`UPDATE course_pending_edits SET status='REJECTED' WHERE id = $1`, [pending.id]);
+        await db.none(
+            `UPDATE course_pending_edits SET status='REJECTED' WHERE id = $1`,
+            [pending.id]
+        );
         // reset is_edit_approved true (published stays)
-        await db.none(`UPDATE course SET is_edit_approved = true WHERE course_id = $1`, [courseId]);
+        await db.none(
+            `UPDATE course SET is_edit_approved = true WHERE course_id = $1`,
+            [courseId]
+        );
 
-        res.send({ success:true, message: "Đã từ chối chỉnh sửa" });
+        res.send({ success: true, message: "Đã từ chối chỉnh sửa" });
     } catch (err) {
         console.error(err);
-        res.status(500).send({ success:false, message:"Lỗi khi từ chối chỉnh sửa" });
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi từ chối chỉnh sửa",
+        });
     }
 });
-
-
 
 // GET current user by token
 app.get("/auth/me", authMiddleware, async (req, res) => {
@@ -1124,88 +1248,92 @@ app.post("/course", upload.single("courseAvatar"), async (req, res) => {
 });
 
 app.get("/course", async (req, res) => {
-  try {
-    const {
-      teacher,
-      query,
-      sort = "AZ",
-      limit,
-      include_unapproved
-    } = req.query;
+    try {
+        const {
+            teacher,
+            query,
+            sort = "AZ",
+            limit,
+            include_unapproved,
+        } = req.query;
 
-    let where = [];
-    let values = [];
-    let idx = 1;
+        let where = [];
+        let values = [];
+        let idx = 1;
 
-    // chỉ course đã duyệt (student)
-    if (include_unapproved !== "true") {
-      where.push(`is_approved = true`);
-    }
+        // chỉ course đã duyệt (student)
+        if (include_unapproved !== "true") {
+            where.push(`is_approved = true`);
+        }
 
-    if (teacher) {
-      where.push(`LOWER(teacher) = LOWER($${idx++})`);
-      values.push(teacher);
-    }
+        if (teacher) {
+            where.push(`LOWER(teacher) = LOWER($${idx++})`);
+            values.push(teacher);
+        }
 
-    if (query) {
-      where.push(`(
+        if (query) {
+            where.push(`(
         LOWER(title) LIKE LOWER($${idx})
         OR LOWER(teacher) LIKE LOWER($${idx})
       )`);
-      values.push(`%${query}%`);
-      idx++;
-    }
+            values.push(`%${query}%`);
+            idx++;
+        }
 
-    let orderBy = "ORDER BY title ASC";
-    switch (sort) {
-      case "ZA":
-        orderBy = "ORDER BY title DESC";
-        break;
-      case "RATING_UP":
-        orderBy = "ORDER BY rating ASC";
-        break;
-      case "RATING_DOWN":
-        orderBy = "ORDER BY rating DESC";
-        break;
-    }
+        let orderBy = "ORDER BY title ASC";
+        switch (sort) {
+            case "ZA":
+                orderBy = "ORDER BY title DESC";
+                break;
+            case "RATING_UP":
+                orderBy = "ORDER BY rating ASC";
+                break;
+            case "RATING_DOWN":
+                orderBy = "ORDER BY rating DESC";
+                break;
+        }
 
-    let limitSql = "";
-    if (limit && Number.isFinite(+limit)) {
-      limitSql = `LIMIT ${parseInt(limit, 10)}`;
-    }
+        let limitSql = "";
+        if (limit && Number.isFinite(+limit)) {
+            limitSql = `LIMIT ${parseInt(limit, 10)}`;
+        }
 
-    const sql = `
+        const sql = `
       SELECT * FROM course
       ${where.length ? "WHERE " + where.join(" AND ") : ""}
       ${orderBy}
       ${limitSql}
     `;
 
-    const rows = await db.any(sql, values);
-    res.send({ success: true, data: rows.map(transformCourseRow) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ success: false, message: "Lỗi lấy course" });
-  }
+        const rows = await db.any(sql, values);
+        res.send({ success: true, data: rows.map(transformCourseRow) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Lỗi lấy course" });
+    }
 });
 
 app.get("/course/:id/related", async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId)) {
-      return res.status(400).send({ success:false, message:"Invalid id" });
-    }
+    try {
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId)) {
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid id" });
+        }
 
-    const base = await db.oneOrNone(
-      "SELECT * FROM course WHERE course_id=$1 AND is_approved=true",
-      [courseId]
-    );
-    if (!base) {
-      return res.status(404).send({ success:false, message:"Course not found" });
-    }
+        const base = await db.oneOrNone(
+            "SELECT * FROM course WHERE course_id=$1 AND is_approved=true",
+            [courseId]
+        );
+        if (!base) {
+            return res
+                .status(404)
+                .send({ success: false, message: "Course not found" });
+        }
 
-    const rows = await db.any(
-      `
+        const rows = await db.any(
+            `
       SELECT * FROM course
       WHERE is_approved = true
         AND course_id != $1
@@ -1214,30 +1342,39 @@ app.get("/course/:id/related", async (req, res) => {
           OR category && string_to_array($3, ',')
         )
       `,
-      [courseId, base.teacher, base.category]
-    );
+            [courseId, base.teacher, base.category]
+        );
 
-    res.send({
-      success: true,
-      data: rows.map(transformCourseRow),
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ success:false, message:"Lỗi related courses" });
-  }
+        res.send({
+            success: true,
+            data: rows.map(transformCourseRow),
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi related courses",
+        });
+    }
 });
-
-
 
 app.get("/course/:id", async (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
         if (!Number.isFinite(id))
-            return res.status(400).send({ success: false, message: "Invalid course id" });
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
         const include_pending = req.query.include_pending === "true";
-        const course = await db.oneOrNone("SELECT * FROM course WHERE course_id = $1", [id]);
-        if (!course) return res.status(404).send({ success:false, message: "Course not found" });
+        const course = await db.oneOrNone(
+            "SELECT * FROM course WHERE course_id = $1",
+            [id]
+        );
+        if (!course)
+            return res
+                .status(404)
+                .send({ success: false, message: "Course not found" });
 
         const result = transformCourseRow(course);
         if (include_pending) {
@@ -1247,196 +1384,357 @@ app.get("/course/:id", async (req, res) => {
         res.send({ success: true, data: result });
     } catch (err) {
         console.error(err);
-        res.status(500).send({ success: false, message: "Lỗi lấy chi tiết khóa học" });
+        res.status(500).send({
+            success: false,
+            message: "Lỗi lấy chi tiết khóa học",
+        });
     }
 });
-
 
 // UPDATE -> create/update pending edit (teacher chỉnh)
-app.patch("/course/:id", upload.single("courseAvatar"), authMiddleware, async (req, res) => {
-    try {
-        const id = parseInt(req.params.id, 10);
-        if (!Number.isFinite(id))
-            return res.status(400).send({ success: false, message: "Invalid course id" });
+app.patch(
+    "/course/:id",
+    upload.single("courseAvatar"),
+    authMiddleware,
+    async (req, res) => {
+        try {
+            const id = parseInt(req.params.id, 10);
+            if (!Number.isFinite(id))
+                return res
+                    .status(400)
+                    .send({ success: false, message: "Invalid course id" });
 
-        const payload = req.body || {};
-        // Build pending object from provided fields (only keep changed fields)
-        const pending = {};
+            const payload = req.body || {};
+            // Build pending object from provided fields (only keep changed fields)
+            const pending = {};
 
-        // include image if new upload
-        if (req.file) {
-            pending.imageUrl = `/uploads/${req.file.filename}`;
-        } else if (payload.imageUrl || payload.imageurl) {
-            pending.imageUrl = payload.imageUrl || payload.imageurl;
-        }
-
-        // copy only fields provided (teacher may send partial)
-        const optionalFields = ["title","description","teacher","category","lectures","students","rating","price","createdAt","ratingCount","totalDurationMinutes","skills","requirements"];
-        optionalFields.forEach(k => {
-            if (payload[k] !== undefined && payload[k] !== "") {
-                // try parse numeric fields
-                if (["lectures","students","ratingCount","totalDurationMinutes"].includes(k)) {
-                    pending[k] = Number.isFinite(Number(payload[k])) ? Number(payload[k]) : payload[k];
-                } else if (k === "rating" || k === "price") {
-                    pending[k] = payload[k] !== undefined ? parseFloat(payload[k]) : payload[k];
-                } else if (k === "skills" || k === "requirements") {
-                    // accept JSON array string or CSV -> use parseMaybeArrayField helper
-                    pending[k] = parseMaybeArrayField(payload[k]);
-                } else {
-                    pending[k] = payload[k];
-                }
+            // include image if new upload
+            if (req.file) {
+                pending.imageUrl = `/uploads/${req.file.filename}`;
+            } else if (payload.imageUrl || payload.imageurl) {
+                pending.imageUrl = payload.imageUrl || payload.imageurl;
             }
-        });
 
-        // ensure pending not empty
-        if (Object.keys(pending).length === 0) {
-            return res.status(400).send({ success:false, message: "Không có thay đổi được gửi lên" });
+            // copy only fields provided (teacher may send partial)
+            const optionalFields = [
+                "title",
+                "description",
+                "teacher",
+                "category",
+                "lectures",
+                "students",
+                "rating",
+                "price",
+                "createdAt",
+                "ratingCount",
+                "totalDurationMinutes",
+                "skills",
+                "requirements",
+            ];
+            optionalFields.forEach((k) => {
+                if (payload[k] !== undefined && payload[k] !== "") {
+                    // try parse numeric fields
+                    if (
+                        [
+                            "lectures",
+                            "students",
+                            "ratingCount",
+                            "totalDurationMinutes",
+                        ].includes(k)
+                    ) {
+                        pending[k] = Number.isFinite(Number(payload[k]))
+                            ? Number(payload[k])
+                            : payload[k];
+                    } else if (k === "rating" || k === "price") {
+                        pending[k] =
+                            payload[k] !== undefined
+                                ? parseFloat(payload[k])
+                                : payload[k];
+                    } else if (k === "skills" || k === "requirements") {
+                        // accept JSON array string or CSV -> use parseMaybeArrayField helper
+                        pending[k] = parseMaybeArrayField(payload[k]);
+                    } else {
+                        pending[k] = payload[k];
+                    }
+                }
+            });
+
+            // ensure pending not empty
+            if (Object.keys(pending).length === 0) {
+                return res
+                    .status(400)
+                    .send({
+                        success: false,
+                        message: "Không có thay đổi được gửi lên",
+                    });
+            }
+
+            // Ensure course exists
+            const existing = await db.oneOrNone(
+                "SELECT * FROM course WHERE course_id = $1",
+                [id]
+            );
+            if (!existing)
+                return res
+                    .status(404)
+                    .send({ success: false, message: "Course not found" });
+
+            // Save pending
+            const userId = req.user ? req.user.userId : null;
+            const saved = await upsertCoursePendingEdit(id, pending, userId);
+
+            // Mark course as having pending edit (is_edit_approved = false)
+            await db.none(
+                `UPDATE course SET is_edit_approved = false WHERE course_id = $1`,
+                [id]
+            );
+
+            return res.send({
+                success: true,
+                message: "Thay đổi đã được lưu chờ duyệt",
+                data: saved,
+            });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send({
+                success: false,
+                message: "Lỗi khi lưu thay đổi",
+            });
         }
-
-        // Ensure course exists
-        const existing = await db.oneOrNone("SELECT * FROM course WHERE course_id = $1", [id]);
-        if (!existing) return res.status(404).send({ success:false, message:"Course not found" });
-
-        // Save pending
-        const userId = req.user ? req.user.userId : null;
-        const saved = await upsertCoursePendingEdit(id, pending, userId);
-
-        // Mark course as having pending edit (is_edit_approved = false)
-        await db.none(`UPDATE course SET is_edit_approved = false WHERE course_id = $1`, [id]);
-
-        return res.send({ success:true, message: "Thay đổi đã được lưu chờ duyệt", data: saved });
-    } catch (err) {
-        console.error(err);
-        res.status(500).send({ success:false, message: "Lỗi khi lưu thay đổi" });
     }
-});
+);
 
 // GET students of a course (teacher/admin)
 app.get("/course/:id/students", authMiddleware, async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId))
-      return res.status(400).send({ success:false, message:"Invalid course id" });
+    try {
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId))
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
-    // If course_student table doesn't exist, return empty list
-    const rows = await db.any(
-      `SELECT cs.user_id, cs.enrolled_at, u.username as name, u.email
+        // If course_student table doesn't exist, return empty list
+        const rows = await db.any(
+            `SELECT cs.user_id, cs.enrolled_at, u.username as name, u.email
        FROM course_student cs
        LEFT JOIN appuser u ON u.user_id = cs.user_id
        WHERE cs.course_id = $1
        ORDER BY cs.enrolled_at DESC`,
-      [courseId]
-    );
+            [courseId]
+        );
 
-    res.send({ success:true, data: rows });
-  } catch (err) {
-    console.error("GET /course/:id/students error", err);
-    res.status(500).send({ success:false, message:"Lỗi khi lấy danh sách học viên" });
-  }
+        res.send({ success: true, data: rows });
+    } catch (err) {
+        console.error("GET /course/:id/students error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi lấy danh sách học viên",
+        });
+    }
+});
+
+// Enroll student into course (after PURCHASED)
+app.post("/course/:id/enroll", authMiddleware, async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.id, 10);
+        const userId = req.user.userId;
+
+        if (!Number.isFinite(courseId)) {
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
+        }
+
+        // check already enrolled
+        const existed = await db.oneOrNone(
+            `SELECT 1 FROM course_student WHERE course_id = $1 AND user_id = $2`,
+            [courseId, userId]
+        );
+
+        if (existed) {
+            return res.send({
+                success: true,
+                message: "User already enrolled",
+            });
+        }
+
+        await db.none(
+            `INSERT INTO course_student(course_id, user_id, enrolled_at)
+       VALUES($1,$2,NOW())`,
+            [courseId, userId]
+        );
+
+        res.send({
+            success: true,
+            message: "Enroll thành công",
+        });
+    } catch (err) {
+        console.error("POST /course/:id/enroll error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi enroll học viên",
+        });
+    }
 });
 
 // Recalculate rating for a course from course_review table (admin or background job)
 app.post("/course/:id/recalculate-rating", authMiddleware, async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId)) return res.status(400).send({ success:false, message:"Invalid course id" });
+    try {
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId))
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
-    // optional auth check (allow admin or system)
-    // const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-    // if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+        // optional auth check (allow admin or system)
+        // const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
+        // if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
 
-    // aggregate from course_review table if exists
-    const stats = await db.oneOrNone(
-      `SELECT COUNT(*)::int as cnt, COALESCE(AVG(rating),0)::float as avg
+        // aggregate from course_review table if exists
+        const stats = await db.oneOrNone(
+            `SELECT COUNT(*)::int as cnt, COALESCE(AVG(rating),0)::float as avg
        FROM course_review WHERE course_id = $1`,
-      [courseId]
-    );
+            [courseId]
+        );
 
-    if (!stats || stats.cnt === 0) {
-      // no reviews -> set 0 or skip update
-      await db.none(`UPDATE course SET rating = 0, ratingcount = 0 WHERE course_id = $1`, [courseId]);
-      return res.send({ success:true, message:"Rating reset to 0 (no reviews)", data: { rating:0, ratingCount:0 } });
+        if (!stats || stats.cnt === 0) {
+            // no reviews -> set 0 or skip update
+            await db.none(
+                `UPDATE course SET rating = 0, ratingcount = 0 WHERE course_id = $1`,
+                [courseId]
+            );
+            return res.send({
+                success: true,
+                message: "Rating reset to 0 (no reviews)",
+                data: { rating: 0, ratingCount: 0 },
+            });
+        }
+
+        await db.none(
+            `UPDATE course SET rating = $1, ratingcount = $2 WHERE course_id = $3`,
+            [stats.avg, stats.cnt, courseId]
+        );
+
+        const updated = await db.one(
+            `SELECT * FROM course WHERE course_id = $1`,
+            [courseId]
+        );
+        res.send({ success: true, data: transformCourseRow(updated) });
+    } catch (err) {
+        console.error("POST /course/:id/recalculate-rating error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi tính lại rating",
+        });
     }
-
-    await db.none(`UPDATE course SET rating = $1, ratingcount = $2 WHERE course_id = $3`, [stats.avg, stats.cnt, courseId]);
-
-    const updated = await db.one(`SELECT * FROM course WHERE course_id = $1`, [courseId]);
-    res.send({ success:true, data: transformCourseRow(updated) });
-  } catch (err) {
-    console.error("POST /course/:id/recalculate-rating error", err);
-    res.status(500).send({ success:false, message:"Lỗi khi tính lại rating" });
-  }
 });
-
 
 // === REPLACE existing DELETE /course/:id handler with "request delete" + admin approve/reject ===
 
 // Teacher requests delete (soft request) -> mark delete_requested & set is_edit_approved = false
 app.post("/course/:id/request-delete", authMiddleware, async (req, res) => {
-  try {
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId))
-      return res.status(400).send({ success:false, message:"Invalid course id" });
+    try {
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId))
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
-    // Optionally: check permission: teacher owns course or admin can request on behalf
-    // Here we just mark request-delete
-    await db.none(
-      `UPDATE course SET is_delete_requested = true, is_edit_approved = false WHERE course_id = $1`,
-      [courseId]
-    );
+        // Optionally: check permission: teacher owns course or admin can request on behalf
+        // Here we just mark request-delete
+        await db.none(
+            `UPDATE course SET is_delete_requested = true, is_edit_approved = false WHERE course_id = $1`,
+            [courseId]
+        );
 
-    res.send({ success:true, message: "Yêu cầu xóa đã được ghi nhận. Chờ admin duyệt." });
-  } catch (err) {
-    console.error("POST /course/:id/request-delete error", err);
-    res.status(500).send({ success:false, message:"Lỗi khi gửi yêu cầu xóa" });
-  }
+        res.send({
+            success: true,
+            message: "Yêu cầu xóa đã được ghi nhận. Chờ admin duyệt.",
+        });
+    } catch (err) {
+        console.error("POST /course/:id/request-delete error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi gửi yêu cầu xóa",
+        });
+    }
 });
 
 // Admin approves & permanently deletes the course
 app.post("/course/:id/approve-delete", authMiddleware, async (req, res) => {
-  try {
-    const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-    if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+    try {
+        const role =
+            req.user && req.user.role
+                ? String(req.user.role).toUpperCase()
+                : null;
+        if (role !== "ADMIN")
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
 
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId))
-      return res.status(400).send({ success:false, message:"Invalid course id" });
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId))
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
-    const deleted = await db.oneOrNone(
-      "DELETE FROM course WHERE course_id = $1 RETURNING *",
-      [courseId]
-    );
-    if (!deleted) return res.status(404).send({ success:false, message:"Course not found" });
+        const deleted = await db.oneOrNone(
+            "DELETE FROM course WHERE course_id = $1 RETURNING *",
+            [courseId]
+        );
+        if (!deleted)
+            return res
+                .status(404)
+                .send({ success: false, message: "Course not found" });
 
-    // Also cleanup pending edits
-    await db.none("DELETE FROM course_pending_edits WHERE course_id = $1", [courseId]);
+        // Also cleanup pending edits
+        await db.none("DELETE FROM course_pending_edits WHERE course_id = $1", [
+            courseId,
+        ]);
 
-    res.send({ success:true, message:"Course permanently deleted", data: transformCourseRow(deleted) });
-  } catch (err) {
-    console.error("POST /course/:id/approve-delete error", err);
-    res.status(500).send({ success:false, message:"Lỗi khi duyệt xóa" });
-  }
+        res.send({
+            success: true,
+            message: "Course permanently deleted",
+            data: transformCourseRow(deleted),
+        });
+    } catch (err) {
+        console.error("POST /course/:id/approve-delete error", err);
+        res.status(500).send({ success: false, message: "Lỗi khi duyệt xóa" });
+    }
 });
 
 // Admin rejects delete request -> clear flag, set edit_approved true to restore
 app.post("/course/:id/reject-delete", authMiddleware, async (req, res) => {
-  try {
-    const role = (req.user && req.user.role) ? String(req.user.role).toUpperCase() : null;
-    if (role !== "ADMIN") return res.status(403).send({ success:false, message:"Chỉ admin" });
+    try {
+        const role =
+            req.user && req.user.role
+                ? String(req.user.role).toUpperCase()
+                : null;
+        if (role !== "ADMIN")
+            return res
+                .status(403)
+                .send({ success: false, message: "Chỉ admin" });
 
-    const courseId = parseInt(req.params.id, 10);
-    if (!Number.isFinite(courseId))
-      return res.status(400).send({ success:false, message:"Invalid course id" });
+        const courseId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(courseId))
+            return res
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
 
-    await db.none(`UPDATE course SET is_delete_requested = false, is_edit_approved = true WHERE course_id = $1`, [courseId]);
+        await db.none(
+            `UPDATE course SET is_delete_requested = false, is_edit_approved = true WHERE course_id = $1`,
+            [courseId]
+        );
 
-    res.send({ success:true, message:"Yêu cầu xóa đã bị từ chối" });
-  } catch (err) {
-    console.error("POST /course/:id/reject-delete error", err);
-    res.status(500).send({ success:false, message:"Lỗi khi từ chối xóa" });
-  }
+        res.send({ success: true, message: "Yêu cầu xóa đã bị từ chối" });
+    } catch (err) {
+        console.error("POST /course/:id/reject-delete error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi khi từ chối xóa",
+        });
+    }
 });
-
 
 // RECORD PURCHASE (increment students)
 app.post("/course/:id/purchase", async (req, res) => {
@@ -1480,12 +1778,10 @@ app.get("/cart/:userId", async (req, res) => {
     try {
         const enumVals = await getEnumValues();
         if (!enumVals || enumVals.length === 0) {
-            return res
-                .status(500)
-                .send({
-                    success: false,
-                    message: "Enum course_payment_status_enum không tồn tại",
-                });
+            return res.status(500).send({
+                success: false,
+                message: "Enum course_payment_status_enum không tồn tại",
+            });
         }
         const items = await db.any(
             "SELECT * FROM course_payment_status WHERE user_id=$1 ORDER BY created_at DESC",
@@ -1512,12 +1808,10 @@ app.post("/cart/add", async (req, res) => {
     try {
         const enumVals = await getEnumValues();
         if (!enumVals.includes("IN_CART")) {
-            return res
-                .status(500)
-                .send({
-                    success: false,
-                    message: "Enum không có IN_CART",
-                });
+            return res.status(500).send({
+                success: false,
+                message: "Enum không có IN_CART",
+            });
         }
 
         const rec = await getCartRecord(userId, courseId);
@@ -1536,12 +1830,10 @@ app.post("/cart/add", async (req, res) => {
         }
 
         if (rec.status === "PURCHASED") {
-            return res
-                .status(400)
-                .send({
-                    success: false,
-                    message: "Đã thanh toán, không thể add",
-                });
+            return res.status(400).send({
+                success: false,
+                message: "Đã thanh toán, không thể add",
+            });
         }
         if (rec.status === "IN_CART") {
             return res.send({
@@ -1567,12 +1859,10 @@ app.post("/cart/add", async (req, res) => {
                 data: updated,
             });
         } else {
-            return res
-                .status(400)
-                .send({
-                    success: false,
-                    message: `Không thể chuyển ${rec.status} -> IN_CART`,
-                });
+            return res.status(400).send({
+                success: false,
+                message: `Không thể chuyển ${rec.status} -> IN_CART`,
+            });
         }
     } catch (err) {
         console.error("POST /cart/add error", err);
@@ -1600,12 +1890,10 @@ app.post("/cart/remove", async (req, res) => {
 
         // Nếu đã PURCHASED -> không thể remove khỏi giỏ (đã mua rồi)
         if (rec.status === "PURCHASED")
-            return res
-                .status(400)
-                .send({
-                    success: false,
-                    message: "Không thể remove khóa học đã thanh toán",
-                });
+            return res.status(400).send({
+                success: false,
+                message: "Không thể remove khóa học đã thanh toán",
+            });
 
         // Nếu đang ở IN_CART -> revert về NOT_PURCHASED (giữ record để lưu price_snapshot nếu cần)
         if (rec.status === "IN_CART") {
@@ -1635,7 +1923,6 @@ app.post("/cart/remove", async (req, res) => {
             .send({ success: false, message: "Lỗi server khi remove" });
     }
 });
-
 
 // Checkout (thanh toán) - chuyển status -> PURCHASED cho list khóa học
 // POST /cart/checkout  body: { userId, courseIds: [1,2,3] }
@@ -1669,6 +1956,23 @@ app.post("/cart/checkout", async (req, res) => {
                         `INSERT INTO course_payment_status (user_id, course_id, status) VALUES($1,$2,$3) RETURNING *`,
                         [userId, cid, "PURCHASED"]
                     );
+
+                    // enroll user to course
+                    await t.none(
+                        `INSERT INTO course_student(course_id, user_id, enrolled_at)
+   VALUES($1,$2,NOW())
+   ON CONFLICT DO NOTHING`,
+                        [cid, userId]
+                    );
+
+                    // increment students
+                    await t.none(
+                        `UPDATE course
+   SET students = COALESCE(students,0) + 1
+   WHERE course_id = $1`,
+                        [cid]
+                    );
+
                     out.push({
                         courseId: cid,
                         note: "Inserted as PURCHASED",
@@ -1692,7 +1996,11 @@ app.post("/cart/checkout", async (req, res) => {
                         `UPDATE course_payment_status SET status=$1 WHERE user_id=$2 AND course_id=$3 RETURNING *`,
                         ["PURCHASED", userId, cid]
                     );
-                    out.push({ courseId: cid, note: "Set to PURCHASED", item: upd });
+                    out.push({
+                        courseId: cid,
+                        note: "Set to PURCHASED",
+                        item: upd,
+                    });
                 } else {
                     out.push({
                         courseId: cid,
