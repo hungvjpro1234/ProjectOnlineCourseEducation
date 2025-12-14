@@ -21,11 +21,6 @@
         android:title="Phê duyệt" />
 
     <item
-        android:id="@+id/nav_notifications"
-        android:icon="@drawable/notification"
-        android:title="Thông báo" />
-
-    <item
         android:id="@+id/nav_profile"
         android:icon="@drawable/ic_person_profile"
         android:title="Thông tin" />

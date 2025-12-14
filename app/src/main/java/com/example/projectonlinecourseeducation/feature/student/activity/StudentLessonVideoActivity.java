@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
+import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
@@ -29,6 +30,8 @@ import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgre
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 import com.example.projectonlinecourseeducation.data.network.SessionManager;
+import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
+import com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCommentAdapter;
 import com.google.android.material.button.MaterialButton;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants;
@@ -648,6 +651,9 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             // Scroll lên đầu để xem bình luận mới
             rvComments.smoothScrollToPosition(0);
 
+            // 🔔 TẠO THÔNG BÁO CHO TEACHER khi student comment
+            createNotificationForTeacher(newComment, currentUser);
+
             Toast.makeText(this, "Đã gửi bình luận", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this, "Không thể gửi bình luận", Toast.LENGTH_SHORT).show();
@@ -695,6 +701,37 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this, "Không thể xóa bình luận", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Tạo thông báo cho teacher khi student comment
+     */
+    private void createNotificationForTeacher(LessonComment newComment, User student) {
+        try {
+            // Lấy thông tin course để có course title và teacher name
+            Course course = ApiProvider.getCourseApi().getCourseDetail(courseId);
+            if (course == null || lesson == null) return;
+
+            // 🔔 Tạo thông báo cho teacher
+            // NOTE: Vì Course model không có teacherId, dùng helper method map tên → userId
+            // Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
+            NotificationApi notificationApi = ApiProvider.getNotificationApi();
+            String teacherId = ((NotificationFakeApiService) notificationApi)
+                    .getTeacherIdByName(course.getTeacher());
+
+            notificationApi.createStudentLessonCommentNotification(
+                    teacherId,              // teacherId - map từ teacher name
+                    student.getName(),      // tên student
+                    lessonId,               // ID bài học
+                    lesson.getTitle(),      // tên bài học
+                    courseId,               // ID khóa học
+                    course.getTitle(),      // tên khóa học
+                    newComment.getId()      // ID comment
+            );
+        } catch (Exception e) {
+            // Không crash app nếu tạo notification thất bại
+            e.printStackTrace();
         }
     }
 

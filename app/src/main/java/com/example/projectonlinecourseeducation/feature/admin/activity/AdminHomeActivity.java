@@ -55,8 +55,6 @@ public class AdminHomeActivity extends AppCompatActivity {
                 selectedFragment = new AdminCourseManagementFragment();
             } else if (itemId == R.id.nav_course_approval) {
                 selectedFragment = new AdminCourseApprovalFragment();
-            } else if (itemId == R.id.nav_notifications) {
-                selectedFragment = new AdminNotificationsFragment();
             } else if (itemId == R.id.nav_profile) {
                 selectedFragment = new AdminProfileFragment();
             }

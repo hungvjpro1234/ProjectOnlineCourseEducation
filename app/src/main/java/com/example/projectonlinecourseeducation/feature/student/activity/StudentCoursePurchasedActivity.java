@@ -511,6 +511,9 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 // OPTIONAL: if you want optimistic update, you could append to adapter here,
                 // but to avoid duplication we rely on the listener notify path.
 
+                // 🔔 TẠO THÔNG BÁO CHO TEACHER khi student review course
+                createNotificationForTeacher(newReview, rating, studentName);
+
             } else {
                 Toast.makeText(this, "Lỗi khi gửi đánh giá. Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
             }
@@ -526,5 +529,34 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
         intent.putExtra("open_my_course", true);
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * Tạo thông báo cho teacher khi student review course
+     */
+    private void createNotificationForTeacher(CourseReview newReview, float rating, String studentName) {
+        try {
+            if (currentCourse == null) return;
+
+            // 🔔 Tạo thông báo cho teacher
+            // NOTE: Vì Course model không có teacherId, dùng helper method map tên → userId
+            // Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
+            com.example.projectonlinecourseeducation.data.notification.NotificationApi notificationApi =
+                    ApiProvider.getNotificationApi();
+            String teacherId = ((com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService) notificationApi)
+                    .getTeacherIdByName(currentCourse.getTeacher());
+
+            notificationApi.createStudentCourseReviewNotification(
+                    teacherId,                  // teacherId - map từ teacher name
+                    studentName,                // tên student
+                    courseId,                   // ID khóa học
+                    currentCourse.getTitle(),   // tên khóa học
+                    newReview.getId(),          // ID review
+                    rating                      // rating (1-5 sao)
+            );
+        } catch (Exception e) {
+            // Không crash app nếu tạo notification thất bại
+            e.printStackTrace();
+        }
     }
 }
