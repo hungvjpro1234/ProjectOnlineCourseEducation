@@ -329,6 +329,43 @@ app.get("/admin/users", authMiddleware, async (req, res) => {
     }
 });
 
+// ADMIN: get purchased courses of a specific user
+app.get("/admin/my-courses/:userId", authMiddleware, async (req, res) => {
+    try {
+        if (req.user.role !== "ADMIN") {
+            return res.status(403).send({
+                success: false,
+                message: "Chỉ ADMIN",
+            });
+        }
+
+        const userId = req.params.userId;
+
+        const rows = await db.any(
+            `
+            SELECT c.*
+            FROM course_student cs
+            JOIN course c ON c.course_id = cs.course_id
+            WHERE cs.user_id = $1
+            ORDER BY cs.enrolled_at DESC
+            `,
+            [userId]
+        );
+
+        return res.send({
+            success: true,
+            data: rows.map(transformCourseRow),
+        });
+    } catch (err) {
+        console.error("GET /admin/my-courses/:userId error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi lấy my courses cho user",
+        });
+    }
+});
+
+
 app.get("/", (req, res) => {
     res.send("Hello World");
 });
@@ -1046,6 +1083,38 @@ app.get("/auth/me", authMiddleware, async (req, res) => {
     }
 });
 
+// ================= MY COURSES =================
+
+// Get my purchased courses (current user)
+app.get("/my-courses", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const rows = await db.any(
+            `
+            SELECT c.*
+            FROM course_student cs
+            JOIN course c ON c.course_id = cs.course_id
+            WHERE cs.user_id = $1
+            ORDER BY cs.enrolled_at DESC
+            `,
+            [userId]
+        );
+
+        return res.send({
+            success: true,
+            data: rows.map(transformCourseRow),
+        });
+    } catch (err) {
+        console.error("GET /my-courses error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi lấy khóa học đã mua",
+        });
+    }
+});
+
+
 // PUT /auth/profile  => body: { newName, newEmail, newUsername }
 app.put("/auth/profile", authMiddleware, async (req, res) => {
     const { newName, newEmail, newUsername } = req.body;
@@ -1161,6 +1230,35 @@ app.post("/auth/change-password", authMiddleware, async (req, res) => {
         });
     }
 });
+
+// Check if current user purchased a course
+app.get("/my-courses/:courseId/status", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const courseId = parseInt(req.params.courseId, 10);
+
+        const existed = await db.oneOrNone(
+            `
+            SELECT 1
+            FROM course_student
+            WHERE user_id = $1 AND course_id = $2
+            `,
+            [userId, courseId]
+        );
+
+        return res.send({
+            success: true,
+            purchased: !!existed,
+        });
+    } catch (err) {
+        console.error("GET /my-courses/:id/status error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi kiểm tra trạng thái mua",
+        });
+    }
+});
+
 
 // CREATE
 app.post("/course", upload.single("courseAvatar"), async (req, res) => {
