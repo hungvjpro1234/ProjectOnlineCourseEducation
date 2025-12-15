@@ -6,40 +6,84 @@ import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
 
 /**
- * Helper để xác định trạng thái của 1 khóa học đối với student hiện tại.
- * Trạng thái được suy ra từ MyCourseApi + CartApi,
- * không phải field cứng trong model Course.
+ * Async helper để xác định trạng thái của 1 khóa học
+ * (PURCHASED / IN_CART / NOT_PURCHASED)
+ *
+ * IMPORTANT:
+ * - BẮT BUỘC dùng async vì RemoteApiService gọi network
+ * - KHÔNG trả về giá trị trực tiếp
  */
 public class CourseStatusResolver {
 
+    public interface StatusCallback {
+        void onResult(CourseStatus status);
+    }
+
+    public interface BooleanCallback {
+        void onResult(boolean value);
+    }
+
     /**
-     * Suy ra trạng thái từ MyCourseApi + CartApi.
+     * Resolve course status ASYNC
      */
-    public static CourseStatus getStatus(String courseId) {
-        if (courseId == null) return CourseStatus.NOT_PURCHASED;
+    public static void resolveStatus(
+            String courseId,
+            StatusCallback callback
+    ) {
+        if (courseId == null) {
+            callback.onResult(CourseStatus.NOT_PURCHASED);
+            return;
+        }
 
         MyCourseApi myCourseApi = ApiProvider.getMyCourseApi();
-        if (myCourseApi != null && myCourseApi.isPurchased(courseId)) {
-            return CourseStatus.PURCHASED;
-        }
-
         CartApi cartApi = ApiProvider.getCartApi();
-        if (cartApi != null && cartApi.isInCart(courseId)) {
-            return CourseStatus.IN_CART;
-        }
 
-        return CourseStatus.NOT_PURCHASED;
+        // Chạy async để tránh ANR
+        AsyncApiHelper.execute(
+                () -> {
+                    // Ưu tiên PURCHASED
+                    if (myCourseApi != null && myCourseApi.isPurchased(courseId)) {
+                        return CourseStatus.PURCHASED;
+                    }
+
+                    if (cartApi != null && cartApi.isInCart(courseId)) {
+                        return CourseStatus.IN_CART;
+                    }
+
+                    return CourseStatus.NOT_PURCHASED;
+                },
+                new AsyncApiHelper.ApiCallback<CourseStatus>() {
+                    @Override
+                    public void onSuccess(CourseStatus status) {
+                        callback.onResult(status);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // fallback an toàn
+                        callback.onResult(CourseStatus.NOT_PURCHASED);
+                    }
+                }
+        );
     }
 
-    public static boolean isPurchased(String courseId) {
-        return getStatus(courseId) == CourseStatus.PURCHASED;
+    // ===== Convenience methods =====
+
+    public static void isPurchased(
+            String courseId,
+            BooleanCallback callback
+    ) {
+        resolveStatus(courseId, status ->
+                callback.onResult(status == CourseStatus.PURCHASED)
+        );
     }
 
-    public static boolean isInCart(String courseId) {
-        return getStatus(courseId) == CourseStatus.IN_CART;
-    }
-
-    public static boolean isNotPurchased(String courseId) {
-        return getStatus(courseId) == CourseStatus.NOT_PURCHASED;
+    public static void isInCart(
+            String courseId,
+            BooleanCallback callback
+    ) {
+        resolveStatus(courseId, status ->
+                callback.onResult(status == CourseStatus.IN_CART)
+        );
     }
 }

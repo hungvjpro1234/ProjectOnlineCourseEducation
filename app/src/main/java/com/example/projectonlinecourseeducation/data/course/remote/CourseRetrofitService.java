@@ -259,8 +259,49 @@ public interface CourseRetrofitService {
     Call<CourseApiResponse<List<Object>>> getEnrolledStudents(@Path("id") String courseId);
 
     // ============ MISSING BACKEND ENDPOINTS (TODO) ============
-    // Frontend có những methods này nhưng backend chưa implement:
-    // 1. GET /course/:id/related - Get related courses (same teacher or category)
-    // 2. POST /course/:id/reject-initial - Reject initial creation (delete unapproved course)
-    // 3. GET /course?query=XXX&sort=AZ&limit=10 - Search and sort (backend chỉ có teacher filter)
+    // ============ NEW BACKEND ENDPOINTS (2025-12) ============
+
+    /**
+     * GET /course/:id/related
+     * Get related courses (same teacher OR same category)
+     *
+     * Response: { success, data: List<CourseDto> }
+     */
+    @GET("course/{id}/related")
+    Call<CourseApiResponse<List<CourseDto>>> getRelatedCourses(
+            @Path("id") String courseId
+    );
+
+    /**
+     * POST /course/:id/reject-initial
+     * Admin rejects initial course creation (delete unapproved course)
+     *
+     * Response: { success, message }
+     */
+    @POST("course/{id}/reject-initial")
+    Call<CourseApiResponse<Object>> rejectInitialCreation(
+            @Path("id") String courseId
+    );
+
+    /**
+     * GET /course
+     * Advanced search + sort + limit (backend now supports)
+     *
+     * Query params:
+     * - query: search by title or teacher
+     * - sort: AZ | ZA | RATING_UP | RATING_DOWN
+     * - limit: number
+     * - teacher: optional
+     * - include_unapproved: "true" for admin
+     *
+     * Response: { success, data: List<CourseDto> }
+     */
+    @GET("course")
+    Call<CourseApiResponse<List<CourseDto>>> searchSortCourses(
+            @Query("query") String query,
+            @Query("sort") String sort,
+            @Query("limit") Integer limit,
+            @Query("teacher") String teacher,
+            @Query("include_unapproved") String includeUnapproved
+    );
 }

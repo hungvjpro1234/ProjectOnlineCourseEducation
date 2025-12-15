@@ -206,49 +206,16 @@ public class CartRemoteApiService implements CartApi {
 
     @Override
     public boolean removeFromCart(String courseId) {
-        Integer userId = getCurrentUserId();
-        if (userId == null || courseId == null) {
-            return false;
+        boolean success = removeFromCartInternal(courseId);
+        if (success) {
+            notifyListeners();
         }
-
-        try {
-            Integer courseIdInt = Integer.parseInt(courseId);
-            RemoveFromCartRequest request = new RemoveFromCartRequest(userId, courseIdInt);
-
-            Response<CartApiResponse<Void>> response =
-                    retrofitService.removeFromCart(request).execute();
-
-            if (response.isSuccessful() && response.body() != null) {
-                CartApiResponse<Void> apiResponse = response.body();
-                boolean success = apiResponse.isSuccess();
-
-                if (success) {
-                    notifyListeners();
-                } else {
-                    Log.w(TAG, "removeFromCart failed: " + apiResponse.getMessage());
-                }
-
-                return success;
-            } else {
-                Log.e(TAG, "removeFromCart HTTP error: " + response.code());
-                return false;
-            }
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Invalid course ID: " + courseId, e);
-            return false;
-        } catch (IOException e) {
-            Log.e(TAG, "Network error in removeFromCart", e);
-            return false;
-        } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in removeFromCart", e);
-            return false;
-        }
+        return success;
     }
+
 
     @Override
     public void clearCart() {
-        // NOTE: Backend doesn't have POST /cart/clear endpoint yet
-        // Workaround: Remove each item individually
 
         List<Course> cartCourses = getCartCourses();
         if (cartCourses.isEmpty()) {
@@ -256,8 +223,10 @@ public class CartRemoteApiService implements CartApi {
         }
 
         boolean anyRemoved = false;
+
         for (Course course : cartCourses) {
-            if (removeFromCart(course.getId())) {
+            boolean removed = removeFromCartInternal(course.getId());
+            if (removed) {
                 anyRemoved = true;
             }
         }
@@ -423,6 +392,34 @@ public class CartRemoteApiService implements CartApi {
         } catch (Exception e) {
             Log.e(TAG, "Unexpected error in checkout", e);
             return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Internal remove method - NO notify
+     * Used for batch operations (clearCart)
+     */
+    private boolean removeFromCartInternal(String courseId) {
+        Integer userId = getCurrentUserId();
+        if (userId == null || courseId == null) {
+            return false;
+        }
+
+        try {
+            Integer courseIdInt = Integer.parseInt(courseId);
+            RemoveFromCartRequest request =
+                    new RemoveFromCartRequest(userId, courseIdInt);
+
+            Response<CartApiResponse<Void>> response =
+                    retrofitService.removeFromCart(request).execute();
+
+            return response.isSuccessful()
+                    && response.body() != null
+                    && response.body().isSuccess();
+
+        } catch (Exception e) {
+            Log.e(TAG, "removeFromCartInternal error", e);
+            return false;
         }
     }
 }

@@ -1,11 +1,9 @@
-package com.example.projectonlinecourseeducation.data.course;
+package com.example.projectonlinecourseeducation.data.course.remote;
 
 import android.util.Log;
 
 import com.example.projectonlinecourseeducation.core.model.course.Course;
-import com.example.projectonlinecourseeducation.data.course.remote.CourseApiResponse;
-import com.example.projectonlinecourseeducation.data.course.remote.CourseDto;
-import com.example.projectonlinecourseeducation.data.course.remote.CourseRetrofitService;
+import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 
 import java.io.File;
@@ -75,54 +73,45 @@ public class CourseRemoteApiService implements CourseApi {
     }
 
     @Override
-    public List<Course> filterSearchSort(String categoryOrAll, String query, Sort sort, int limit) {
-        // NOTE: Backend doesn't support query/sort/limit yet
-        // Solution: Get all courses from listAll() and filter/sort on client side
+    public List<Course> filterSearchSort(
+            String categoryOrAll,
+            String query,
+            Sort sort,
+            int limit
+    ) {
+        boolean useBackend =
+                (query != null && !query.trim().isEmpty())
+                        || sort != Sort.AZ
+                        || limit > 0;
 
-        List<Course> allCourses = listAll();
-        String cat = categoryOrAll == null ? "All" : categoryOrAll;
-        String q = query == null ? "" : query.trim().toLowerCase();
+        // ================= BACKEND SEARCH =================
+        if (useBackend) {
+            try {
+                Response<CourseApiResponse<List<CourseDto>>> response =
+                        retrofitService.searchSortCourses(
+                                query != null && !query.trim().isEmpty() ? query.trim() : null,
+                                sort != null ? sort.name() : Sort.AZ.name(),
+                                limit > 0 ? limit : null,
+                                null, // teacher
+                                null  // include_unapproved
+                        ).execute();
 
-        List<Course> filtered = new ArrayList<>();
+                if (response.isSuccessful() && response.body() != null) {
+                    CourseApiResponse<List<CourseDto>> apiResponse = response.body();
+                    if (apiResponse.isSuccess() && apiResponse.getData() != null) {
+                        List<Course> courses = convertDtoListToCourseList(apiResponse.getData());
 
-        for (Course c : allCourses) {
-            // Filter by category
-            boolean catOk = cat.equals("All") || hasCategory(c.getCategory(), cat);
-
-            // Filter by search query
-            boolean matches = q.isEmpty()
-                    || (c.getTitle() != null && c.getTitle().toLowerCase().contains(q))
-                    || (c.getTeacher() != null && c.getTeacher().toLowerCase().contains(q));
-
-            if (catOk && matches) {
-                filtered.add(c);
+                        // Apply category filter locally (backend chưa support category)
+                        return filterByCategory(courses, categoryOrAll);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Backend search failed, fallback to local", e);
             }
         }
 
-        // Sort
-        Comparator<Course> comparator;
-        switch (sort) {
-            case ZA:
-                comparator = (a, b) -> b.getTitle().compareToIgnoreCase(a.getTitle());
-                break;
-            case RATING_UP:
-                comparator = (a, b) -> Double.compare(a.getRating(), b.getRating());
-                break;
-            case RATING_DOWN:
-                comparator = (a, b) -> Double.compare(b.getRating(), a.getRating());
-                break;
-            case AZ:
-            default:
-                comparator = (a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle());
-        }
-        filtered.sort(comparator);
-
-        // Limit
-        if (limit > 0 && filtered.size() > limit) {
-            return new ArrayList<>(filtered.subList(0, limit));
-        }
-
-        return filtered;
+        // ================= FALLBACK: CLIENT SIDE =================
+        return filterSearchSortClient(categoryOrAll, query, sort, limit);
     }
 
     @Override
@@ -191,35 +180,24 @@ public class CourseRemoteApiService implements CourseApi {
 
     @Override
     public List<Course> getRelatedCourses(String courseId) {
-        // TODO: Backend doesn't have /course/:id/related endpoint yet
-        // Workaround: Get course detail, then filter all courses by same teacher or category
+        if (courseId == null) return new ArrayList<>();
 
-        Course baseCourse = getCourseDetail(courseId);
-        if (baseCourse == null) {
-            Log.w(TAG, "getRelatedCourses: base course not found");
-            return new ArrayList<>();
-        }
+        try {
+            Response<CourseApiResponse<List<CourseDto>>> response =
+                    retrofitService.getRelatedCourses(courseId).execute();
 
-        List<Course> allCourses = listAll();
-        List<Course> related = new ArrayList<>();
-
-        for (Course c : allCourses) {
-            if (c.getId().equals(courseId)) continue; // Skip self
-
-            boolean sameTeacher = c.getTeacher() != null
-                    && baseCourse.getTeacher() != null
-                    && c.getTeacher().equalsIgnoreCase(baseCourse.getTeacher());
-
-            boolean sameCategory = shareCategory(c.getCategory(), baseCourse.getCategory());
-
-            if (sameTeacher || sameCategory) {
-                related.add(c);
+            if (response.isSuccessful() && response.body() != null) {
+                CourseApiResponse<List<CourseDto>> apiResponse = response.body();
+                if (apiResponse.isSuccess() && apiResponse.getData() != null) {
+                    return convertDtoListToCourseList(apiResponse.getData());
+                }
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getRelatedCourses", e);
         }
-
-        Log.i(TAG, "getRelatedCourses: found " + related.size() + " related courses for " + courseId);
-        return related;
+        return new ArrayList<>();
     }
+
 
     // ============ CRUD ============
 
@@ -585,11 +563,23 @@ public class CourseRemoteApiService implements CourseApi {
 
     @Override
     public boolean rejectInitialCreation(String courseId) {
-        // TODO: Backend doesn't have /course/:id/reject-initial endpoint yet
-        // Workaround: Use approve-delete endpoint (which deletes permanently)
+        if (courseId == null) return false;
 
-        Log.w(TAG, "rejectInitialCreation: Backend endpoint not implemented, using approve-delete as workaround");
-        return permanentlyDeleteCourse(courseId);
+        try {
+            Response<CourseApiResponse<Object>> response =
+                    retrofitService.rejectInitialCreation(courseId).execute();
+
+            if (response.isSuccessful() && response.body() != null) {
+                CourseApiResponse<Object> apiResponse = response.body();
+                if (apiResponse.isSuccess()) {
+                    notifyCourseUpdated(courseId, null); // course bị xoá
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error rejectInitialCreation", e);
+        }
+        return false;
     }
 
     @Override
@@ -929,5 +919,66 @@ public class CourseRemoteApiService implements CourseApi {
             }
         }
         return false;
+    }
+
+    private List<Course> filterSearchSortClient(
+            String categoryOrAll,
+            String query,
+            Sort sort,
+            int limit
+    ) {
+        List<Course> allCourses = listAll();
+        String cat = categoryOrAll == null ? "All" : categoryOrAll;
+        String q = query == null ? "" : query.trim().toLowerCase();
+
+        List<Course> filtered = new ArrayList<>();
+
+        for (Course c : allCourses) {
+            boolean catOk = cat.equals("All") || hasCategory(c.getCategory(), cat);
+            boolean matches = q.isEmpty()
+                    || (c.getTitle() != null && c.getTitle().toLowerCase().contains(q))
+                    || (c.getTeacher() != null && c.getTeacher().toLowerCase().contains(q));
+
+            if (catOk && matches) {
+                filtered.add(c);
+            }
+        }
+
+        Comparator<Course> comparator;
+        switch (sort) {
+            case ZA:
+                comparator = (a, b) -> b.getTitle().compareToIgnoreCase(a.getTitle());
+                break;
+            case RATING_UP:
+                comparator = (a, b) -> Double.compare(a.getRating(), b.getRating());
+                break;
+            case RATING_DOWN:
+                comparator = (a, b) -> Double.compare(b.getRating(), a.getRating());
+                break;
+            case AZ:
+            default:
+                comparator = (a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle());
+        }
+        filtered.sort(comparator);
+
+        if (limit > 0 && filtered.size() > limit) {
+            return new ArrayList<>(filtered.subList(0, limit));
+        }
+
+        return filtered;
+    }
+
+    private List<Course> filterByCategory(List<Course> courses, String categoryOrAll) {
+        if (categoryOrAll == null || categoryOrAll.equals("All")) {
+            return courses;
+        }
+
+        List<Course> result = new ArrayList<>();
+        for (Course c : courses) {
+            if (hasCategory(c.getCategory(), categoryOrAll)) {
+                result.add(c);
+            }
+        }
+        return result;
     }
 }

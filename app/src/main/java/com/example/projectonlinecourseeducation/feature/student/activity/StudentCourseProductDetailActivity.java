@@ -449,26 +449,36 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
      * - PURCHASED    : ẩn "Thêm vào giỏ", "Mua ngay" -> "Học ngay" + ẩn giá
      */
     private void updatePurchaseUi() {
-        currentStatus = CourseStatusResolver.getStatus(courseId);
 
-        if (currentStatus == CourseStatus.PURCHASED) {
-            // Ẩn nút giỏ hàng, chỉ còn "Học ngay" + ẩn giá
-            btnAddToCart.setVisibility(View.GONE);
-            btnBuyNow.setText("Học ngay");
-            btnBuyNow.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.purple_600)
-            );
-            tvPrice.setVisibility(View.GONE);
-        } else {
-            // Chưa mua: hiện đầy đủ 2 nút + giá
-            btnAddToCart.setVisibility(View.VISIBLE);
-            btnBuyNow.setText("Mua ngay");
-            btnBuyNow.setBackgroundTintList(
-                    ContextCompat.getColorStateList(this, R.color.colorAccent)
-            );
-            tvPrice.setVisibility(View.VISIBLE);
-            updateAddToCartButtonState();
-        }
+        CourseStatusResolver.resolveStatus(courseId, status -> {
+            currentStatus = status;
+
+            if (status == CourseStatus.PURCHASED) {
+                // Ẩn nút giỏ hàng, chỉ còn "Học ngay" + ẩn giá
+                btnAddToCart.setVisibility(View.GONE);
+                btnBuyNow.setText("Học ngay");
+                btnBuyNow.setBackgroundTintList(
+                        ContextCompat.getColorStateList(
+                                this, R.color.purple_600
+                        )
+                );
+                tvPrice.setVisibility(View.GONE);
+
+            } else {
+                // Chưa mua: hiện đầy đủ 2 nút + giá
+                btnAddToCart.setVisibility(View.VISIBLE);
+                btnBuyNow.setText("Mua ngay");
+                btnBuyNow.setBackgroundTintList(
+                        ContextCompat.getColorStateList(
+                                this, R.color.colorAccent
+                        )
+                );
+                tvPrice.setVisibility(View.VISIBLE);
+
+                // update trạng thái nút Add to Cart (cũng async)
+                updateAddToCartButtonState();
+            }
+        });
     }
 
     private void setupActions() {

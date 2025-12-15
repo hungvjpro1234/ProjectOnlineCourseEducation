@@ -15,6 +15,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthRemoteApiService;
+import com.example.projectonlinecourseeducation.data.cart.CartRemoteApiService;
+import com.example.projectonlinecourseeducation.data.course.remote.CourseRemoteApiService;
+import com.example.projectonlinecourseeducation.data.course.remote.CourseStudentRemoteApiService;
 import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 
 public class MainActivity2 extends AppCompatActivity {
@@ -33,12 +36,14 @@ public class MainActivity2 extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        // Initialize RetrofitClient for backend API calls
+        // Initialize RetrofitClient (BẮT BUỘC)
         RetrofitClient.initialize(this);
 
-        // 🔥 ENABLE BACKEND: Switch to RemoteApiService for Auth module
-        // Comment this line to use FakeApiService (in-memory data)
+        // Switch to Remote API implementations
         ApiProvider.setAuthApi(new AuthRemoteApiService());
+        ApiProvider.setCartApi(new CartRemoteApiService());
+        ApiProvider.setCourseApi(new CourseRemoteApiService());
+        ApiProvider.setCourseStudentApi(new CourseStudentRemoteApiService());
 
         btnLogin = findViewById(R.id.btnLogin);
         btnRegister = findViewById(R.id.btnRegister);
@@ -53,7 +58,6 @@ public class MainActivity2 extends AppCompatActivity {
         btnForgot.setOnClickListener(v ->
                 startActivity(new Intent(this, ForgotPasswordActivity.class)));
 
-        // 🚀 Back Press Callback mới theo chuẩn AndroidX
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -63,10 +67,11 @@ public class MainActivity2 extends AppCompatActivity {
                             "Bấm lần nữa để thoát ứng dụng",
                             Toast.LENGTH_SHORT).show();
 
-                    handler.postDelayed(() -> doubleBackToExitPressedOnce = false, 1000);
+                    handler.postDelayed(() ->
+                            doubleBackToExitPressedOnce = false, 1000);
                 } else {
-                    finishAffinity(); // 🔥 Thoát toàn bộ ứng dụng
-                    System.exit(0);  // Đảm bảo app đóng hẳn
+                    finishAffinity();
+                    System.exit(0);
                 }
             }
         });

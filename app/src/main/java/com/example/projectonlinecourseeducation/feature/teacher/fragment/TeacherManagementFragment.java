@@ -76,34 +76,54 @@ public class TeacherManagementFragment extends Fragment {
     private void loadTeacherCourses() {
         courseApi = ApiProvider.getCourseApi();
 
-        // FIX: Get current teacher's name (phân quyền courses theo teacher)
+        if (courseApi == null) {
+            adapter.setCourses(new ArrayList<>());
+            return;
+        }
+
+        // FIX: Get current teacher's name
         String teacherName = null;
 
-        // Try to get from arguments first (if passed from somewhere)
         if (getArguments() != null) {
             teacherName = getArguments().getString("teacher_name", null);
         }
 
-        // If not in arguments, get from current user
         if (teacherName == null) {
             com.example.projectonlinecourseeducation.core.model.user.User currentUser =
-                ApiProvider.getAuthApi() != null ? ApiProvider.getAuthApi().getCurrentUser() : null;
+                    ApiProvider.getAuthApi() != null
+                            ? ApiProvider.getAuthApi().getCurrentUser()
+                            : null;
             if (currentUser != null) {
                 teacherName = currentUser.getName();
             } else {
-                teacherName = ""; // fallback to empty (will show no courses)
+                teacherName = "";
             }
         }
 
-        List<Course> teacherCourses = courseApi.getCoursesByTeacher(teacherName);
+        final String finalTeacherName = teacherName;
 
-        // If API returned null, ensure we pass an empty list (UI should render empty state)
-        if (teacherCourses == null) teacherCourses = new ArrayList<>();
+        // ✅ BỌC ASYNCAPHELPER TẠI ĐÂY
+        com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper.execute(
+                () -> courseApi.getCoursesByTeacher(finalTeacherName),
+                new com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> result) {
+                        if (!isAdded()) return;
 
-        adapter.setCourses(teacherCourses);
+                        if (result == null) result = new ArrayList<>();
+                        adapter.setCourses(result);
 
-        // Register listener so UI tự cập nhật khi Course thay đổi (create/update/delete)
-        courseApi.addCourseUpdateListener(courseUpdateListener);
+                        // Register listener sau khi load thành công
+                        courseApi.addCourseUpdateListener(courseUpdateListener);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        adapter.setCourses(new ArrayList<>());
+                    }
+                }
+        );
     }
 
     private void navigateToCourseDetail(Course course) {

@@ -68,7 +68,10 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         Course c = data.get(pos);
         if (c == null) return;
 
-        ImageLoader.getInstance().display(c.getImageUrl(), h.img, R.drawable.ic_image_placeholder);
+        // ===== Bind static data =====
+        ImageLoader.getInstance().display(
+                c.getImageUrl(), h.img, R.drawable.ic_image_placeholder
+        );
 
         h.tvTitle.setText(c.getTitle());
         h.tvTeacher.setText("Giảng viên: " + c.getTeacher());
@@ -79,22 +82,38 @@ public class HomeCourseAdapter extends RecyclerView.Adapter<HomeCourseAdapter.VH
         h.ratingBar.setRating(rating);
         h.tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
 
-        // ==== Hiển thị badge "ĐÃ MUA" nếu khóa học đã được mua ====
-        CourseStatus status = CourseStatusResolver.getStatus(c.getId());
-        if (status == CourseStatus.PURCHASED) {
-            h.tvPurchasedBadge.setVisibility(View.VISIBLE);
-            h.tvPrice.setVisibility(View.GONE);
-        } else {
-            h.tvPurchasedBadge.setVisibility(View.GONE);
-            h.tvPrice.setVisibility(View.VISIBLE);
-            h.tvPrice.setText(
-                    NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(c.getPrice())
-            );
-        }
+        // ===== RESET state (RẤT QUAN TRỌNG) =====
+        h.tvPurchasedBadge.setVisibility(View.GONE);
+        h.tvPrice.setVisibility(View.VISIBLE);
+        h.tvPrice.setText(
+                NumberFormat.getCurrencyInstance(
+                        new Locale("vi", "VN")
+                ).format(c.getPrice())
+        );
 
-        // >>> Click item
+        // Lưu courseId hiện tại của ViewHolder
+        final String bindCourseId = c.getId();
+
+        // ===== ASYNC resolve status =====
+        CourseStatusResolver.resolveStatus(bindCourseId, status -> {
+
+            // ⚠️ Chống bind nhầm ViewHolder
+            if (!bindCourseId.equals(c.getId())) return;
+
+            if (status == CourseStatus.PURCHASED) {
+                h.tvPurchasedBadge.setVisibility(View.VISIBLE);
+                h.tvPrice.setVisibility(View.GONE);
+            } else {
+                h.tvPurchasedBadge.setVisibility(View.GONE);
+                h.tvPrice.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // ===== Click =====
         h.itemView.setOnClickListener(view -> {
-            if (clickListener != null) clickListener.onCourseClick(c);
+            if (clickListener != null) {
+                clickListener.onCourseClick(c);
+            }
         });
     }
 

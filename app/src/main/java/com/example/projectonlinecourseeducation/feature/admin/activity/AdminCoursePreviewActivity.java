@@ -21,11 +21,10 @@ import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminPreviewLessonAdapter;
-
+import android.util.Pair;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import java.text.DecimalFormat;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Activity xem preview khóa học mới (chưa được duyệt)
@@ -44,7 +43,6 @@ public class AdminCoursePreviewActivity extends AppCompatActivity {
 
     private CourseApi courseApi;
     private LessonApi lessonApi;
-    private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
     private String courseId;
     private Course course;
@@ -94,31 +92,46 @@ public class AdminCoursePreviewActivity extends AppCompatActivity {
     }
 
     private void loadCourseData() {
-        bgExecutor.execute(() -> {
-            try {
-                course = courseApi.getCourseDetail(courseId);
+        AsyncApiHelper.execute(
+                // Chạy background
+                () -> {
+                    Course course = courseApi.getCourseDetail(courseId);
+                    List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
+                    return new Pair<>(course, lessons);
+                },
 
-                if (course == null) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();
-                        finish();
-                    });
-                    return;
+                // Callback main thread
+                new AsyncApiHelper.ApiCallback<Pair<Course, List<Lesson>>>() {
+                    @Override
+                    public void onSuccess(Pair<Course, List<Lesson>> result) {
+                        Course loadedCourse = result.first;
+                        List<Lesson> lessons = result.second;
+
+                        if (loadedCourse == null) {
+                            Toast.makeText(
+                                    AdminCoursePreviewActivity.this,
+                                    "Không tìm thấy khóa học",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            finish();
+                            return;
+                        }
+
+                        course = loadedCourse;
+                        displayCourseInfo(course);
+                        displayLessons(lessons);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                AdminCoursePreviewActivity.this,
+                                "Lỗi: " + e.getMessage(),
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
                 }
-
-                List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-
-                runOnUiThread(() -> {
-                    displayCourseInfo(course);
-                    displayLessons(lessons);
-                });
-
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
+        );
     }
 
     private void displayCourseInfo(Course course) {
@@ -231,13 +244,5 @@ public class AdminCoursePreviewActivity extends AppCompatActivity {
         int hours = minutes / 60;
         int mins = minutes % 60;
         return hours + " giờ " + mins + " phút";
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        try {
-            bgExecutor.shutdownNow();
-        } catch (Exception ignored) {}
     }
 }

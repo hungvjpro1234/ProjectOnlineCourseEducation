@@ -1,8 +1,14 @@
 package com.example.projectonlinecourseeducation.data.auth.remote;
 
+import com.example.projectonlinecourseeducation.data.auth.ApiResult;
+
+import java.util.List;
+
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.GET;
 import retrofit2.http.POST;
+import retrofit2.http.Query;
 
 /**
  * Retrofit service interface cho Auth API endpoints
@@ -41,4 +47,12 @@ public interface AuthRetrofitService {
      */
     @POST("forgot-password-update")
     Call<AuthApiResponse<Boolean>> resetPassword(@Body ResetPasswordRequest request);
+
+    /**
+     * GET /admin/users?role=STUDENT|TEACHER|ADMIN
+     */
+    @GET("admin/users")
+    Call<AuthApiResponse<List<UserDto>>> getUsersByRole(
+            @Query("role") String role
+    );
 }

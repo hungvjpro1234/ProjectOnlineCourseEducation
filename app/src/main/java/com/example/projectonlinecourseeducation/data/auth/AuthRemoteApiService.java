@@ -304,8 +304,32 @@ public class AuthRemoteApiService implements AuthApi {
 
     @Override
     public java.util.List<User> getAllUsersByRole(User.Role role) {
-        // Backend chưa có endpoint tương ứng — trả về danh sách rỗng để không bị lỗi
-        Log.w(TAG, "getAllUsersByRole: backend endpoint not implemented, returning empty list for role=" + role);
+        if (role == null) return new java.util.ArrayList<>();
+
+        try {
+            Response<AuthApiResponse<java.util.List<UserDto>>> response =
+                    retrofitService.getUsersByRole(role.name()).execute();
+
+            if (response.isSuccessful() && response.body() != null) {
+                AuthApiResponse<java.util.List<UserDto>> apiResponse = response.body();
+
+                if (apiResponse.isSuccess() && apiResponse.getData() != null) {
+                    java.util.List<User> result = new java.util.ArrayList<>();
+                    for (UserDto dto : apiResponse.getData()) {
+                        result.add(convertDtoToUser(dto));
+                    }
+                    return result;
+                } else {
+                    Log.w(TAG, "getAllUsersByRole failed: " + apiResponse.getMessage());
+                }
+            } else {
+                Log.e(TAG, "getAllUsersByRole HTTP error: " + response.code());
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Network error getAllUsersByRole", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error getAllUsersByRole", e);
+        }
         return new java.util.ArrayList<>();
     }
 }
