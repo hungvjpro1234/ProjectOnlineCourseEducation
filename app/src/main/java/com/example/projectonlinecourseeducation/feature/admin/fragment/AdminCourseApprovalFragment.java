@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
@@ -27,6 +28,9 @@ import com.example.projectonlinecourseeducation.feature.admin.activity.AdminCour
 import com.example.projectonlinecourseeducation.feature.admin.activity.AdminLessonVideoPreviewActivity;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminPendingCourseAdapter;
 import com.google.android.material.tabs.TabLayout;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,9 +38,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 /**
  * Fragment phê duyệt khóa học cho Admin
  *
@@ -59,7 +60,9 @@ public class AdminCourseApprovalFragment extends Fragment {
     private CourseApi courseApi;
     private LessonApi lessonApi;
     private AdminPendingCourseAdapter adapter;
+
     private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
+
 
     // Current filter
     private ApprovalType currentType = ApprovalType.INITIAL;
@@ -173,29 +176,30 @@ public class AdminCourseApprovalFragment extends Fragment {
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                List<Course> allPending = courseApi.getPendingCourses();
-                List<Course> filtered = filterByType(allPending, type);
-
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
+        AsyncApiHelper.execute(
+                () -> {
+                    List<Course> allPending = courseApi.getPendingCourses();
+                    return filterByType(allPending, type);
+                },
+                new AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> filtered) {
                         if (filtered.isEmpty()) {
                             showEmpty(getEmptyMessage(type));
                         } else {
                             showCourses(filtered, type);
                         }
-                    });
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Error loading pending courses", e);
+                        showEmpty("Lỗi: " + e.getMessage());
+                    }
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error loading pending courses", e);
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() ->
-                            showEmpty("Lỗi: " + e.getMessage()));
-                }
-            }
-        });
+        );
     }
+
 
     private List<Course> filterByType(List<Course> allPending, ApprovalType type) {
         List<Course> result = new ArrayList<>();

@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.feature.auth.activity.MainActivity2;
 import com.example.projectonlinecourseeducation.feature.student.fragment.StudentCartFragment;
@@ -193,9 +194,28 @@ public class StudentHomeActivity extends AppCompatActivity {
      */
     private void updateNotificationBadge() {
         if (notificationApi == null || currentUserId == null) return;
-        int unreadCount = notificationApi.getUnreadCount(currentUserId);
-        setNotificationBadge(unreadCount);
+
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    return notificationApi.getUnreadCount(currentUserId);
+                },
+                new AsyncApiHelper.ApiCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer count) {
+                        // ===== MAIN THREAD =====
+                        if (count == null) return;
+                        setNotificationBadge(count);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // silent fail – không cần toast
+                    }
+                }
+        );
     }
+
 
     /**
      * Hiển thị hoặc ẩn badge trên tab Thông báo

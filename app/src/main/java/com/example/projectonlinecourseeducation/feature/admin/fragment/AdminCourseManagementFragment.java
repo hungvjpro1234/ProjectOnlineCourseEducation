@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminCourseAdapter;
@@ -164,59 +165,78 @@ public class AdminCourseManagementFragment extends Fragment {
             return;
         }
 
-        // CRITICAL FIX: Admin must use listAll() to see ALL courses including pending ones
-        // filterSearchSort() filters out unapproved courses (for students)
-        List<Course> allCourses = courseApi.listAll();
+        final String selectedCat = (String) spinnerCategory.getSelectedItem();
+        final String query = etSearch.getText() == null
+                ? ""
+                : etSearch.getText().toString().toLowerCase().trim();
+        final CourseApi.Sort sort =
+                SORT_VALUES[Math.max(0, spinnerSort.getSelectedItemPosition())];
 
-        String selectedCat = (String) spinnerCategory.getSelectedItem();
-        String query = etSearch.getText() == null ? "" : etSearch.getText().toString().toLowerCase().trim();
-        CourseApi.Sort sort = SORT_VALUES[Math.max(0, spinnerSort.getSelectedItemPosition())];
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
 
-        // Apply filters manually (client-side)
-        List<Course> filtered = new ArrayList<>();
-        for (Course c : allCourses) {
-            // Category filter
-            if (!"All".equalsIgnoreCase(selectedCat)) {
-                if (c.getCategory() == null || !c.getCategory().contains(selectedCat)) {
-                    continue;
+                    List<Course> allCourses = courseApi.listAll();
+                    List<Course> filtered = new ArrayList<>();
+
+                    for (Course c : allCourses) {
+                        // Category filter
+                        if (!"All".equalsIgnoreCase(selectedCat)) {
+                            if (c.getCategory() == null || !c.getCategory().contains(selectedCat)) {
+                                continue;
+                            }
+                        }
+
+                        // Search filter
+                        if (!query.isEmpty()) {
+                            String title = c.getTitle() == null ? "" : c.getTitle().toLowerCase();
+                            String teacher = c.getTeacher() == null ? "" : c.getTeacher().toLowerCase();
+                            if (!title.contains(query) && !teacher.contains(query)) {
+                                continue;
+                            }
+                        }
+
+                        filtered.add(c);
+                    }
+
+                    // Sort
+                    if (sort == CourseApi.Sort.AZ) {
+                        filtered.sort((a, b) -> {
+                            String ta = a.getTitle() == null ? "" : a.getTitle();
+                            String tb = b.getTitle() == null ? "" : b.getTitle();
+                            return ta.compareToIgnoreCase(tb);
+                        });
+                    } else if (sort == CourseApi.Sort.ZA) {
+                        filtered.sort((a, b) -> {
+                            String ta = a.getTitle() == null ? "" : a.getTitle();
+                            String tb = b.getTitle() == null ? "" : b.getTitle();
+                            return tb.compareToIgnoreCase(ta);
+                        });
+                    } else if (sort == CourseApi.Sort.RATING_UP) {
+                        filtered.sort((a, b) -> Double.compare(a.getRating(), b.getRating()));
+                    } else if (sort == CourseApi.Sort.RATING_DOWN) {
+                        filtered.sort((a, b) -> Double.compare(b.getRating(), a.getRating()));
+                    }
+
+                    return filtered;
+                },
+                new AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> filtered) {
+                        courseList.clear();
+                        courseList.addAll(filtered);
+                        refreshList();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        courseList.clear();
+                        refreshList();
+                    }
                 }
-            }
-
-            // Search filter (title or teacher)
-            if (!query.isEmpty()) {
-                String title = c.getTitle() == null ? "" : c.getTitle().toLowerCase();
-                String teacher = c.getTeacher() == null ? "" : c.getTeacher().toLowerCase();
-                if (!title.contains(query) && !teacher.contains(query)) {
-                    continue;
-                }
-            }
-
-            filtered.add(c);
-        }
-
-        // Apply sort
-        if (sort == CourseApi.Sort.AZ) {
-            filtered.sort((a, b) -> {
-                String ta = a.getTitle() == null ? "" : a.getTitle();
-                String tb = b.getTitle() == null ? "" : b.getTitle();
-                return ta.compareToIgnoreCase(tb);
-            });
-        } else if (sort == CourseApi.Sort.ZA) {
-            filtered.sort((a, b) -> {
-                String ta = a.getTitle() == null ? "" : a.getTitle();
-                String tb = b.getTitle() == null ? "" : b.getTitle();
-                return tb.compareToIgnoreCase(ta);
-            });
-        } else if (sort == CourseApi.Sort.RATING_UP) {
-            filtered.sort((a, b) -> Double.compare(a.getRating(), b.getRating()));
-        } else if (sort == CourseApi.Sort.RATING_DOWN) {
-            filtered.sort((a, b) -> Double.compare(b.getRating(), a.getRating()));
-        }
-
-        courseList.clear();
-        courseList.addAll(filtered);
-        refreshList();
+        );
     }
+
 
     private void refreshList() {
         if (courseList.isEmpty()) {

@@ -19,6 +19,7 @@ import android.widget.EditText;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
@@ -93,32 +94,67 @@ public class AdminUserManagementTeacherFragment extends Fragment {
     }
 
     private void loadTeacherData() {
-        List<User> teachers = authApi.getAllUsersByRole(User.Role.TEACHER);
-        List<Course> allCourses = courseApi.listAll();
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
 
-        allTeacherStats.clear();
+                    List<TeacherStats> result = new ArrayList<>();
 
-        for (User teacher : teachers) {
-            List<Course> teacherCourses = new ArrayList<>();
-            for (Course c : allCourses) {
-                if (c.getTeacher() != null && c.getTeacher().equals(teacher.getName())) {
-                    teacherCourses.add(c);
+                    List<User> teachers =
+                            authApi.getAllUsersByRole(User.Role.TEACHER);
+
+                    List<Course> allCourses =
+                            courseApi.listAll();
+
+                    for (User teacher : teachers) {
+                        List<Course> teacherCourses = new ArrayList<>();
+
+                        for (Course c : allCourses) {
+                            if (c.getTeacher() != null
+                                    && c.getTeacher().equals(teacher.getName())) {
+                                teacherCourses.add(c);
+                            }
+                        }
+
+                        int totalCourses = teacherCourses.size();
+                        double totalRevenue = 0;
+
+                        for (Course c : teacherCourses) {
+                            totalRevenue += c.getPrice() * c.getStudents();
+                        }
+
+                        result.add(
+                                new TeacherStats(
+                                        teacher,
+                                        totalCourses,
+                                        totalRevenue
+                                )
+                        );
+                    }
+
+                    return result;
+                },
+                new AsyncApiHelper.ApiCallback<List<TeacherStats>>() {
+                    @Override
+                    public void onSuccess(List<TeacherStats> stats) {
+                        // ===== MAIN THREAD =====
+
+                        allTeacherStats.clear();
+                        allTeacherStats.addAll(stats);
+
+                        filteredTeacherStats = new ArrayList<>(allTeacherStats);
+                        applySorting();
+                        adapter.setTeachers(filteredTeacherStats);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
-
-            int totalCourses = teacherCourses.size();
-            double totalRevenue = 0;
-            for (Course c : teacherCourses) {
-                totalRevenue += c.getPrice() * c.getStudents();
-            }
-
-            allTeacherStats.add(new TeacherStats(teacher, totalCourses, totalRevenue));
-        }
-
-        filteredTeacherStats = new ArrayList<>(allTeacherStats);
-        applySorting();
-        adapter.setTeachers(filteredTeacherStats);
+        );
     }
+
 
     private void filterTeachers(String query) {
         String q = query.toLowerCase(Locale.getDefault()).trim();

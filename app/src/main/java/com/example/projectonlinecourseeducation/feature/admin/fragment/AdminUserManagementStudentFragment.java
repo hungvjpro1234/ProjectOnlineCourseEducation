@@ -18,6 +18,7 @@ import android.widget.EditText;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
@@ -120,38 +121,68 @@ public class AdminUserManagementStudentFragment extends Fragment {
      * Load danh sách students và tính stats
      */
     private void loadStudentData() {
-        // Lấy tất cả students
-        List<User> students = authApi.getAllUsersByRole(User.Role.STUDENT);
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
 
-        // Tính stats cho mỗi student
-        allStudentStats.clear();
-        for (User student : students) {
-            String userId = student.getId();
+                    List<StudentStats> result = new ArrayList<>();
 
-            // Lấy courses đã mua
-            List<Course> purchasedCourses = myCourseApi.getMyCoursesForUser(userId);
-            int coursesPurchased = purchasedCourses.size();
+                    List<User> students =
+                            authApi.getAllUsersByRole(User.Role.STUDENT);
 
-            // Tính tổng tiền đã chi
-            double totalSpent = 0;
-            for (Course c : purchasedCourses) {
-                totalSpent += c.getPrice();
-            }
+                    for (User student : students) {
+                        String userId = student.getId();
 
-            // Lấy số items trong giỏ hàng
-            List<Course> cartCourses = cartApi.getCartCoursesForUser(userId);
-            int cartItems = cartCourses.size();
+                        // Courses đã mua
+                        List<Course> purchasedCourses =
+                                myCourseApi.getMyCoursesForUser(userId);
 
-            // Tạo StudentStats
-            StudentStats stats = new StudentStats(student, totalSpent, coursesPurchased, cartItems);
-            allStudentStats.add(stats);
-        }
+                        int coursesPurchased = purchasedCourses.size();
 
-        // Apply sort và filter
-        filteredStudentStats = new ArrayList<>(allStudentStats);
-        applySorting();
-        adapter.setStudents(filteredStudentStats);
+                        double totalSpent = 0;
+                        for (Course c : purchasedCourses) {
+                            totalSpent += c.getPrice();
+                        }
+
+                        // Cart
+                        List<Course> cartCourses =
+                                cartApi.getCartCoursesForUser(userId);
+
+                        int cartItems = cartCourses.size();
+
+                        result.add(
+                                new StudentStats(
+                                        student,
+                                        totalSpent,
+                                        coursesPurchased,
+                                        cartItems
+                                )
+                        );
+                    }
+
+                    return result;
+                },
+                new AsyncApiHelper.ApiCallback<List<StudentStats>>() {
+                    @Override
+                    public void onSuccess(List<StudentStats> stats) {
+                        // ===== MAIN THREAD =====
+
+                        allStudentStats.clear();
+                        allStudentStats.addAll(stats);
+
+                        filteredStudentStats = new ArrayList<>(allStudentStats);
+                        applySorting();
+                        adapter.setStudents(filteredStudentStats);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+        );
     }
+
 
     /**
      * Filter students theo tên

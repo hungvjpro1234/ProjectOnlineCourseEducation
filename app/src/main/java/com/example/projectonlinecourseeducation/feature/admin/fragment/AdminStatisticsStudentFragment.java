@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.github.mikephil.charting.charts.HorizontalBarChart;
@@ -32,8 +33,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Fragment thống kê học viên - phân tích lượt mua và doanh thu
@@ -45,7 +44,7 @@ public class AdminStatisticsStudentFragment extends Fragment {
     private PieChart pieChartRevenue;
 
     private CourseApi courseApi;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -74,74 +73,117 @@ public class AdminStatisticsStudentFragment extends Fragment {
     }
 
     private void loadStatistics() {
-        executor.execute(() -> {
-            try {
-                List<Course> allCourses = courseApi.listAll();
-                List<Course> approvedCourses = new ArrayList<>();
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
 
-                // Filter approved courses
-                for (Course course : allCourses) {
-                    if (course.isInitialApproved() && !course.isDeleteRequested()) {
-                        approvedCourses.add(course);
-                    }
-                }
+                    List<Course> allCourses = courseApi.listAll();
+                    List<Course> approvedCourses = new ArrayList<>();
 
-                // Calculate statistics
-                int totalPurchases = 0;
-                double totalRevenue = 0;
-                Course mostPopular = null;
-                int maxStudents = 0;
-                double highestRevenue = 0;
-
-                for (Course course : approvedCourses) {
-                    int students = course.getStudents();
-                    double revenue = course.getPrice() * students;
-
-                    totalPurchases += students;
-                    totalRevenue += revenue;
-
-                    if (students > maxStudents) {
-                        maxStudents = students;
-                        mostPopular = course;
+                    for (Course course : allCourses) {
+                        if (course.isInitialApproved() && !course.isDeleteRequested()) {
+                            approvedCourses.add(course);
+                        }
                     }
 
-                    if (revenue > highestRevenue) {
-                        highestRevenue = revenue;
+                    int totalPurchases = 0;
+                    double totalRevenue = 0;
+                    int maxStudents = 0;
+                    double highestRevenue = 0;
+
+                    for (Course course : approvedCourses) {
+                        int students = course.getStudents();
+                        double revenue = course.getPrice() * students;
+
+                        totalPurchases += students;
+                        totalRevenue += revenue;
+
+                        if (students > maxStudents) {
+                            maxStudents = students;
+                        }
+
+                        if (revenue > highestRevenue) {
+                            highestRevenue = revenue;
+                        }
+                    }
+
+                    double avgRevenuePerPurchase =
+                            totalPurchases > 0 ? totalRevenue / totalPurchases : 0;
+
+                    // Sort by students DESC
+                    Collections.sort(approvedCourses,
+                            (a, b) -> Integer.compare(b.getStudents(), a.getStudents()));
+
+                    List<Course> top10 = approvedCourses.size() > 10
+                            ? new ArrayList<>(approvedCourses.subList(0, 10))
+                            : new ArrayList<>(approvedCourses);
+
+                    List<Course> top5 = approvedCourses.size() > 5
+                            ? new ArrayList<>(approvedCourses.subList(0, 5))
+                            : new ArrayList<>(approvedCourses);
+
+                    return new StudentStatResult(
+                            totalPurchases,
+                            avgRevenuePerPurchase,
+                            maxStudents,
+                            approvedCourses.size(),
+                            highestRevenue,
+                            top10,
+                            top5
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<StudentStatResult>() {
+                    @Override
+                    public void onSuccess(StudentStatResult result) {
+                        // ===== MAIN THREAD =====
+
+                        displayStatistics(
+                                result.totalPurchases,
+                                result.avgRevenuePerPurchase,
+                                result.mostPopularCount,
+                                result.totalCourses,
+                                result.highestRevenue
+                        );
+
+                        setupHorizontalBarChart(result.top10);
+                        setupPieChart(result.top5);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        e.printStackTrace();
                     }
                 }
-
-                final double avgRevenuePerPurchase = totalPurchases > 0 ? totalRevenue / totalPurchases : 0;
-                final int finalMaxStudents = maxStudents;
-                final double finalHighestRevenue = highestRevenue;
-
-                // Sort by students descending for charts
-                Collections.sort(approvedCourses, (a, b) ->
-                        Integer.compare(b.getStudents(), a.getStudents()));
-
-                List<Course> top10 = approvedCourses.size() > 10
-                        ? approvedCourses.subList(0, 10)
-                        : approvedCourses;
-
-                List<Course> top5 = approvedCourses.size() > 5
-                        ? approvedCourses.subList(0, 5)
-                        : approvedCourses;
-
-                final int finalTotalPurchases = totalPurchases;
-
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        displayStatistics(finalTotalPurchases, avgRevenuePerPurchase, finalMaxStudents,
-                                approvedCourses.size(), finalHighestRevenue);
-                        setupHorizontalBarChart(top10);
-                        setupPieChart(top5);
-                    });
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        );
     }
+
+
+    static class StudentStatResult {
+        int totalPurchases;
+        double avgRevenuePerPurchase;
+        int mostPopularCount;
+        int totalCourses;
+        double highestRevenue;
+        List<Course> top10;
+        List<Course> top5;
+
+        StudentStatResult(int totalPurchases,
+                          double avgRevenuePerPurchase,
+                          int mostPopularCount,
+                          int totalCourses,
+                          double highestRevenue,
+                          List<Course> top10,
+                          List<Course> top5) {
+            this.totalPurchases = totalPurchases;
+            this.avgRevenuePerPurchase = avgRevenuePerPurchase;
+            this.mostPopularCount = mostPopularCount;
+            this.totalCourses = totalCourses;
+            this.highestRevenue = highestRevenue;
+            this.top10 = top10;
+            this.top5 = top5;
+        }
+    }
+
 
     private void displayStatistics(int totalPurchases, double avgRevenue, int mostPopular,
                                     int totalCourses, double highestRevenue) {
@@ -261,9 +303,5 @@ public class AdminStatisticsStudentFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        try {
-            executor.shutdownNow();
-        } catch (Exception ignored) {
-        }
     }
 }

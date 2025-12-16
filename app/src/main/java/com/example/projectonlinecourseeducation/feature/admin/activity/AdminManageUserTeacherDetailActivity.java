@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.UserTeacherOwnedCourseAdapter;
@@ -128,40 +129,52 @@ public class AdminManageUserTeacherDetailActivity extends AppCompatActivity {
      * - Tổng doanh thu
      */
     private void loadTeacherData() {
-        List<Course> allCourses;
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    List<Course> allCourses = courseApi.listAll();
+                    List<Course> ownedCourses = new ArrayList<>();
 
-        try {
-            allCourses = courseApi.listAll();
-        } catch (Exception e) {
-            Log.e(TAG, "Load courses failed", e);
-            Toast.makeText(this,
-                    "Không thể tải danh sách khóa học.",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
+                    for (Course course : allCourses) {
+                        if (course == null) continue;
 
-        List<Course> ownedCourses = new ArrayList<>();
-        long totalRevenue = 0;
+                        if (userName.equals(course.getTeacher())) {
+                            ownedCourses.add(course);
+                        }
+                    }
 
-        for (Course course : allCourses) {
-            if (course == null) continue;
+                    return ownedCourses;
+                },
+                new AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> ownedCourses) {
+                        // ===== MAIN THREAD =====
+                        long totalRevenue = 0;
 
-            // Đồng bộ với toàn hệ thống: so sánh theo username teacher
-            if (userName.equals(course.getTeacher())) {
-                ownedCourses.add(course);
+                        for (Course course : ownedCourses) {
+                            long revenue =
+                                    (long) (course.getPrice() * course.getStudents());
+                            totalRevenue += revenue;
+                        }
 
-                // Doanh thu = price * students
-                long revenue = (long) (course.getPrice() * course.getStudents());
-                totalRevenue += revenue;
-            }
-        }
+                        ownedCourseAdapter.setCourses(ownedCourses);
+                        tvOwnedCourseCount.setText(
+                                "Tổng khóa học sở hữu : " + ownedCourses.size()
+                        );
+                        tvTotalRevenue.setText(formatCurrencyVND(totalRevenue));
+                    }
 
-        // Update UI
-        ownedCourseAdapter.setCourses(ownedCourses);
-        tvOwnedCourseCount.setText(
-                "Tổng khóa học sở hữu : " + ownedCourses.size()
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Load courses failed", e);
+                        Toast.makeText(
+                                AdminManageUserTeacherDetailActivity.this,
+                                "Không thể tải danh sách khóa học.",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
         );
-        tvTotalRevenue.setText(formatCurrencyVND(totalRevenue));
     }
 
     // ---------------------------------------------------------------------

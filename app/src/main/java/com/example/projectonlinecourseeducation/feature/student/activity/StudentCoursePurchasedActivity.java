@@ -23,6 +23,7 @@ import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.network.SessionManager;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
@@ -249,50 +250,97 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     private void loadCourseData(String id) {
-        currentCourse = courseApi.getCourseDetail(id);
-        if (currentCourse == null) {
-            Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    Course course = courseApi.getCourseDetail(id);
+                    if (course == null) return null;
 
-        List<Lesson> lessons = lessonApi.getLessonsForCourse(id);
-        List<CourseReview> reviews = reviewApi.getReviewsForCourse(id);
+                    List<Lesson> lessons = lessonApi.getLessonsForCourse(id);
+                    List<CourseReview> reviews = reviewApi.getReviewsForCourse(id);
 
+                    return new PurchasedCourseResult(course, lessons, reviews);
+                },
+                new AsyncApiHelper.ApiCallback<PurchasedCourseResult>() {
+                    @Override
+                    public void onSuccess(PurchasedCourseResult result) {
+                        // ===== MAIN THREAD =====
+                        if (result == null) {
+                            Toast.makeText(
+                                    StudentCoursePurchasedActivity.this,
+                                    "Không tìm thấy khóa học",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            finish();
+                            return;
+                        }
+
+                        currentCourse = result.course;
+
+                        bindCourseMeta(result.course);
+                        bindLessonsWithProgress(result.lessons);
+                        updateCourseProgress(result.lessons);
+                        reviewAdapter.submitList(result.reviews);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                StudentCoursePurchasedActivity.this,
+                                "Lỗi tải dữ liệu khóa học",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    private void bindCourseMeta(Course course) {
         ImageLoader.getInstance().display(
-                currentCourse.getImageUrl(),
+                course.getImageUrl(),
                 imgCourseBanner,
                 R.drawable.ic_image_placeholder
         );
 
-        tvCourseTitle.setText(currentCourse.getTitle());
+        tvCourseTitle.setText(course.getTitle());
 
-        float rating = (float) currentCourse.getRating();
+        float rating = (float) course.getRating();
         ratingBar.setRating(rating);
         tvRatingValue.setText(String.format(Locale.US, "%.1f", rating));
-        tvRatingCount.setText("(" + currentCourse.getRatingCount() + " đánh giá)");
+        tvRatingCount.setText("(" + course.getRatingCount() + " đánh giá)");
 
-        tvStudentsCount.setText("👥 " + currentCourse.getStudents() + " học viên");
-        tvTeacherName.setText("👨‍🏫 " + currentCourse.getTeacher());
-        tvUpdatedDate.setText("📅 Cập nhật: " + currentCourse.getCreatedAt());
+        tvStudentsCount.setText("👥 " + course.getStudents() + " học viên");
+        tvTeacherName.setText("👨‍🏫 " + course.getTeacher());
+        tvUpdatedDate.setText("📅 Cập nhật: " + course.getCreatedAt());
 
         String time;
-        if (currentCourse.getTotalDurationMinutes() >= 60) {
-            int h = currentCourse.getTotalDurationMinutes() / 60;
-            int m = currentCourse.getTotalDurationMinutes() % 60;
+        if (course.getTotalDurationMinutes() >= 60) {
+            int h = course.getTotalDurationMinutes() / 60;
+            int m = course.getTotalDurationMinutes() % 60;
             time = h + " giờ " + (m > 0 ? m + " phút" : "");
         } else {
-            time = currentCourse.getTotalDurationMinutes() + " phút";
+            time = course.getTotalDurationMinutes() + " phút";
         }
-        tvLectureSummary.setText("📖 " + currentCourse.getLectures() + " bài • " + time);
-
-        bindLessonsWithProgress(lessons);
-
-        // NEW: update course progress now (bindLessonsWithProgress cũng gọi nó)
-        updateCourseProgress(lessons);
-
-        reviewAdapter.submitList(reviews);
+        tvLectureSummary.setText("📖 " + course.getLectures() + " bài • " + time);
     }
+
+    static class PurchasedCourseResult {
+        Course course;
+        List<Lesson> lessons;
+        List<CourseReview> reviews;
+
+        PurchasedCourseResult(
+                Course course,
+                List<Lesson> lessons,
+                List<CourseReview> reviews
+        ) {
+            this.course = course;
+            this.lessons = lessons;
+            this.reviews = reviews;
+        }
+    }
+
+
 
     /**
      * Bind lessons -> build UI models with per-student progress + quiz state.

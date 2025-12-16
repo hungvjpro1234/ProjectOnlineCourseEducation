@@ -24,6 +24,7 @@ import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
@@ -284,41 +285,54 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
      * Load dữ liệu bài học từ API
      */
     private void loadLessonData(String id) {
-        lesson = lessonApi.getLessonDetail(id);
+        AsyncApiHelper.execute(
+                () -> {
+                    Lesson lesson = lessonApi.getLessonDetail(id);
+                    if (lesson == null) return null;
 
-        if (lesson == null) {
-            Toast.makeText(this, "Không tìm thấy bài học", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+                    User user = SessionManager.getInstance(this).getCurrentUser();
+                    String studentId = user != null ? user.getId() : null;
 
-        // Lưu courseId để dùng khi tracking / tìm bài tiếp theo
-        courseId = lesson.getCourseId();
+                    LessonProgress progress =
+                            lessonProgressApi.getLessonProgress(id, studentId);
 
-        // Bind UI
-        tvLessonTitle.setText(lesson.getTitle());
-        tvLessonDescription.setText(lesson.getDescription());
+                    return new Object[]{lesson, progress};
+                },
+                new AsyncApiHelper.ApiCallback<Object[]>() {
+                    @Override
+                    public void onSuccess(Object[] result) {
+                        if (result == null) {
+                            Toast.makeText(StudentLessonVideoActivity.this,
+                                    "Không tìm thấy bài học",
+                                    Toast.LENGTH_SHORT).show();
+                            finish();
+                            return;
+                        }
 
-        // Lấy progress hiện tại (nếu có) để:
-        //  - hiển thị %
-        //  - resume lại vị trí đã xem dở
-        User currentUser = SessionManager.getInstance(this).getCurrentUser();
-        String studentId = currentUser != null ? currentUser.getId() : null;
-        LessonProgress progress = lessonProgressApi.getLessonProgress(lessonId, studentId);
-        if (progress != null) {
-            startSecond = progress.getCurrentSecond();
-            updateProgressUI(progress);
-        } else {
-            startSecond = 0f;
-            tvProgressPercentage.setText("0%");
-        }
+                        lesson = (Lesson) result[0];
+                        LessonProgress progress = (LessonProgress) result[1];
 
-        // Chuẩn bị thông tin bài tiếp theo (nếu có)
-        prepareNextLesson();
+                        courseId = lesson.getCourseId();
+                        tvLessonTitle.setText(lesson.getTitle());
+                        tvLessonDescription.setText(lesson.getDescription());
 
-        // Setup YouTube Player (sau khi có startSecond)
-        setupYouTubePlayer();
+                        startSecond = progress != null ? progress.getCurrentSecond() : 0f;
+                        updateProgressUI(progress);
+
+                        prepareNextLesson();
+                        setupYouTubePlayer();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(StudentLessonVideoActivity.this,
+                                "Lỗi tải bài học",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
+
 
     /**
      * Tìm bài học tiếp theo trong cùng khóa học dựa trên order
@@ -575,24 +589,29 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
      * Load danh sách bình luận từ API
      */
     private void loadComments() {
-        if (lessonId == null) return;
+        AsyncApiHelper.execute(
+                () -> lessonCommentApi.getCommentsForLesson(lessonId),
+                new AsyncApiHelper.ApiCallback<List<LessonComment>>() {
+                    @Override
+                    public void onSuccess(List<LessonComment> comments) {
+                        commentAdapter.submitList(comments);
+                        int count = comments != null ? comments.size() : 0;
+                        updateCommentCount(count);
 
-        List<LessonComment> comments = lessonCommentApi.getCommentsForLesson(lessonId);
-        commentAdapter.submitList(comments);
+                        tvEmptyComments.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+                        rvComments.setVisibility(count == 0 ? View.GONE : View.VISIBLE);
+                    }
 
-        // Cập nhật số lượng bình luận
-        int count = comments != null ? comments.size() : 0;
-        updateCommentCount(count);
-
-        // Hiển thị empty state nếu không có bình luận
-        if (count == 0) {
-            tvEmptyComments.setVisibility(View.VISIBLE);
-            rvComments.setVisibility(View.GONE);
-        } else {
-            tvEmptyComments.setVisibility(View.GONE);
-            rvComments.setVisibility(View.VISIBLE);
-        }
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(StudentLessonVideoActivity.this,
+                                "Không tải được bình luận",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
+
 
     /**
      * Cập nhật số lượng bình luận hiển thị
@@ -614,51 +633,82 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         String content = edtCommentInput.getText().toString().trim();
 
         if (content.isEmpty()) {
-            Toast.makeText(this, "Vui lòng nhập nội dung bình luận", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,
+                    "Vui lòng nhập nội dung bình luận",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Lấy thông tin người dùng hiện tại
         User currentUser = SessionManager.getInstance(this).getCurrentUser();
         if (currentUser == null) {
-            Toast.makeText(this, "Vui lòng đăng nhập để bình luận", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,
+                    "Vui lòng đăng nhập để bình luận",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Thêm bình luận qua API (không cần avatar)
-        LessonComment newComment = lessonCommentApi.addComment(
-                lessonId,
-                currentUser.getId(),
-                currentUser.getName(),
-                content
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    return lessonCommentApi.addComment(
+                            lessonId,
+                            currentUser.getId(),
+                            currentUser.getName(),
+                            content
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<LessonComment>() {
+                    @Override
+                    public void onSuccess(LessonComment newComment) {
+                        // ===== MAIN THREAD =====
+                        if (newComment == null) {
+                            Toast.makeText(
+                                    StudentLessonVideoActivity.this,
+                                    "Không thể gửi bình luận",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
+
+                        // Thêm comment mới vào đầu list
+                        commentAdapter.addComment(newComment);
+
+                        // Clear input
+                        edtCommentInput.setText("");
+
+                        // Cập nhật số lượng bình luận
+                        int newCount = lessonCommentApi.getCommentCount(lessonId);
+                        updateCommentCount(newCount);
+
+                        // Hiển thị danh sách nếu trước đó empty
+                        tvEmptyComments.setVisibility(View.GONE);
+                        rvComments.setVisibility(View.VISIBLE);
+
+                        // Scroll lên đầu
+                        rvComments.smoothScrollToPosition(0);
+
+                        // 🔔 Tạo thông báo cho teacher (không block UI)
+                        createNotificationForTeacher(newComment, currentUser);
+
+                        Toast.makeText(
+                                StudentLessonVideoActivity.this,
+                                "Đã gửi bình luận",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                StudentLessonVideoActivity.this,
+                                "Lỗi khi gửi bình luận",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
         );
-
-        if (newComment != null) {
-            // Thêm bình luận mới vào đầu danh sách
-            commentAdapter.addComment(newComment);
-
-            // Xóa nội dung input
-            edtCommentInput.setText("");
-
-            // Cập nhật số lượng
-            int newCount = lessonCommentApi.getCommentCount(lessonId);
-            updateCommentCount(newCount);
-
-            // Ẩn empty state
-            tvEmptyComments.setVisibility(View.GONE);
-            rvComments.setVisibility(View.VISIBLE);
-
-            // Scroll lên đầu để xem bình luận mới
-            rvComments.smoothScrollToPosition(0);
-
-            // 🔔 TẠO THÔNG BÁO CHO TEACHER khi student comment
-            createNotificationForTeacher(newComment, currentUser);
-
-            Toast.makeText(this, "Đã gửi bình luận", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "Không thể gửi bình luận", Toast.LENGTH_SHORT).show();
-        }
     }
+
 
     /**
      * Hiển thị dialog xác nhận xóa bình luận
@@ -678,31 +728,65 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
     private void deleteComment(LessonComment comment) {
         User currentUser = SessionManager.getInstance(this).getCurrentUser();
         if (currentUser == null) {
-            Toast.makeText(this, "Vui lòng đăng nhập", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,
+                    "Vui lòng đăng nhập",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
-        boolean success = lessonCommentApi.deleteComment(comment.getId(), currentUser.getId());
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    return lessonCommentApi.deleteComment(
+                            comment.getId(),
+                            currentUser.getId()
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean success) {
+                        // ===== MAIN THREAD =====
+                        if (success == null || !success) {
+                            Toast.makeText(
+                                    StudentLessonVideoActivity.this,
+                                    "Không thể xóa bình luận",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
 
-        if (success) {
-            // Xóa khỏi adapter
-            commentAdapter.removeComment(comment.getId());
+                        // Xóa khỏi adapter
+                        commentAdapter.removeComment(comment.getId());
 
-            // Cập nhật số lượng
-            int newCount = lessonCommentApi.getCommentCount(lessonId);
-            updateCommentCount(newCount);
+                        // Cập nhật số lượng
+                        int newCount = lessonCommentApi.getCommentCount(lessonId);
+                        updateCommentCount(newCount);
 
-            // Hiển thị empty state nếu không còn bình luận
-            if (newCount == 0) {
-                tvEmptyComments.setVisibility(View.VISIBLE);
-                rvComments.setVisibility(View.GONE);
-            }
+                        // Hiển thị empty state nếu không còn comment
+                        if (newCount == 0) {
+                            tvEmptyComments.setVisibility(View.VISIBLE);
+                            rvComments.setVisibility(View.GONE);
+                        }
 
-            Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "Không thể xóa bình luận", Toast.LENGTH_SHORT).show();
-        }
+                        Toast.makeText(
+                                StudentLessonVideoActivity.this,
+                                "Đã xóa bình luận",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                StudentLessonVideoActivity.this,
+                                "Lỗi khi xóa bình luận",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
+
 
     /**
      * Tạo thông báo cho teacher khi student comment
