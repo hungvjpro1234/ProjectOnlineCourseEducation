@@ -28,19 +28,23 @@ import com.example.projectonlinecourseeducation.feature.admin.activity.AdminMana
 
 public class AdminCourseAdapter extends RecyclerView.Adapter<AdminCourseAdapter.VH> {
 
-    public interface OnCourseDeletedListener {
-        void onCourseDeleted(String courseId, int position);
+    public interface OnCourseActionListener {
+        void onDeleteRequested(Course course, int position);
     }
 
     private final Context ctx;
     private final List<Course> data;
-    private final OnCourseDeletedListener deletedListener;
+    private final OnCourseActionListener actionListener;
     private final NumberFormat nf = NumberFormat.getInstance(Locale.US);
 
-    public AdminCourseAdapter(Context ctx, List<Course> data, OnCourseDeletedListener deletedListener) {
+    public AdminCourseAdapter(
+            Context ctx,
+            List<Course> data,
+            OnCourseActionListener actionListener
+    ) {
         this.ctx = ctx;
         this.data = data;
-        this.deletedListener = deletedListener;
+        this.actionListener = actionListener;
     }
 
     @NonNull
@@ -98,17 +102,8 @@ public class AdminCourseAdapter extends RecyclerView.Adapter<AdminCourseAdapter.
         });
 
         holder.btnDelete.setOnClickListener(v -> {
-            // optional: thêm confirm dialog nếu muốn (mình xóa trực tiếp)
-            try {
-                boolean ok = ApiProvider.getCourseApi().deleteCourse(c.getId());
-                if (ok) {
-                    Toast.makeText(ctx, "Đã xóa khóa học", Toast.LENGTH_SHORT).show();
-                    if (deletedListener != null) deletedListener.onCourseDeleted(c.getId(), position);
-                } else {
-                    Toast.makeText(ctx, "Xóa thất bại", Toast.LENGTH_SHORT).show();
-                }
-            } catch (Exception e) {
-                Toast.makeText(ctx, "Lỗi khi xóa: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            if (actionListener != null) {
+                actionListener.onDeleteRequested(c, position);
             }
         });
 
