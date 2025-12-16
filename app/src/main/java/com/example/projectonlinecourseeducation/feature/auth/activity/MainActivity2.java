@@ -18,6 +18,7 @@ import com.example.projectonlinecourseeducation.data.auth.AuthRemoteApiService;
 import com.example.projectonlinecourseeducation.data.cart.CartRemoteApiService;
 import com.example.projectonlinecourseeducation.data.course.remote.CourseRemoteApiService;
 import com.example.projectonlinecourseeducation.data.course.remote.CourseStudentRemoteApiService;
+import com.example.projectonlinecourseeducation.data.mycourse.MyCourseRemoteApiService;
 import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 
 public class MainActivity2 extends AppCompatActivity {
@@ -44,6 +45,7 @@ public class MainActivity2 extends AppCompatActivity {
         ApiProvider.setCartApi(new CartRemoteApiService());
         ApiProvider.setCourseApi(new CourseRemoteApiService());
         ApiProvider.setCourseStudentApi(new CourseStudentRemoteApiService());
+        ApiProvider.setMyCourseApi(new MyCourseRemoteApiService());
 
         btnLogin = findViewById(R.id.btnLogin);
         btnRegister = findViewById(R.id.btnRegister);
