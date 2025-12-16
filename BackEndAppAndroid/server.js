@@ -1925,232 +1925,121 @@ app.get("/cart/:userId", async (req, res) => {
 });
 
 
-
-
-// Add to cart (thêm vào giỏ bật trạng thái IN_CART)
-// POST /cart/add  body: { userId, courseId, price_snapshot?, course_name? }
 app.post("/cart/add", async (req, res) => {
     const { userId, courseId, price_snapshot, course_name } = req.body;
-    if (!userId || !courseId)
-        return res
-            .status(400)
-            .send({ success: false, message: "userId và courseId bắt buộc" });
+    if (!userId || !courseId) {
+        return res.send({ success: true, added: false });
+    }
 
     try {
-        const enumVals = await getEnumValues();
-        if (!enumVals.includes("IN_CART")) {
-            return res.status(500).send({
-                success: false,
-                message: "Enum không có IN_CART",
-            });
-        }
-
         const rec = await getCartRecord(userId, courseId);
-        if (!rec) {
-            const created = await upsertCartStatus(
-                userId,
-                courseId,
-                "IN_CART",
-                { price_snapshot, course_name }
-            );
-            return res.send({
-                success: true,
-                message: "Added to cart",
-                data: created,
-            });
+
+        // Đã mua → Fake coi như add thất bại
+        if (rec?.status === "PURCHASED") {
+            return res.send({ success: true, added: false });
         }
 
-        if (rec.status === "PURCHASED") {
-            return res.status(400).send({
-                success: false,
-                message: "Đã thanh toán, không thể add",
-            });
+        // Đã trong cart → Fake coi như add thất bại
+        if (rec?.status === "IN_CART") {
+            return res.send({ success: true, added: false });
         }
-        if (rec.status === "IN_CART") {
-            return res.send({
-                success: true,
-                message: "Đã có trong giỏ",
-                data: rec,
-            });
-        }
-        // từ NOT_PURCHASED -> IN_CART
-        if (
-            allowedTransitions[rec.status] &&
-            allowedTransitions[rec.status].includes("IN_CART")
-        ) {
-            const updated = await upsertCartStatus(
-                userId,
-                courseId,
-                "IN_CART",
-                { price_snapshot, course_name }
-            );
-            return res.send({
-                success: true,
-                message: "Chuyển sang IN_CART",
-                data: updated,
-            });
-        } else {
-            return res.status(400).send({
-                success: false,
-                message: `Không thể chuyển ${rec.status} -> IN_CART`,
-            });
-        }
+
+        // NOT_PURCHASED hoặc chưa có record → add
+        await upsertCartStatus(userId, courseId, "IN_CART", {
+            price_snapshot,
+            course_name,
+        });
+
+        return res.send({ success: true, added: true });
     } catch (err) {
         console.error("POST /cart/add error", err);
-        return res
-            .status(500)
-            .send({ success: false, message: "Lỗi server khi add" });
+        return res.send({ success: true, added: false });
     }
 });
+
 
 // Remove from cart (revert về NOT_PURCHASED)
 // POST /cart/remove  body: { userId, courseId }
+
 app.post("/cart/remove", async (req, res) => {
     const { userId, courseId } = req.body;
-    if (!userId || !courseId)
-        return res
-            .status(400)
-            .send({ success: false, message: "userId và courseId bắt buộc" });
+    if (!userId || !courseId) {
+        return res.send({ success: true, removed: false });
+    }
 
     try {
         const rec = await getCartRecord(userId, courseId);
-        if (!rec)
-            return res
-                .status(404)
-                .send({ success: false, message: "Không tìm thấy record" });
 
-        // Nếu đã PURCHASED -> không thể remove khỏi giỏ (đã mua rồi)
-        if (rec.status === "PURCHASED")
-            return res.status(400).send({
-                success: false,
-                message: "Không thể remove khóa học đã thanh toán",
-            });
-
-        // Nếu đang ở IN_CART -> revert về NOT_PURCHASED (giữ record để lưu price_snapshot nếu cần)
-        if (rec.status === "IN_CART") {
-            const updated = await upsertCartStatus(
-                userId,
-                courseId,
-                "NOT_PURCHASED",
-                {}
-            );
-            return res.send({
-                success: true,
-                message: "Đã remove khỏi giỏ",
-                data: updated,
-            });
+        // Không tồn tại hoặc không trong cart
+        if (!rec || rec.status !== "IN_CART") {
+            return res.send({ success: true, removed: false });
         }
 
-        // Các trạng thái khác (ví dụ NOT_PURCHASED) -> không có gì để remove
-        return res.send({
-            success: true,
-            message: "Khóa học không nằm trong giỏ",
-            data: rec,
-        });
+        // IN_CART → NOT_PURCHASED
+        await upsertCartStatus(userId, courseId, "NOT_PURCHASED");
+
+        return res.send({ success: true, removed: true });
     } catch (err) {
         console.error("POST /cart/remove error", err);
-        return res
-            .status(500)
-            .send({ success: false, message: "Lỗi server khi remove" });
+        return res.send({ success: true, removed: false });
     }
 });
 
-// Checkout (thanh toán) - chuyển status -> PURCHASED cho list khóa học
-// POST /cart/checkout  body: { userId, courseIds: [1,2,3] }
+// POST /cart/checkout
 app.post("/cart/checkout", async (req, res) => {
-    const { userId, courseIds } = req.body;
-    if (!userId || !Array.isArray(courseIds) || courseIds.length === 0)
-        return res
-            .status(400)
-            .send({ success: false, message: "userId và courseIds bắt buộc" });
+    const { userId } = req.body;
+    if (!userId) {
+        return res.send({ success: true, data: [] });
+    }
 
     try {
-        const enumVals = await getEnumValues();
-        if (!enumVals.includes("PURCHASED")) {
-            return res
-                .status(500)
-                .send({ success: false, message: "Enum không có PURCHASED" });
+        const coursesInCart = await db.any(`
+            SELECT c.*
+            FROM course_payment_status cps
+            JOIN course c ON c.course_id = cps.course_id
+            WHERE cps.user_id = $1 AND cps.status = 'IN_CART'
+        `, [userId]);
+
+        if (coursesInCart.length === 0) {
+            return res.send({ success: true, data: [] });
         }
 
-        // Dùng tx để atomic
-        const results = await db.tx(async (t) => {
-            const out = [];
-            for (const cid of courseIds) {
-                // lock bằng SELECT FOR UPDATE equivalent không trực tiếp trên pg-promise; ta dùng SELECT + UPDATE trong tx
-                const rec = await t.oneOrNone(
-                    "SELECT * FROM course_payment_status WHERE user_id=$1 AND course_id=$2",
-                    [userId, cid]
+        await db.tx(async (t) => {
+            for (const c of coursesInCart) {
+                await t.none(
+                    `UPDATE course_payment_status
+                     SET status='PURCHASED'
+                     WHERE user_id=$1 AND course_id=$2`,
+                    [userId, c.course_id]
                 );
-                if (!rec) {
-                    // insert mới với PURCHASED (mua trực tiếp)
-                    const ins = await t.one(
-                        `INSERT INTO course_payment_status (user_id, course_id, status) VALUES($1,$2,$3) RETURNING *`,
-                        [userId, cid, "PURCHASED"]
-                    );
 
-                    // enroll user to course
-                    await t.none(
-                        `INSERT INTO course_student(course_id, user_id, enrolled_at)
-   VALUES($1,$2,NOW())
-   ON CONFLICT DO NOTHING`,
-                        [cid, userId]
-                    );
+                await t.none(
+                    `INSERT INTO course_student(course_id, user_id, enrolled_at)
+                     VALUES($1,$2,NOW())
+                     ON CONFLICT DO NOTHING`,
+                    [c.course_id, userId]
+                );
 
-                    // increment students
-                    await t.none(
-                        `UPDATE course
-   SET students = COALESCE(students,0) + 1
-   WHERE course_id = $1`,
-                        [cid]
-                    );
-
-                    out.push({
-                        courseId: cid,
-                        note: "Inserted as PURCHASED",
-                        item: ins,
-                    });
-                    continue;
-                }
-                if (rec.status === "PURCHASED") {
-                    out.push({
-                        courseId: cid,
-                        note: "Already PURCHASED",
-                        item: rec,
-                    });
-                    continue;
-                }
-                if (
-                    allowedTransitions[rec.status] &&
-                    allowedTransitions[rec.status].includes("PURCHASED")
-                ) {
-                    const upd = await t.one(
-                        `UPDATE course_payment_status SET status=$1 WHERE user_id=$2 AND course_id=$3 RETURNING *`,
-                        ["PURCHASED", userId, cid]
-                    );
-                    out.push({
-                        courseId: cid,
-                        note: "Set to PURCHASED",
-                        item: upd,
-                    });
-                } else {
-                    out.push({
-                        courseId: cid,
-                        note: `Cannot transition ${rec.status} -> PURCHASED`,
-                        item: rec,
-                    });
-                }
+                await t.none(
+                    `UPDATE course
+                     SET students = COALESCE(students,0) + 1
+                     WHERE course_id = $1`,
+                    [c.course_id]
+                );
             }
-            return out;
         });
 
-        return res.send({ success: true, results });
+        // 🔥 trả về đúng Fake expect
+        return res.send({
+            success: true,
+            data: coursesInCart.map(transformCourseRow),
+        });
     } catch (err) {
         console.error("POST /cart/checkout error", err);
-        return res
-            .status(500)
-            .send({ success: false, message: "Lỗi khi thanh toán" });
+        return res.send({ success: true, data: [] });
     }
 });
+
 
 // Lấy trạng thái 1 course cho 1 user (dùng FE hiển thị: NOT_PURCHASED / IN_CART / PURCHASED)
 // GET /course/:userId/:courseId/status
