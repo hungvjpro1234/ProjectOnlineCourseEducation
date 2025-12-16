@@ -1895,7 +1895,6 @@ app.get("/cart/:userId", async (req, res) => {
     const rows = await db.any(`
         SELECT
           cps.course_id,
-          cps.status,
           cps.price_snapshot,
           cps.quantity,
           cps.course_name,
@@ -1908,27 +1907,23 @@ app.get("/cart/:userId", async (req, res) => {
         FROM course_payment_status cps
         JOIN course c ON c.course_id = cps.course_id
         WHERE cps.user_id = $1
+          AND cps.status = 'IN_CART'
         ORDER BY cps.created_at DESC
     `, [req.params.userId]);
 
-    const items = rows.map(r => ({
-        courseId: r.course_id,
-        status: r.status,
-        priceSnapshot: r.price_snapshot,
-        quantity: r.quantity,
-        courseName: r.course_name,
-        course: {
-            id: String(r.course_id),
-            title: r.title,
-            imageUrl: r.imageurl,
-            price: r.price,
-            teacher: r.teacher,
-            rating: r.rating
-        }
+    // 🔥 FE Fake expect List<Course>
+    const courses = rows.map(r => ({
+        id: String(r.course_id),
+        title: r.title,
+        imageUrl: r.imageurl,
+        price: r.price_snapshot ?? r.price,
+        teacher: r.teacher,
+        rating: r.rating
     }));
 
-    res.send({ success: true, data: items });
+    res.send({ success: true, data: courses });
 });
+
 
 
 
