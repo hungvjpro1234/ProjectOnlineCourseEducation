@@ -1892,27 +1892,45 @@ app.post("/course/:id/purchase", async (req, res) => {
 // Lấy toàn bộ giỏ hàng của user
 // GET /cart/:userId
 app.get("/cart/:userId", async (req, res) => {
-    const userId = req.params.userId;
-    try {
-        const enumVals = await getEnumValues();
-        if (!enumVals || enumVals.length === 0) {
-            return res.status(500).send({
-                success: false,
-                message: "Enum course_payment_status_enum không tồn tại",
-            });
+    const rows = await db.any(`
+        SELECT
+          cps.course_id,
+          cps.status,
+          cps.price_snapshot,
+          cps.quantity,
+          cps.course_name,
+
+          c.title,
+          c.imageurl,
+          c.price,
+          c.teacher,
+          c.rating
+        FROM course_payment_status cps
+        JOIN course c ON c.course_id = cps.course_id
+        WHERE cps.user_id = $1
+        ORDER BY cps.created_at DESC
+    `, [req.params.userId]);
+
+    const items = rows.map(r => ({
+        courseId: r.course_id,
+        status: r.status,
+        priceSnapshot: r.price_snapshot,
+        quantity: r.quantity,
+        courseName: r.course_name,
+        course: {
+            id: String(r.course_id),
+            title: r.title,
+            imageUrl: r.imageurl,
+            price: r.price,
+            teacher: r.teacher,
+            rating: r.rating
         }
-        const items = await db.any(
-            "SELECT * FROM course_payment_status WHERE user_id=$1 ORDER BY created_at DESC",
-            [userId]
-        );
-        return res.send({ success: true, data: items, enumValues: enumVals });
-    } catch (err) {
-        console.error("GET /cart error", err);
-        return res
-            .status(500)
-            .send({ success: false, message: "Lỗi lấy giỏ hàng" });
-    }
+    }));
+
+    res.send({ success: true, data: items });
 });
+
+
 
 // Add to cart (thêm vào giỏ bật trạng thái IN_CART)
 // POST /cart/add  body: { userId, courseId, price_snapshot?, course_name? }
