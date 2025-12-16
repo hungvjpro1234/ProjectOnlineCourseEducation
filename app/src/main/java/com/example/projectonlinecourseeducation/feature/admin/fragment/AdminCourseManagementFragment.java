@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -93,11 +94,11 @@ public class AdminCourseManagementFragment extends Fragment {
 
         courseApi = ApiProvider.getCourseApi();
 
-        adapter = new AdminCourseAdapter(getContext(), courseList, (courseId, position) -> {
-            // remove locally (adapter expects external update)
-            // reload list applying current filters
-            applyFilters();
-        });
+        adapter = new AdminCourseAdapter(
+                getContext(),
+                courseList,
+                (course, position) -> deleteCourse(course)
+        );
 
         rvCourses.setAdapter(adapter);
 
@@ -247,6 +248,40 @@ public class AdminCourseManagementFragment extends Fragment {
             tvEmpty.setVisibility(View.GONE);
         }
         adapter.notifyDataSetChanged();
+    }
+
+    private void deleteCourse(Course course) {
+
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    return courseApi.deleteCourse(course.getId());
+                },
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+
+                    @Override
+                    public void onSuccess(Boolean ok) {
+                        if (!ok) {
+                            showToast("Xóa thất bại");
+                            return;
+                        }
+
+                        showToast("Đã xóa khóa học");
+                        applyFilters();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        showToast("Lỗi khi xóa: " + e.getMessage());
+                    }
+                }
+        );
+    }
+
+    private void showToast(String msg) {
+        if (getContext() != null) {
+            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
