@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 
@@ -80,36 +81,56 @@ public class QuizDialogFragment extends DialogFragment {
 
     private void loadExistingQuiz() {
         LessonQuizApi api = ApiProvider.getLessonQuizApi();
-        try {
-            existingQuiz = api.getQuizForLesson(lessonId);
-        } catch (Throwable ignored) {}
-        if (existingQuiz != null) {
-            etTitle.setText(existingQuiz.getTitle());
-            List<QuestionItemAdapter.QuestionModel> list = new ArrayList<>();
-            if (existingQuiz.getQuestions() != null) {
-                for (QuizQuestion q : existingQuiz.getQuestions()) {
-                    QuestionItemAdapter.QuestionModel m = new QuestionItemAdapter.QuestionModel();
-                    m.id = q.getId();
-                    m.text = q.getQuestion();
-                    m.options = new ArrayList<>(q.getOptions());
-                    m.correctIndex = q.getCorrectOptionIndex();
-                    // ensure 4 options
-                    while (m.options.size() < 4) m.options.add("");
-                    list.add(m);
+
+        AsyncApiHelper.execute(
+                // background
+                () -> api.getQuizForLesson(lessonId),
+
+                // main thread
+                new AsyncApiHelper.ApiCallback<Quiz>() {
+                    @Override
+                    public void onSuccess(Quiz quiz) {
+                        if (!isAdded() || getView() == null) return;
+
+                        existingQuiz = quiz;
+                        if (existingQuiz == null) return;
+
+                        etTitle.setText(existingQuiz.getTitle());
+
+                        List<QuestionItemAdapter.QuestionModel> list = new ArrayList<>();
+                        if (existingQuiz.getQuestions() != null) {
+                            for (QuizQuestion q : existingQuiz.getQuestions()) {
+                                QuestionItemAdapter.QuestionModel m =
+                                        new QuestionItemAdapter.QuestionModel();
+                                m.id = q.getId();
+                                m.text = q.getQuestion();
+                                m.options = new ArrayList<>(q.getOptions());
+                                m.correctIndex = q.getCorrectOptionIndex();
+                                while (m.options.size() < 4) m.options.add("");
+                                list.add(m);
+                            }
+                        }
+
+                        while (list.size() < 10) {
+                            list.add(new QuestionItemAdapter.QuestionModel());
+                        }
+
+                        adapter.setData(list);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Không có quiz → giữ mặc định
+                    }
                 }
-            }
-            // If some missing (rare) pad to 10
-            while (list.size() < 10) list.add(new QuestionItemAdapter.QuestionModel());
-            adapter.setData(list);
-        } else {
-            // default empty; adapter was already created with 10 blanks
-        }
+        );
     }
 
     private void onSaveClicked() {
         String title = etTitle.getText().toString().trim();
         if (title.isEmpty()) {
-            Toast.makeText(requireContext(), "Tiêu đề quiz không được để trống", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(),
+                    "Tiêu đề quiz không được để trống", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -119,37 +140,60 @@ public class QuizDialogFragment extends DialogFragment {
             return;
         }
 
-        // Build Quiz object
+        // Build Quiz object (SYNC – OK)
         List<QuestionItemAdapter.QuestionModel> models = adapter.getData();
         List<QuizQuestion> qlist = new ArrayList<>();
         for (int i = 0; i < models.size(); i++) {
             QuestionItemAdapter.QuestionModel m = models.get(i);
-            String qid = m.id;
-            if (qid == null || qid.trim().isEmpty()) {
-                qid = lessonId + "_q" + (i + 1);
-            }
-            QuizQuestion qq = new QuizQuestion(qid, m.text, m.options, m.correctIndex);
-            qlist.add(qq);
+            String qid = (m.id == null || m.id.isEmpty())
+                    ? lessonId + "_q" + (i + 1)
+                    : m.id;
+            qlist.add(new QuizQuestion(qid, m.text, m.options, m.correctIndex));
         }
 
-        Quiz qObj = new Quiz(existingQuiz == null ? null : existingQuiz.getId(), lessonId, title, qlist);
+        Quiz qObj = new Quiz(
+                existingQuiz == null ? null : existingQuiz.getId(),
+                lessonId,
+                title,
+                qlist
+        );
 
         LessonQuizApi api = ApiProvider.getLessonQuizApi();
-        Quiz saved = null;
-        try {
-            if (existingQuiz == null) saved = api.createQuiz(qObj);
-            else saved = api.updateQuiz(existingQuiz.getId(), qObj);
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
 
-        if (saved == null) {
-            Toast.makeText(requireContext(), "Lưu quiz thất bại (kiểm tra cấu trúc).", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(requireContext(), "Lưu quiz thành công", Toast.LENGTH_SHORT).show();
-            // Optionally notify parent activity to refresh item display
-            dismiss();
-        }
+        AsyncApiHelper.execute(
+                // background
+                () -> {
+                    if (existingQuiz == null) {
+                        return api.createQuiz(qObj);
+                    } else {
+                        return api.updateQuiz(existingQuiz.getId(), qObj);
+                    }
+                },
+
+                // main thread
+                new AsyncApiHelper.ApiCallback<Quiz>() {
+                    @Override
+                    public void onSuccess(Quiz saved) {
+                        if (!isAdded()) return;
+
+                        if (saved == null) {
+                            Toast.makeText(requireContext(),
+                                    "Lưu quiz thất bại", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(requireContext(),
+                                    "Lưu quiz thành công", Toast.LENGTH_SHORT).show();
+                            dismiss();
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 
     @Override

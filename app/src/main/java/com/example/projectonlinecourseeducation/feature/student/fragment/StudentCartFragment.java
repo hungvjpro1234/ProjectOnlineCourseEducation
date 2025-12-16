@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
@@ -113,25 +114,31 @@ public class StudentCartFragment extends Fragment {
                     // 🛑 Hỏi confirm trước khi xóa
                     String msg = "Bạn có chắc muốn xóa khóa học \"" + course.getTitle() + "\" khỏi giỏ hàng?";
                     showRemoveConfirmDialog(msg, () -> {
-                        // Xóa khỏi cart qua CartApi
-                        boolean removed = cartApi.removeFromCart(course.getId());
-                        if (removed) {
-                            // Cập nhật list hiện tại (lấy lại từ API cho chắc)
-                            cartList.clear();
-                            cartList.addAll(cartApi.getCartCourses());
+                        AsyncApiHelper.execute(
+                                () -> cartApi.removeFromCart(course.getId()),
+                                new AsyncApiHelper.ApiCallback<Boolean>() {
+                                    @Override
+                                    public void onSuccess(Boolean removed) {
+                                        if (removed) {
+                                            cartList.clear();
+                                            cartList.addAll(cartApi.getCartCourses());
+                                            cartAdapter.notifyDataSetChanged();
+                                            updateSummary();
 
-                            // Nếu position có thể out of bounds do full refresh, gọi notifyDataSetChanged()
-                            // nhưng giữ logic tối ưu dưới đây:
-                            if (position >= 0 && position < cartList.size() + 1) {
-                                cartAdapter.notifyItemRemoved(position);
-                                cartAdapter.notifyItemRangeChanged(position, Math.max(0, cartList.size() - position));
-                            } else {
-                                cartAdapter.notifyDataSetChanged();
-                            }
+                                            Toast.makeText(requireContext(),
+                                                    "Đã xóa khỏi giỏ hàng",
+                                                    Toast.LENGTH_SHORT).show();
+                                        }
+                                    }
 
-                            updateSummary();
-                            Toast.makeText(requireContext(), "Đã xóa khỏi giỏ hàng", Toast.LENGTH_SHORT).show();
-                        }
+                                    @Override
+                                    public void onError(Exception e) {
+                                        Toast.makeText(requireContext(),
+                                                "Lỗi xóa giỏ hàng: " + e.getMessage(),
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                }
+                        );
                     });
                 }
 
@@ -199,19 +206,16 @@ public class StudentCartFragment extends Fragment {
                 }
 
                 NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-                String msg = "Bạn có chắc muốn thanh toán " + count + " khóa học\n" +
-                        "Tổng tiền: " + nf.format(totalPrice) + " ?";
+                String msg = "Bạn có chắc muốn thanh toán " + count + " khóa học\n"
+                        + "Tổng tiền: " + nf.format(totalPrice) + " ?";
 
-                // Thanh toán toàn bộ giỏ hàng: dialog confirm -> gọi checkout() -> dialog thành công
                 showPaymentConfirmDialog(msg, () -> {
-                    // ✅ NEW: Use checkout() method instead of inline logic
-                    // checkout() handles: recordPurchase, addToMyCourses, clearCart
-                    com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper.execute(
+                    AsyncApiHelper.execute(
                             () -> cartApi.checkout(),
-                            new com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper.ApiCallback<List<Course>>() {
+                            new AsyncApiHelper.ApiCallback<List<Course>>() {
                                 @Override
                                 public void onSuccess(List<Course> purchasedCourses) {
-                                    if (purchasedCourses.isEmpty()) {
+                                    if (purchasedCourses == null || purchasedCourses.isEmpty()) {
                                         Toast.makeText(requireContext(),
                                                 "Thanh toán thất bại, vui lòng thử lại",
                                                 Toast.LENGTH_SHORT).show();
@@ -222,18 +226,14 @@ public class StudentCartFragment extends Fragment {
                                             "Thanh toán toàn bộ giỏ hàng thành công",
                                             true,
                                             () -> {
-                                                // Update UI
                                                 cartList.clear();
                                                 cartAdapter.notifyDataSetChanged();
                                                 updateSummary();
 
-                                                // Navigate to My Course tab
                                                 Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
                                                 intent.putExtra("open_my_course", true);
                                                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
                                                 startActivity(intent);
-
-                                                // Close current activity
                                                 requireActivity().finish();
                                             }
                                     );
