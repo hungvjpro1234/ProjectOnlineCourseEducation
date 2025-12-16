@@ -2138,4 +2138,167 @@ app.get("/course/:userId/:courseId/status", async (req, res) => {
 });
 // ----------------- end cart endpoints -----------------
 
+function transformLessonRow(row) {
+    if (!row) return null;
+    return {
+        id: String(row.lesson_id),
+        courseId: String(row.course_id),
+        title: row.title,
+        description: row.description || "",
+        videoUrl: row.video_url || "",
+        duration: row.duration || "",
+        order: row.lesson_order || 0,
+
+        initialApproved: !!row.is_initial_approved,
+        editApproved: !!row.is_edit_approved,
+        deleteRequested: !!row.is_delete_requested,
+    };
+}
+
+app.get("/lesson/course/:courseId", authMiddleware, async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.courseId, 10);
+        if (!Number.isFinite(courseId)) {
+            return res.status(400).send({ success: false });
+        }
+
+        const role = String(req.user.role || "").toUpperCase();
+        const isStudent = role === "STUDENT";
+
+        const rows = await db.any(
+            `
+            SELECT * FROM lesson
+            WHERE course_id = $1
+            ${isStudent ? "AND is_initial_approved = true AND is_delete_requested = false" : ""}
+            ORDER BY lesson_order ASC
+            `,
+            [courseId]
+        );
+
+        res.send({
+            success: true,
+            data: rows.map(transformLessonRow),
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+app.post("/lesson", authMiddleware, async (req, res) => {
+    try {
+        const { courseId, title, description, videoUrl, duration, order } = req.body;
+        if (!courseId || !title) {
+            return res.status(400).send({ success: false });
+        }
+
+        const course = await db.oneOrNone(
+            "SELECT is_approved FROM course WHERE course_id = $1",
+            [courseId]
+        );
+        if (!course) {
+            return res.status(404).send({ success: false });
+        }
+
+        const isInitialApproved = course.is_approved === false ? false : false;
+
+        const row = await db.one(
+            `
+            INSERT INTO lesson
+            (course_id, title, description, video_url, duration, lesson_order,
+             is_initial_approved, is_edit_approved, is_delete_requested)
+            VALUES($1,$2,$3,$4,$5,$6,$7,false,false)
+            RETURNING *
+            `,
+            [
+                courseId,
+                title,
+                description || "",
+                videoUrl || "",
+                duration || "",
+                order || 0,
+                isInitialApproved,
+            ]
+        );
+
+        res.send({ success: true, data: transformLessonRow(row) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+app.patch("/lesson/:id", authMiddleware, async (req, res) => {
+    try {
+        const lessonId = parseInt(req.params.id, 10);
+        const pendingData = req.body;
+
+        await db.none(
+            `INSERT INTO lesson_pending_edit(lesson_id, pending_data)
+             VALUES($1,$2)
+             ON CONFLICT DO NOTHING`,
+            [lessonId, pendingData]
+        );
+
+        await db.none(
+            `UPDATE lesson SET is_edit_approved = false WHERE lesson_id = $1`,
+            [lessonId]
+        );
+
+        res.send({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
+    try {
+        const lessonId = parseInt(req.params.id, 10);
+
+        const pending = await db.oneOrNone(
+            "SELECT * FROM lesson_pending_edit WHERE lesson_id = $1",
+            [lessonId]
+        );
+        if (!pending) return res.send({ success: true });
+
+        const p = pending.pending_data;
+
+        await db.tx(async (t) => {
+            await t.none(
+                `
+                UPDATE lesson SET
+                    title = COALESCE($1,title),
+                    description = COALESCE($2,description),
+                    video_url = COALESCE($3,video_url),
+                    duration = COALESCE($4,duration),
+                    lesson_order = COALESCE($5,lesson_order),
+                    is_edit_approved = true
+                WHERE lesson_id = $6
+                `,
+                [
+                    p.title,
+                    p.description,
+                    p.videoUrl,
+                    p.duration,
+                    p.order,
+                    lessonId,
+                ]
+            );
+
+            await t.none(
+                "DELETE FROM lesson_pending_edit WHERE lesson_id = $1",
+                [lessonId]
+            );
+        });
+
+        res.send({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+
+
 app.listen(port, () => console.log(`Server listening on ${port}`));
