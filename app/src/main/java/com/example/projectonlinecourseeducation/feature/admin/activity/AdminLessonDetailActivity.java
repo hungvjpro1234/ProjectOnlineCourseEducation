@@ -26,6 +26,7 @@ import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminLessonCommentAdapter;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.google.android.material.card.MaterialCardView;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener;
@@ -33,8 +34,6 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Variant of AdminLessonDetailActivity with colorful question blocks.
@@ -83,7 +82,6 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
     // Listeners
     private LessonCommentApi.LessonCommentUpdateListener commentUpdateListener;
 
-    private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -164,31 +162,32 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                Lesson l = lessonApi.getLessonDetail(lessonId);
+        AsyncApiHelper.execute(
+                () -> lessonApi.getLessonDetail(lessonId),
+                new AsyncApiHelper.ApiCallback<Lesson>() {
+                    @Override
+                    public void onSuccess(Lesson l) {
+                        if (l == null) {
+                            Toast.makeText(AdminLessonDetailActivity.this,
+                                    "Không tìm thấy bài học", Toast.LENGTH_SHORT).show();
+                            finish();
+                            return;
+                        }
 
-                if (l == null) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Không tìm thấy bài học", Toast.LENGTH_SHORT).show();
-                        finish();
-                    });
-                    return;
+                        lesson = l;
+                        displayLessonInfo();
+                        loadYouTubeVideo();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Error fetching lesson detail", e);
+                        Toast.makeText(AdminLessonDetailActivity.this,
+                                "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
+        );
 
-                final Lesson finalLesson = l;
-                runOnUiThread(() -> {
-                    lesson = finalLesson;
-                    displayLessonInfo();
-                    loadYouTubeVideo();
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Error fetching lesson detail", e);
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
     }
 
     private void displayLessonInfo() {
@@ -261,21 +260,25 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
         commentApi = ApiProvider.getLessonCommentApi();
         if (commentApi == null) return;
 
-        bgExecutor.execute(() -> {
-            try {
-                List<LessonComment> fetchedComments = commentApi.getCommentsForLesson(lessonId);
-                if (fetchedComments == null) fetchedComments = new ArrayList<>();
+        AsyncApiHelper.execute(
+                () -> commentApi.getCommentsForLesson(lessonId),
+                new AsyncApiHelper.ApiCallback<List<LessonComment>>() {
+                    @Override
+                    public void onSuccess(List<LessonComment> fetchedComments) {
+                        if (fetchedComments == null) fetchedComments = new ArrayList<>();
 
-                final List<LessonComment> finalComments = fetchedComments;
-                runOnUiThread(() -> {
-                    comments = finalComments;
-                    commentAdapter.setComments(comments);
-                    updateCommentCount();
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Error fetching comments", e);
-            }
-        });
+                        comments = fetchedComments;
+                        commentAdapter.setComments(comments);
+                        updateCommentCount();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Error fetching comments", e);
+                    }
+                }
+        );
+
     }
 
     private void updateCommentCount() {
@@ -286,26 +289,28 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
     private void deleteReply(LessonComment comment) {
         if (commentApi == null) return;
 
-        bgExecutor.execute(() -> {
-            try {
-                LessonComment updated = commentApi.deleteReply(comment.getId());
+        AsyncApiHelper.execute(
+                () -> commentApi.deleteReply(comment.getId()),
+                new AsyncApiHelper.ApiCallback<LessonComment>() {
+                    @Override
+                    public void onSuccess(LessonComment updated) {
+                        if (updated != null) {
+                            Toast.makeText(AdminLessonDetailActivity.this,
+                                    "Đã xóa câu trả lời", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(AdminLessonDetailActivity.this,
+                                    "Lỗi khi xóa câu trả lời", Toast.LENGTH_SHORT).show();
+                        }
+                    }
 
-                if (updated != null) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Đã xóa câu trả lời", Toast.LENGTH_SHORT).show();
-                    });
-                } else {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Lỗi khi xóa câu trả lời", Toast.LENGTH_SHORT).show();
-                    });
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Error deleting reply", e);
+                        Toast.makeText(AdminLessonDetailActivity.this,
+                                "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error deleting reply", e);
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
+        );
     }
 
     private void showDeleteConfirmDialog(LessonComment comment) {
@@ -320,26 +325,28 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
     private void deleteComment(LessonComment comment) {
         if (commentApi == null) return;
 
-        bgExecutor.execute(() -> {
-            try {
-                LessonComment updated = commentApi.markCommentAsDeleted(comment.getId());
+        AsyncApiHelper.execute(
+                () -> commentApi.markCommentAsDeleted(comment.getId()),
+                new AsyncApiHelper.ApiCallback<LessonComment>() {
+                    @Override
+                    public void onSuccess(LessonComment updated) {
+                        if (updated != null) {
+                            Toast.makeText(AdminLessonDetailActivity.this,
+                                    "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(AdminLessonDetailActivity.this,
+                                    "Lỗi khi xóa bình luận", Toast.LENGTH_SHORT).show();
+                        }
+                    }
 
-                if (updated != null) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
-                    });
-                } else {
-                    runOnUiThread(() -> {
-                        Toast.makeText(this, "Lỗi khi xóa bình luận", Toast.LENGTH_SHORT).show();
-                    });
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Error deleting comment", e);
+                        Toast.makeText(AdminLessonDetailActivity.this,
+                                "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error deleting comment", e);
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Lỗi: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
+        );
     }
 
     private void registerCommentUpdateListener() {
@@ -358,17 +365,21 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                Quiz q = lessonQuizApi.getQuizForLesson(lessonId);
-                runOnUiThread(() -> {
-                    lessonQuiz = q;
-                    displayQuiz();
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Error fetching quiz", e);
-            }
-        });
+        AsyncApiHelper.execute(
+                () -> lessonQuizApi.getQuizForLesson(lessonId),
+                new AsyncApiHelper.ApiCallback<Quiz>() {
+                    @Override
+                    public void onSuccess(Quiz q) {
+                        lessonQuiz = q;
+                        displayQuiz();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Error fetching quiz", e);
+                    }
+                }
+        );
     }
 
     /**
@@ -516,9 +527,5 @@ public class AdminLessonDetailActivity extends AppCompatActivity {
             commentApi.removeLessonCommentUpdateListener(commentUpdateListener);
         }
 
-        // Shutdown executor
-        try {
-            bgExecutor.shutdownNow();
-        } catch (Exception ignored) {}
     }
 }

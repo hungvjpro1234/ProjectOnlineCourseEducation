@@ -15,6 +15,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
@@ -28,9 +29,6 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 /**
  * Activity hiển thị chi tiết student: cart courses, purchased courses với progress
  *
@@ -51,19 +49,16 @@ public class AdminManageUserStudentDetailActivity extends AppCompatActivity {
     private android.widget.TextView tvStudentName;
     private android.widget.TextView tvTotalSpent;
 
-    private UserStudentInCartCourseAdapter cartCourseAdapter;
-    private UserStudentPurchasedCourseAdapter purchasedCourseAdapter;
-
     private CartApi cartApi;
     private MyCourseApi myCourseApi;
     private LessonApi lessonApi;
     private LessonProgressApi lessonProgressApi;
 
+    private UserStudentInCartCourseAdapter cartCourseAdapter;
+    private UserStudentPurchasedCourseAdapter purchasedCourseAdapter;
+
     private String userId;
     private String userName;
-
-    // background executor to compute progress without blocking UI
-    private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
     // listener to refresh when lesson progress updates
     private LessonProgressApi.LessonProgressUpdateListener lessonProgressListener;
@@ -161,58 +156,90 @@ public class AdminManageUserStudentDetailActivity extends AppCompatActivity {
      * Heavy work runs on background executor; UI updated on main thread.
      */
     private void loadStudentData() {
-        bgExecutor.execute(() -> {
-            try {
-                // load cart courses
-                List<Course> cartCourses = new ArrayList<>();
-                try {
-                    List<Course> tmp = cartApi.getCartCoursesForUser(userId);
-                    if (tmp != null) cartCourses = tmp;
-                } catch (Exception ignored) {}
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== PHẦN BACKGROUND (GIỮ NGUYÊN LOGIC) =====
 
-                // load purchased courses
-                List<Course> purchasedCourses = new ArrayList<>();
-                try {
-                    List<Course> tmp = myCourseApi.getMyCoursesForUser(userId);
-                    if (tmp != null) purchasedCourses = tmp;
-                } catch (Exception ignored) {}
+                    List<Course> cartCourses = new ArrayList<>();
+                    try {
+                        List<Course> tmp = cartApi.getCartCoursesForUser(userId);
+                        if (tmp != null) cartCourses = tmp;
+                    } catch (Exception ignored) {}
 
-                // compute total spent
-                double totalSpent = 0;
-                for (Course c : purchasedCourses) {
-                    if (c != null) totalSpent += c.getPrice();
+                    List<Course> purchasedCourses = new ArrayList<>();
+                    try {
+                        List<Course> tmp = myCourseApi.getMyCoursesForUser(userId);
+                        if (tmp != null) purchasedCourses = tmp;
+                    } catch (Exception ignored) {}
+
+                    double totalSpent = 0;
+                    for (Course c : purchasedCourses) {
+                        if (c != null) totalSpent += c.getPrice();
+                    }
+
+                    List<CourseProgressStats> purchasedWithProgress = new ArrayList<>();
+                    for (Course course : purchasedCourses) {
+                        if (course == null) continue;
+                        CourseProgressStats stats =
+                                calculateCourseProgress(course, userId);
+                        purchasedWithProgress.add(stats);
+                    }
+
+                    return new StudentDetailResult(
+                            cartCourses,
+                            purchasedWithProgress,
+                            totalSpent,
+                            purchasedCourses.size()
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<StudentDetailResult>() {
+                    @Override
+                    public void onSuccess(StudentDetailResult result) {
+                        // ===== MAIN THREAD =====
+                        cartCourseAdapter.setCourses(result.cartCourses);
+                        tvCartCourseCount.setText(
+                                "Giỏ hàng (" + result.cartCourses.size() + " khóa)"
+                        );
+
+                        NumberFormat currencyFormat =
+                                NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
+                        tvTotalSpent.setText(
+                                "Tổng chi: " + currencyFormat.format(result.totalSpent) + " VNĐ"
+                        );
+
+                        purchasedCourseAdapter.setCourses(result.purchasedCourses);
+                        tvPurchasedCourseCount.setText(
+                                "Khóa học đã mua (" + result.purchasedCount + " khóa)"
+                        );
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "loadStudentData failed: " + e.getMessage(), e);
+                    }
                 }
-
-                // compute course-level progress for each purchased course (background)
-                List<CourseProgressStats> purchasedWithProgress = new ArrayList<>();
-                for (Course course : purchasedCourses) {
-                    if (course == null) continue;
-                    CourseProgressStats stats = calculateCourseProgress(course, userId);
-                    purchasedWithProgress.add(stats);
-                }
-
-                // Make final copies to be captured by the UI lambda
-                final List<Course> finalCartCourses = cartCourses;
-                final List<CourseProgressStats> finalPurchasedWithProgress = purchasedWithProgress;
-                final double finalTotalSpent = totalSpent;
-                final int finalPurchasedCount = purchasedCourses.size();
-
-                // update UI on main thread
-                runOnUiThread(() -> {
-                    cartCourseAdapter.setCourses(finalCartCourses);
-                    tvCartCourseCount.setText("Giỏ hàng (" + finalCartCourses.size() + " khóa)");
-
-                    NumberFormat currencyFormat = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
-                    tvTotalSpent.setText("Tổng chi: " + currencyFormat.format(finalTotalSpent) + " VNĐ");
-
-                    purchasedCourseAdapter.setCourses(finalPurchasedWithProgress);
-                    tvPurchasedCourseCount.setText("Khóa học đã mua (" + finalPurchasedCount + " khóa)");
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "loadStudentData failed: " + e.getMessage(), e);
-            }
-        });
+        );
     }
+
+    private static class StudentDetailResult {
+        List<Course> cartCourses;
+        List<CourseProgressStats> purchasedCourses;
+        double totalSpent;
+        int purchasedCount;
+
+        StudentDetailResult(
+                List<Course> cartCourses,
+                List<CourseProgressStats> purchasedCourses,
+                double totalSpent,
+                int purchasedCount
+        ) {
+            this.cartCourses = cartCourses;
+            this.purchasedCourses = purchasedCourses;
+            this.totalSpent = totalSpent;
+            this.purchasedCount = purchasedCount;
+        }
+    }
+
 
     /**
      * Compute course-level progress for a specific student.
@@ -255,9 +282,6 @@ public class AdminManageUserStudentDetailActivity extends AppCompatActivity {
                 lessonProgressApi.removeLessonProgressUpdateListener(lessonProgressListener);
             }
         } catch (Exception ignored) {}
-
-        try {
-            bgExecutor.shutdownNow();
-        } catch (Exception ignored) {}
     }
+
 }

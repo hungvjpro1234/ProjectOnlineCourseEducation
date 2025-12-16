@@ -1,6 +1,5 @@
 package com.example.projectonlinecourseeducation.feature.admin.activity;
 
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.PorterDuff;
 import android.os.Bundle;
@@ -24,11 +23,13 @@ import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress
 import com.example.projectonlinecourseeducation.core.model.course.CourseStudent;
 import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
+
 
 // ===== IMPORT CÁC ADAPTER MỚI CHO ADMIN =====
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminCourseLessonAdapter;
@@ -41,8 +42,6 @@ import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Activity quản lý chi tiết khóa học cho Admin
@@ -110,7 +109,6 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
     private com.example.projectonlinecourseeducation.data.coursereview.ReviewApi.ReviewUpdateListener reviewUpdateListener;
     private com.example.projectonlinecourseeducation.data.cart.CartApi.CartUpdateListener cartUpdateListener; // NEW
 
-    private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,77 +157,91 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         }
 
         if (cartApi == null || courseId == null) {
-            runOnUiThread(() -> tvCartCount.setText("0"));
+            tvCartCount.setText("0");
             return;
         }
 
-        bgExecutor.execute(() -> {
-            int count = 0;
-            try {
-                // Lấy tất cả users từ AuthApi
-                com.example.projectonlinecourseeducation.data.auth.AuthApi authApi =
-                        ApiProvider.getAuthApi();
+        AsyncApiHelper.execute(
+                () -> {
+                    int count = 0;
 
-                if (authApi != null) {
-                    // Lấy tất cả users (STUDENT + TEACHER)
-                    java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> allUsers =
-                            new java.util.ArrayList<>();
-
-                    // Lấy students
                     try {
-                        java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> students =
-                                authApi.getAllUsersByRole(
-                                        com.example.projectonlinecourseeducation.core.model.user.User.Role.STUDENT
-                                );
-                        if (students != null) allUsers.addAll(students);
-                    } catch (Exception e) {
-                        Log.w(TAG, "Error getting students: " + e.getMessage());
-                    }
+                        // Lấy tất cả users từ AuthApi
+                        com.example.projectonlinecourseeducation.data.auth.AuthApi authApi =
+                                ApiProvider.getAuthApi();
 
-                    // Lấy teachers (có thể cũng mua khóa học)
-                    try {
-                        java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> teachers =
-                                authApi.getAllUsersByRole(
-                                        com.example.projectonlinecourseeducation.core.model.user.User.Role.TEACHER
-                                );
-                        if (teachers != null) allUsers.addAll(teachers);
-                    } catch (Exception e) {
-                        Log.w(TAG, "Error getting teachers: " + e.getMessage());
-                    }
+                        if (authApi != null) {
+                            java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> allUsers =
+                                    new java.util.ArrayList<>();
 
-                    Log.d(TAG, "Total users to check cart: " + allUsers.size());
+                            // Lấy students
+                            try {
+                                java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> students =
+                                        authApi.getAllUsersByRole(
+                                                com.example.projectonlinecourseeducation.core.model.user.User.Role.STUDENT
+                                        );
+                                if (students != null) allUsers.addAll(students);
+                            } catch (Exception e) {
+                                Log.w(TAG, "Error getting students: " + e.getMessage());
+                            }
 
-                    // Đếm số user có course này trong giỏ
-                    for (com.example.projectonlinecourseeducation.core.model.user.User user : allUsers) {
-                        if (user == null || user.getId() == null) continue;
+                            // Lấy teachers
+                            try {
+                                java.util.List<com.example.projectonlinecourseeducation.core.model.user.User> teachers =
+                                        authApi.getAllUsersByRole(
+                                                com.example.projectonlinecourseeducation.core.model.user.User.Role.TEACHER
+                                        );
+                                if (teachers != null) allUsers.addAll(teachers);
+                            } catch (Exception e) {
+                                Log.w(TAG, "Error getting teachers: " + e.getMessage());
+                            }
 
-                        try {
-                            java.util.List<com.example.projectonlinecourseeducation.core.model.course.Course> userCart =
-                                    cartApi.getCartCoursesForUser(user.getId());
+                            Log.d(TAG, "Total users to check cart: " + allUsers.size());
 
-                            if (userCart != null) {
-                                for (com.example.projectonlinecourseeducation.core.model.course.Course c : userCart) {
-                                    if (c != null && courseId.equals(c.getId())) {
-                                        count++;
-                                        Log.d(TAG, "Found course in cart of user: " + user.getName());
-                                        break; // Đếm mỗi user 1 lần
+                            // Đếm số user có course trong cart
+                            for (com.example.projectonlinecourseeducation.core.model.user.User user : allUsers) {
+                                if (user == null || user.getId() == null) continue;
+
+                                try {
+                                    java.util.List<com.example.projectonlinecourseeducation.core.model.course.Course> userCart =
+                                            cartApi.getCartCoursesForUser(user.getId());
+
+                                    if (userCart != null) {
+                                        for (com.example.projectonlinecourseeducation.core.model.course.Course c : userCart) {
+                                            if (c != null && courseId.equals(c.getId())) {
+                                                count++;
+                                                Log.d(TAG, "Found course in cart of user: " + user.getName());
+                                                break; // mỗi user chỉ tính 1 lần
+                                            }
+                                        }
                                     }
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Error checking cart for user " + user.getId() + ": " + e.getMessage());
                                 }
                             }
-                        } catch (Exception e) {
-                            Log.w(TAG, "Error checking cart for user " + user.getId() + ": " + e.getMessage());
                         }
+                    } catch (Exception e) {
+                        Log.w(TAG, "fetchCartCountFromApi error: " + e.getMessage(), e);
+                    }
+
+                    return count;
+                },
+                new AsyncApiHelper.ApiCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer count) {
+                        Log.d(TAG, "Cart count result: " + count);
+                        tvCartCount.setText(String.valueOf(count));
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchCartCountFromApi error (async): " + e.getMessage(), e);
+                        tvCartCount.setText("0");
                     }
                 }
-            } catch (Exception e) {
-                Log.w(TAG, "fetchCartCountFromApi error: " + e.getMessage(), e);
-            }
-
-            final int finalCount = count;
-            Log.d(TAG, "Cart count result: " + finalCount);
-            runOnUiThread(() -> tvCartCount.setText(String.valueOf(finalCount)));
-        });
+        );
     }
+
 
     private void fetchCourseDetail() {
         final CourseApi courseApi = ApiProvider.getCourseApi();
@@ -238,56 +250,55 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                Course c = courseApi.getCourseDetail(courseId);
+        AsyncApiHelper.execute(
+                () -> courseApi.getCourseDetail(courseId),
+                new AsyncApiHelper.ApiCallback<Course>() {
+                    @Override
+                    public void onSuccess(Course c) {
+                        if (c == null) {
+                            Toast.makeText(AdminManageCourseDetailActivity.this,
+                                    "Không tìm thấy khóa học với ID: " + courseId,
+                                    Toast.LENGTH_LONG).show();
+                            finish();
+                            return;
+                        }
+                        course = c;
+                        loadCourseData();
+                    }
 
-                if (c == null) {
-                    runOnUiThread(() -> {
+                    @Override
+                    public void onError(Exception e) {
                         Toast.makeText(AdminManageCourseDetailActivity.this,
-                                "Không tìm thấy khóa học với ID: " + courseId,
-                                Toast.LENGTH_LONG).show();
-                        finish();
-                    });
-                    return;
+                                "Lỗi khi tải thông tin khóa học: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
                 }
+        );
 
-                final Course finalC = c;
-                runOnUiThread(() -> {
-                    course = finalC;
-                    loadCourseData();
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "fetchCourseDetail error: " + e.getMessage(), e);
-                runOnUiThread(() -> {
-                    Toast.makeText(AdminManageCourseDetailActivity.this,
-                            "Lỗi khi tải thông tin khóa học: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
-                });
-            }
-        });
     }
 
     private void fetchLessonsFromApi() {
         final LessonApi lessonApi = ApiProvider.getLessonApi();
         if (lessonApi == null) return;
 
-        bgExecutor.execute(() -> {
-            try {
-                List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-                if (lessons == null) lessons = new ArrayList<>();
-
-                final List<Lesson> finalLessons = lessons;
-                runOnUiThread(() -> {
-                    lessonAdapter.setLessons(finalLessons);
-                    if (course != null) {
-                        tvLectureCount.setText(String.valueOf(finalLessons.size()));
+        AsyncApiHelper.execute(
+                () -> lessonApi.getLessonsForCourse(courseId),
+                new AsyncApiHelper.ApiCallback<List<Lesson>>() {
+                    @Override
+                    public void onSuccess(List<Lesson> lessons) {
+                        if (lessons == null) lessons = new ArrayList<>();
+                        lessonAdapter.setLessons(lessons);
+                        if (course != null) {
+                            tvLectureCount.setText(String.valueOf(lessons.size()));
+                        }
                     }
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "fetchLessonsFromApi error: " + e.getMessage(), e);
-            }
-        });
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchLessonsFromApi error: " + e.getMessage(), e);
+                    }
+                }
+        );
     }
 
     private void fetchStudentsFromApi() {
@@ -296,86 +307,109 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
         final LessonProgressApi lpApi = ApiProvider.getLessonProgressApi();
 
         if (csApi == null) {
-            runOnUiThread(() -> {
-                if (studentAdapter != null) studentAdapter.setStudents(new ArrayList<>());
-                tvStudentCount.setText("0");
-                if (course != null) {
-                    updateTotalRevenue(0);
-                }
-            });
+            if (studentAdapter != null) studentAdapter.setStudents(new ArrayList<>());
+            tvStudentCount.setText("0");
+            if (course != null) {
+                updateTotalRevenue(0);
+            }
             return;
         }
 
-        bgExecutor.execute(() -> {
-            List<CourseStudent> students = new ArrayList<>();
-            try {
-                students = csApi.getStudentsForCourse(courseId);
-                if (students == null) students = new ArrayList<>();
-            } catch (Exception e) {
-                Log.w(TAG, "Error getting students: " + e.getMessage(), e);
-            }
+        AsyncApiHelper.execute(
+                () -> {
+                    List<CourseStudent> students = new ArrayList<>();
+                    try {
+                        students = csApi.getStudentsForCourse(courseId);
+                        if (students == null) students = new ArrayList<>();
+                    } catch (Exception e) {
+                        Log.w(TAG, "Error getting students: " + e.getMessage(), e);
+                    }
 
-            List<Lesson> lessons = new ArrayList<>();
-            try {
-                if (lessonApi != null) {
-                    lessons = lessonApi.getLessonsForCourse(courseId);
-                    if (lessons == null) lessons = new ArrayList<>();
-                }
-            } catch (Exception ignored) {}
+                    List<Lesson> lessons = new ArrayList<>();
+                    try {
+                        if (lessonApi != null) {
+                            lessons = lessonApi.getLessonsForCourse(courseId);
+                            if (lessons == null) lessons = new ArrayList<>();
+                        }
+                    } catch (Exception ignored) {}
 
-            final List<AdminCourseStudentAdapter.StudentProgressItem> items = new ArrayList<>();
-            for (CourseStudent student : students) {
-                List<AdminCourseStudentAdapter.LessonProgressDetail> ldetails = new ArrayList<>();
-                if (!lessons.isEmpty()) {
-                    for (int j = 0; j < lessons.size(); j++) {
-                        Lesson lesson = lessons.get(j);
-                        int progressPercent = 0;
-                        boolean isCompleted = false;
-                        try {
-                            if (lpApi != null && lesson != null) {
-                                LessonProgress lp = lpApi.getLessonProgress(
-                                        lesson.getId(),
-                                        student != null ? student.getId() : null
-                                );
-                                if (lp != null) {
-                                    progressPercent = lp.getCompletionPercentage();
-                                    isCompleted = lp.isCompleted();
-                                }
+                    final List<AdminCourseStudentAdapter.StudentProgressItem> items = new ArrayList<>();
+                    for (CourseStudent student : students) {
+                        List<AdminCourseStudentAdapter.LessonProgressDetail> ldetails = new ArrayList<>();
+                        if (!lessons.isEmpty()) {
+                            for (int j = 0; j < lessons.size(); j++) {
+                                Lesson lesson = lessons.get(j);
+                                int progressPercent = 0;
+                                boolean isCompleted = false;
+                                try {
+                                    if (lpApi != null && lesson != null) {
+                                        LessonProgress lp = lpApi.getLessonProgress(
+                                                lesson.getId(),
+                                                student != null ? student.getId() : null
+                                        );
+                                        if (lp != null) {
+                                            progressPercent = lp.getCompletionPercentage();
+                                            isCompleted = lp.isCompleted();
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+
+                                ldetails.add(new AdminCourseStudentAdapter.LessonProgressDetail(
+                                        j + 1,
+                                        lesson.getTitle() != null ? lesson.getTitle() : ("Bài " + (j + 1)),
+                                        progressPercent,
+                                        isCompleted
+                                ));
                             }
-                        } catch (Exception ignored) {}
+                        }
 
-                        ldetails.add(new AdminCourseStudentAdapter.LessonProgressDetail(
-                                j + 1,
-                                lesson.getTitle() != null ? lesson.getTitle() : ("Bài " + (j + 1)),
-                                progressPercent,
-                                isCompleted
-                        ));
+                        AdminCourseStudentAdapter.StudentProgressItem spi =
+                                new AdminCourseStudentAdapter.StudentProgressItem(
+                                        student,
+                                        computeAggregateProgress(ldetails),
+                                        countCompleted(ldetails),
+                                        ldetails.size(),
+                                        ldetails
+                                );
+                        items.add(spi);
+                    }
+
+                    return new StudentFetchResult(items, students.size());
+                },
+                new AsyncApiHelper.ApiCallback<StudentFetchResult>() {
+                    @Override
+                    public void onSuccess(StudentFetchResult result) {
+                        if (studentAdapter != null) {
+                            studentAdapter.setStudents(result.items);
+                        }
+                        tvStudentCount.setText(String.valueOf(result.studentCount));
+
+                        if (course != null) {
+                            double revenue = course.getPrice() * result.studentCount;
+                            updateTotalRevenue(revenue);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchStudentsFromApi error: " + e.getMessage(), e);
                     }
                 }
-
-                AdminCourseStudentAdapter.StudentProgressItem spi =
-                        new AdminCourseStudentAdapter.StudentProgressItem(
-                                student,
-                                computeAggregateProgress(ldetails),
-                                countCompleted(ldetails),
-                                ldetails.size(),
-                                ldetails
-                        );
-                items.add(spi);
-            }
-
-            final int studentCount = students.size();
-            runOnUiThread(() -> {
-                if (studentAdapter != null) studentAdapter.setStudents(items);
-                tvStudentCount.setText(String.valueOf(studentCount));
-
-                if (course != null) {
-                    double revenue = course.getPrice() * studentCount;
-                    updateTotalRevenue(revenue);
-                }
-            });
-        });
+        );
     }
+    private static class StudentFetchResult {
+        List<AdminCourseStudentAdapter.StudentProgressItem> items;
+        int studentCount;
+
+        StudentFetchResult(
+                List<AdminCourseStudentAdapter.StudentProgressItem> items,
+                int studentCount
+        ) {
+            this.items = items;
+            this.studentCount = studentCount;
+        }
+    }
+
 
     private int computeAggregateProgress(List<AdminCourseStudentAdapter.LessonProgressDetail> details) {
         if (details == null || details.isEmpty()) return 0;
@@ -402,20 +436,21 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                List<com.example.projectonlinecourseeducation.core.model.course.CourseReview> reviews =
-                        reviewApi.getReviewsForCourse(courseId);
-                if (reviews == null) reviews = new ArrayList<>();
+        AsyncApiHelper.execute(
+                () -> reviewApi.getReviewsForCourse(courseId),
+                new AsyncApiHelper.ApiCallback<List<CourseReview>>() {
+                    @Override
+                    public void onSuccess(List<CourseReview> reviews) {
+                        if (reviews == null) reviews = new ArrayList<>();
+                        reviewAdapter.setReviews(reviews);
+                    }
 
-                final List<com.example.projectonlinecourseeducation.core.model.course.CourseReview> finalReviews = reviews;
-                runOnUiThread(() -> {
-                    if (reviewAdapter != null) reviewAdapter.setReviews(finalReviews);
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "fetchReviewsFromApi error: " + e.getMessage(), e);
-            }
-        });
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchReviewsFromApi error: " + e.getMessage(), e);
+                    }
+                }
+        );
     }
 
     /* ==================== XÓA REVIEW: DIALOG + HÀM XÓA ==================== */
@@ -450,72 +485,95 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
                 .setPositiveButton("Xóa", (dialog, which) -> {
                     dialog.dismiss();
                     // Thực hiện xóa trên background
-                    bgExecutor.execute(() -> {
-                        boolean deleted = false;
-                        try {
-                            if (reviewApi == null) reviewApi = ApiProvider.getReviewApi();
-                            if (reviewApi == null) {
-                                runOnUiThread(() -> Toast.makeText(AdminManageCourseDetailActivity.this,
-                                        "Không thể kết nối Review API", Toast.LENGTH_SHORT).show());
-                                return;
-                            }
+                    AsyncApiHelper.execute(
+                            () -> {
+                                boolean deleted = false;
 
-                            String reviewId = null;
-                            try {
-                                reviewId = review.getId();
-                            } catch (Exception ignored) {}
+                                try {
+                                    if (reviewApi == null) {
+                                        reviewApi = ApiProvider.getReviewApi();
+                                    }
+                                    if (reviewApi == null) {
+                                        throw new IllegalStateException("Review API is null");
+                                    }
 
-                            // Một số API trả về boolean, một số trả void, tên phương thức có thể khác.
-                            // Thử gọi thông thường nếu có method deleteReview(String)
-                            try {
-                                Method m = reviewApi.getClass().getMethod("deleteReview", String.class);
-                                Object res = m.invoke(reviewApi, reviewId);
-                                if (res == null) {
-                                    // void method -> coi là thành công
-                                    deleted = true;
-                                } else if (res instanceof Boolean) {
-                                    deleted = (Boolean) res;
-                                } else {
-                                    deleted = true; // giả định thành công nếu không ném lỗi
-                                }
-                            } catch (NoSuchMethodException ignored) {
-                                // thử tên khác
-                                String[] altNames = {"removeReviewById", "removeReview", "delete", "deleteById"};
-                                for (String name : altNames) {
-                                    if (deleted) break;
+                                    String reviewId = null;
                                     try {
-                                        Method m2 = reviewApi.getClass().getMethod(name, String.class);
-                                        Object res2 = m2.invoke(reviewApi, reviewId);
-                                        if (res2 == null) {
-                                            deleted = true;
-                                        } else if (res2 instanceof Boolean) {
-                                            deleted = (Boolean) res2;
+                                        reviewId = review.getId();
+                                    } catch (Exception ignored) {}
+
+                                    // Thử method deleteReview(String)
+                                    try {
+                                        Method m = reviewApi.getClass()
+                                                .getMethod("deleteReview", String.class);
+                                        Object res = m.invoke(reviewApi, reviewId);
+
+                                        if (res == null) {
+                                            deleted = true; // void method
+                                        } else if (res instanceof Boolean) {
+                                            deleted = (Boolean) res;
                                         } else {
                                             deleted = true;
                                         }
-                                    } catch (NoSuchMethodException ignored2) {
-                                        // tiếp tục thử tên khác
+                                    } catch (NoSuchMethodException ignored) {
+                                        // Thử các tên method khác
+                                        String[] altNames = {
+                                                "removeReviewById",
+                                                "removeReview",
+                                                "delete",
+                                                "deleteById"
+                                        };
+
+                                        for (String name : altNames) {
+                                            if (deleted) break;
+                                            try {
+                                                Method m2 = reviewApi.getClass()
+                                                        .getMethod(name, String.class);
+                                                Object res2 = m2.invoke(reviewApi, reviewId);
+
+                                                if (res2 == null) {
+                                                    deleted = true;
+                                                } else if (res2 instanceof Boolean) {
+                                                    deleted = (Boolean) res2;
+                                                } else {
+                                                    deleted = true;
+                                                }
+                                            } catch (NoSuchMethodException ignored2) {
+                                                // tiếp tục thử
+                                            }
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Error deleting review (reflection): " + e.getMessage(), e);
+                                    deleted = false;
+                                }
+
+                                return deleted;
+                            },
+                            new AsyncApiHelper.ApiCallback<Boolean>() {
+                                @Override
+                                public void onSuccess(Boolean deleted) {
+                                    if (deleted) {
+                                        Toast.makeText(AdminManageCourseDetailActivity.this,
+                                                "Xóa đánh giá thành công",
+                                                Toast.LENGTH_SHORT).show();
+                                        fetchReviewsFromApi();
+                                    } else {
+                                        Toast.makeText(AdminManageCourseDetailActivity.this,
+                                                "Không thể xóa đánh giá. Thử lại sau.",
+                                                Toast.LENGTH_SHORT).show();
                                     }
                                 }
-                            }
 
-                        } catch (Exception e) {
-                            Log.w(TAG, "Error deleting review (reflection): " + e.getMessage(), e);
-                            // Không set deleted = true => sẽ hiển thị lỗi ở UI
-                        }
-
-                        final boolean finalDeleted = deleted;
-                        runOnUiThread(() -> {
-                            if (finalDeleted) {
-                                Toast.makeText(AdminManageCourseDetailActivity.this,
-                                        "Xóa đánh giá thành công", Toast.LENGTH_SHORT).show();
-                                fetchReviewsFromApi();
-                            } else {
-                                Toast.makeText(AdminManageCourseDetailActivity.this,
-                                        "Không thể xóa đánh giá. Thử lại sau.", Toast.LENGTH_SHORT).show();
+                                @Override
+                                public void onError(Exception e) {
+                                    Toast.makeText(AdminManageCourseDetailActivity.this,
+                                            "Lỗi khi xóa đánh giá: " + e.getMessage(),
+                                            Toast.LENGTH_SHORT).show();
+                                }
                             }
-                        });
-                    });
+                    );
+
                 })
                 .setCancelable(true)
                 .show();
@@ -929,8 +987,5 @@ public class AdminManageCourseDetailActivity extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
 
-        try {
-            bgExecutor.shutdownNow();
-        } catch (Exception ignored) {}
     }
 }

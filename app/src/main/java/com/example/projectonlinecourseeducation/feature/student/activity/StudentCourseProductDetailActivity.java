@@ -28,6 +28,7 @@ import com.example.projectonlinecourseeducation.core.model.course.CourseStatus;
 import com.example.projectonlinecourseeducation.core.utils.CourseStatusResolver;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
@@ -290,17 +291,60 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
     }
 
     private void loadCourseDetail(String id) {
-        currentCourse = courseApi.getCourseDetail(id);
-        if (currentCourse == null) {
-            Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    Course course = courseApi.getCourseDetail(id);
+                    if (course == null) return null;
 
-        List<Lesson> lessons = lessonApi.getLessonsForCourse(id);
-        List<Course> related = courseApi.getRelatedCourses(id);
-        List<CourseReview> reviews = reviewApi.getReviewsForCourse(id);
+                    List<Lesson> lessons = lessonApi.getLessonsForCourse(id);
+                    List<Course> related = courseApi.getRelatedCourses(id);
+                    List<CourseReview> reviews = reviewApi.getReviewsForCourse(id);
 
+                    return new CourseDetailResult(course, lessons, related, reviews);
+                },
+                new AsyncApiHelper.ApiCallback<CourseDetailResult>() {
+                    @Override
+                    public void onSuccess(CourseDetailResult result) {
+                        if (result == null) {
+                            Toast.makeText(
+                                    StudentCourseProductDetailActivity.this,
+                                    "Không tìm thấy khóa học",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            finish();
+                            return;
+                        }
+
+                        // ===== MAIN THREAD =====
+                        currentCourse = result.course;
+
+                        bindCourseUi(
+                                result.course,
+                                result.lessons,
+                                result.related,
+                                result.reviews
+                        );
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                StudentCourseProductDetailActivity.this,
+                                "Lỗi tải dữ liệu khóa học",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    private void bindCourseUi(
+            Course currentCourse,
+            List<Lesson> lessons,
+            List<Course> related,
+            List<CourseReview> reviews
+    ) {
         // --- Bind dữ liệu khóa học ---
         ImageLoader.getInstance().display(
                 currentCourse.getImageUrl(),
@@ -334,9 +378,12 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
         tvLectureSummary.setText(currentCourse.getLectures() + " bài • " + time);
 
         tvRatingSummary.setText(
-                String.format(Locale.US,
+                String.format(
+                        Locale.US,
                         "%.1f / 5.0 • %d lượt đánh giá",
-                        rating, currentCourse.getRatingCount())
+                        rating,
+                        currentCourse.getRatingCount()
+                )
         );
 
         // --- Skill / insight ---
@@ -363,6 +410,24 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
 
         // --- Đánh giá ---
         reviewAdapter.submitList(reviews);
+    }
+
+
+    static class CourseDetailResult {
+        Course course;
+        List<Lesson> lessons;
+        List<Course> related;
+        List<CourseReview> reviews;
+
+        CourseDetailResult(Course course,
+                           List<Lesson> lessons,
+                           List<Course> related,
+                           List<CourseReview> reviews) {
+            this.course = course;
+            this.lessons = lessons;
+            this.related = related;
+            this.reviews = reviews;
+        }
     }
 
     private void updateRelatedSection() {

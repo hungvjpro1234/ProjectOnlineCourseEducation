@@ -12,6 +12,7 @@ import android.widget.TextView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminTopTeacherStatAdapter;
@@ -37,8 +38,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Fragment thống kê giảng viên - ưu tiên doanh thu theo teacher
@@ -52,7 +51,6 @@ public class AdminStatisticsTeacherFragment extends Fragment {
 
     private CourseApi courseApi;
     private AdminTopTeacherStatAdapter topTeachersAdapter;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -89,74 +87,122 @@ public class AdminStatisticsTeacherFragment extends Fragment {
     }
 
     private void loadStatistics() {
-        executor.execute(() -> {
-            try {
-                List<Course> allCourses = courseApi.listAll();
-                List<Course> approvedCourses = new ArrayList<>();
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
 
-                // Filter approved courses
-                for (Course course : allCourses) {
-                    if (course.isInitialApproved() && !course.isDeleteRequested()) {
-                        approvedCourses.add(course);
-                    }
-                }
+                    List<Course> allCourses = courseApi.listAll();
+                    List<Course> approvedCourses = new ArrayList<>();
 
-                // Group courses by teacher
-                Map<String, AdminTopTeacherStatAdapter.TeacherStats> teacherStatsMap = new HashMap<>();
-
-                for (Course course : approvedCourses) {
-                    String teacherName = course.getTeacher() != null ? course.getTeacher() : "Unknown";
-
-                    AdminTopTeacherStatAdapter.TeacherStats stats = teacherStatsMap.get(teacherName);
-                    if (stats == null) {
-                        stats = new AdminTopTeacherStatAdapter.TeacherStats(teacherName);
-                        teacherStatsMap.put(teacherName, stats);
+                    for (Course course : allCourses) {
+                        if (course.isInitialApproved() && !course.isDeleteRequested()) {
+                            approvedCourses.add(course);
+                        }
                     }
 
-                    stats.courseCount++;
-                    stats.totalRevenue += course.getPrice() * course.getStudents();
-                    stats.totalStudents += course.getStudents();
+                    Map<String, AdminTopTeacherStatAdapter.TeacherStats> teacherStatsMap = new HashMap<>();
+
+                    for (Course course : approvedCourses) {
+                        String teacherName = course.getTeacher() != null
+                                ? course.getTeacher()
+                                : "Unknown";
+
+                        AdminTopTeacherStatAdapter.TeacherStats stats =
+                                teacherStatsMap.get(teacherName);
+
+                        if (stats == null) {
+                            stats = new AdminTopTeacherStatAdapter.TeacherStats(teacherName);
+                            teacherStatsMap.put(teacherName, stats);
+                        }
+
+                        stats.courseCount++;
+                        stats.totalRevenue += course.getPrice() * course.getStudents();
+                        stats.totalStudents += course.getStudents();
+                    }
+
+                    List<AdminTopTeacherStatAdapter.TeacherStats> teacherStatsList =
+                            new ArrayList<>(teacherStatsMap.values());
+
+                    Collections.sort(teacherStatsList,
+                            (a, b) -> Double.compare(b.totalRevenue, a.totalRevenue));
+
+                    double totalRevenue = 0;
+                    int totalCourses = approvedCourses.size();
+                    int totalTeachers = teacherStatsList.size();
+
+                    for (AdminTopTeacherStatAdapter.TeacherStats stats : teacherStatsList) {
+                        totalRevenue += stats.totalRevenue;
+                    }
+
+                    double avgCoursesPerTeacher =
+                            totalTeachers > 0 ? (double) totalCourses / totalTeachers : 0;
+
+                    double avgRevenuePerTeacher =
+                            totalTeachers > 0 ? totalRevenue / totalTeachers : 0;
+
+                    List<AdminTopTeacherStatAdapter.TeacherStats> top5 =
+                            teacherStatsList.size() > 5
+                                    ? new ArrayList<>(teacherStatsList.subList(0, 5))
+                                    : new ArrayList<>(teacherStatsList);
+
+                    return new TeacherStatResult(
+                            totalRevenue,
+                            totalTeachers,
+                            totalCourses,
+                            avgCoursesPerTeacher,
+                            avgRevenuePerTeacher,
+                            top5
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<TeacherStatResult>() {
+                    @Override
+                    public void onSuccess(TeacherStatResult result) {
+                        // ===== MAIN THREAD =====
+
+                        displayStatistics(
+                                result.totalRevenue,
+                                result.totalTeachers,
+                                result.totalCourses,
+                                result.avgCoursesPerTeacher,
+                                result.avgRevenuePerTeacher
+                        );
+
+                        setupPieChart(result.topTeachers);
+                        setupBarChart(result.topTeachers);
+                        topTeachersAdapter.setTeachers(result.topTeachers);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        e.printStackTrace();
+                    }
                 }
-
-                // Convert to list and sort by revenue
-                List<AdminTopTeacherStatAdapter.TeacherStats> teacherStatsList = new ArrayList<>(teacherStatsMap.values());
-                Collections.sort(teacherStatsList, (a, b) ->
-                        Double.compare(b.totalRevenue, a.totalRevenue));
-
-                // Calculate totals
-                double totalRevenue = 0;
-                int totalCourses = approvedCourses.size();
-                int totalTeachers = teacherStatsList.size();
-
-                for (AdminTopTeacherStatAdapter.TeacherStats stats : teacherStatsList) {
-                    totalRevenue += stats.totalRevenue;
-                }
-
-                final double avgCoursesPerTeacher = totalTeachers > 0 ? (double) totalCourses / totalTeachers : 0;
-                final double avgRevenuePerTeacher = totalTeachers > 0 ? totalRevenue / totalTeachers : 0;
-
-                // Get top 5 for charts
-                List<AdminTopTeacherStatAdapter.TeacherStats> top5 = teacherStatsList.size() > 5
-                        ? teacherStatsList.subList(0, 5)
-                        : teacherStatsList;
-
-                final double finalTotalRevenue = totalRevenue;
-
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        displayStatistics(finalTotalRevenue, totalTeachers, totalCourses,
-                                avgCoursesPerTeacher, avgRevenuePerTeacher);
-                        setupPieChart(top5);
-                        setupBarChart(top5);
-                        topTeachersAdapter.setTeachers(top5);
-                    });
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        );
     }
+
+    static class TeacherStatResult {
+        double totalRevenue;
+        int totalTeachers;
+        int totalCourses;
+        double avgCoursesPerTeacher;
+        double avgRevenuePerTeacher;
+        List<AdminTopTeacherStatAdapter.TeacherStats> topTeachers;
+
+        TeacherStatResult(double totalRevenue,
+                          int totalTeachers,
+                          int totalCourses,
+                          double avgCoursesPerTeacher,
+                          double avgRevenuePerTeacher,
+                          List<AdminTopTeacherStatAdapter.TeacherStats> topTeachers) {
+            this.totalRevenue = totalRevenue;
+            this.totalTeachers = totalTeachers;
+            this.totalCourses = totalCourses;
+            this.avgCoursesPerTeacher = avgCoursesPerTeacher;
+            this.avgRevenuePerTeacher = avgRevenuePerTeacher;
+            this.topTeachers = topTeachers;
+        }
+    }
+
 
     private void displayStatistics(double totalRevenue, int totalTeachers, int totalCourses,
                                     double avgCourses, double avgRevenue) {
@@ -267,9 +313,5 @@ public class AdminStatisticsTeacherFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        try {
-            executor.shutdownNow();
-        } catch (Exception ignored) {
-        }
     }
 }

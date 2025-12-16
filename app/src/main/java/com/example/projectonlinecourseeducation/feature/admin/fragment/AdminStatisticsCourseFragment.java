@@ -13,6 +13,7 @@ import android.widget.TextView;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
 import com.example.projectonlinecourseeducation.feature.admin.adapter.AdminTopCourseStatAdapter;
@@ -36,8 +37,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Fragment thống kê khóa học - ưu tiên doanh thu
@@ -53,7 +52,6 @@ public class AdminStatisticsCourseFragment extends Fragment {
     // Data
     private CourseApi courseApi;
     private AdminTopCourseStatAdapter topCoursesAdapter;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -90,67 +88,105 @@ public class AdminStatisticsCourseFragment extends Fragment {
     }
 
     private void loadStatistics() {
-        executor.execute(() -> {
-            try {
-                // Load all approved courses
-                List<Course> allCourses = courseApi.listAll();
-                List<Course> approvedCourses = new ArrayList<>();
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
 
-                // Filter only approved courses (student can see)
-                for (Course course : allCourses) {
-                    if (course.isInitialApproved() && !course.isDeleteRequested()) {
-                        approvedCourses.add(course);
+                    List<Course> allCourses = courseApi.listAll();
+                    List<Course> approvedCourses = new ArrayList<>();
+
+                    for (Course course : allCourses) {
+                        if (course.isInitialApproved() && !course.isDeleteRequested()) {
+                            approvedCourses.add(course);
+                        }
+                    }
+
+                    double totalRevenue = 0;
+                    int totalEnrollments = 0;
+                    double totalPrice = 0;
+
+                    for (Course course : approvedCourses) {
+                        totalRevenue += course.getPrice() * course.getStudents();
+                        totalEnrollments += course.getStudents();
+                        totalPrice += course.getPrice();
+                    }
+
+                    double avgPrice = approvedCourses.isEmpty()
+                            ? 0
+                            : totalPrice / approvedCourses.size();
+
+                    // Sort by revenue DESC
+                    Collections.sort(approvedCourses, (a, b) -> {
+                        double ra = a.getPrice() * a.getStudents();
+                        double rb = b.getPrice() * b.getStudents();
+                        return Double.compare(rb, ra);
+                    });
+
+                    List<Course> top5 = approvedCourses.size() > 5
+                            ? new ArrayList<>(approvedCourses.subList(0, 5))
+                            : new ArrayList<>(approvedCourses);
+
+                    List<Course> top10 = approvedCourses.size() > 10
+                            ? new ArrayList<>(approvedCourses.subList(0, 10))
+                            : new ArrayList<>(approvedCourses);
+
+                    return new CourseStatResult(
+                            approvedCourses.size(),
+                            totalRevenue,
+                            totalEnrollments,
+                            avgPrice,
+                            top5,
+                            top10
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<CourseStatResult>() {
+                    @Override
+                    public void onSuccess(CourseStatResult result) {
+                        // ===== MAIN THREAD =====
+
+                        displayStatistics(
+                                result.totalCourses,
+                                result.totalRevenue,
+                                result.totalEnrollments,
+                                result.avgPrice
+                        );
+
+                        setupPieChart(result.top5);
+                        setupBarChart(result.top10);
+                        topCoursesAdapter.setCourses(result.top5);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        e.printStackTrace();
                     }
                 }
-
-                // Calculate statistics
-                double totalRevenue = 0;
-                int totalEnrollments = 0;
-                double totalPrice = 0;
-
-                for (Course course : approvedCourses) {
-                    double revenue = course.getPrice() * course.getStudents();
-                    totalRevenue += revenue;
-                    totalEnrollments += course.getStudents();
-                    totalPrice += course.getPrice();
-                }
-
-                final double avgPrice = approvedCourses.isEmpty() ? 0 : totalPrice / approvedCourses.size();
-
-                // Sort by revenue (price * students) descending
-                Collections.sort(approvedCourses, (a, b) -> {
-                    double revenueA = a.getPrice() * a.getStudents();
-                    double revenueB = b.getPrice() * b.getStudents();
-                    return Double.compare(revenueB, revenueA);
-                });
-
-                // Get top 5 for pie chart
-                List<Course> top5 = approvedCourses.size() > 5
-                        ? approvedCourses.subList(0, 5)
-                        : approvedCourses;
-
-                // Get top 10 for bar chart
-                List<Course> top10 = approvedCourses.size() > 10
-                        ? approvedCourses.subList(0, 10)
-                        : approvedCourses;
-
-                final double finalTotalRevenue = totalRevenue;
-                final int finalTotalEnrollments = totalEnrollments;
-
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        displayStatistics(approvedCourses.size(), finalTotalRevenue, finalTotalEnrollments, avgPrice);
-                        setupPieChart(top5);
-                        setupBarChart(top10);
-                        topCoursesAdapter.setCourses(top5);
-                    });
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        );
     }
+
+    static class CourseStatResult {
+        int totalCourses;
+        double totalRevenue;
+        int totalEnrollments;
+        double avgPrice;
+        List<Course> top5;
+        List<Course> top10;
+
+        CourseStatResult(int totalCourses,
+                         double totalRevenue,
+                         int totalEnrollments,
+                         double avgPrice,
+                         List<Course> top5,
+                         List<Course> top10) {
+            this.totalCourses = totalCourses;
+            this.totalRevenue = totalRevenue;
+            this.totalEnrollments = totalEnrollments;
+            this.avgPrice = avgPrice;
+            this.top5 = top5;
+            this.top10 = top10;
+        }
+    }
+
 
     private void displayStatistics(int totalCourses, double totalRevenue, int totalEnrollments, double avgPrice) {
         NumberFormat formatter = NumberFormat.getInstance(new Locale("vi", "VN"));
@@ -259,14 +295,5 @@ public class AdminStatisticsCourseFragment extends Fragment {
 
         barChartEnrollments.animateY(1000);
         barChartEnrollments.invalidate();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        try {
-            executor.shutdownNow();
-        } catch (Exception ignored) {
-        }
     }
 }

@@ -21,6 +21,7 @@ import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
@@ -111,20 +112,20 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
         btnSubmit.setOnClickListener(v -> onSubmit());
 
         btnGoNext.setOnClickListener(v -> {
-            // If we still don't have nextLessonId, try to resolve it now (fallback)
             if (nextLessonId == null) {
-                nextLessonId = resolveNextLessonIdFallback();
-            }
-
-            if (nextLessonId == null) {
-                Toast.makeText(this, "Không có bài tiếp theo.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,
+                        "Đang tải bài tiếp theo, vui lòng thử lại.",
+                        Toast.LENGTH_SHORT).show();
+                resolveNextLessonIdFallbackAsync();
                 return;
             }
+
             Intent intent = new Intent(this, StudentLessonVideoActivity.class);
             intent.putExtra("lesson_id", nextLessonId);
             startActivity(intent);
             finish();
         });
+
 
         // Back ImageButton should go to StudentCoursePurchasedActivity
         btnBack.setOnClickListener(v -> {
@@ -143,41 +144,65 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
             quizUpdateListener = new LessonQuizApi.QuizUpdateListener() {
                 @Override
                 public void onQuizChanged(String changedLessonId) {
-                    boolean relevant = (changedLessonId == null || changedLessonId.isEmpty()
-                            || (lessonId != null && lessonId.equals(changedLessonId)));
+
+                    boolean relevant =
+                            changedLessonId == null
+                                    || changedLessonId.isEmpty()
+                                    || (lessonId != null && lessonId.equals(changedLessonId));
+
                     if (!relevant) return;
 
-                    // đảm bảo update UI trên main thread
-                    runOnUiThread(() -> {
-                        try {
-                            Quiz newQuiz = lessonQuizApi.getQuizForLesson(lessonId);
-                            if (newQuiz == null) {
-                                // quiz bị xóa trong lúc student đang mở -> thông báo và finish
-                                Toast.makeText(StudentLessonQuizActivity.this, "Quiz đã bị xóa.", Toast.LENGTH_SHORT).show();
-                                finish();
-                                return;
-                            }
-                            // reload quiz content, clear selections/results
-                            quiz = newQuiz;
-                            chosenMap.clear();
-                            adapter.submitList(quiz.getQuestions());
-                            tvScore.setVisibility(TextView.GONE);
-                            tvMessage.setVisibility(TextView.GONE);
-                            btnGoNext.setVisibility(Button.GONE);
-                            btnGoNext.setEnabled(false);
+                    // ⬇️ BỌC CALL API ĐÚNG CHUẨN REMOTE
+                    AsyncApiHelper.execute(
+                            () -> {
+                                // ===== BACKGROUND THREAD =====
+                                return lessonQuizApi.getQuizForLesson(lessonId);
+                            },
+                            new AsyncApiHelper.ApiCallback<Quiz>() {
+                                @Override
+                                public void onSuccess(Quiz newQuiz) {
+                                    // ===== MAIN THREAD =====
+                                    if (newQuiz == null) {
+                                        Toast.makeText(
+                                                StudentLessonQuizActivity.this,
+                                                "Quiz đã bị xóa.",
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                        finish();
+                                        return;
+                                    }
 
-                            // restore submit button to default state in case it was switched to retry
-                            restoreSubmitButtonToDefault();
-                        } catch (Exception e) {
-                            // an toàn: nếu lỗi, show toast nhỏ
-                            Toast.makeText(StudentLessonQuizActivity.this, "Không thể tải lại quiz.", Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                                    // reload quiz content, clear selections/results
+                                    quiz = newQuiz;
+                                    chosenMap.clear();
+                                    adapter.submitList(quiz.getQuestions());
+
+                                    tvScore.setVisibility(TextView.GONE);
+                                    tvMessage.setVisibility(TextView.GONE);
+                                    btnGoNext.setVisibility(Button.GONE);
+                                    btnGoNext.setEnabled(false);
+
+                                    // restore submit button to default state
+                                    restoreSubmitButtonToDefault();
+                                }
+
+                                @Override
+                                public void onError(Exception e) {
+                                    Toast.makeText(
+                                            StudentLessonQuizActivity.this,
+                                            "Không thể tải lại quiz.",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                }
+                            }
+                    );
                 }
             };
+
             lessonQuizApi.addQuizUpdateListener(quizUpdateListener);
         }
     }
+
 
     @Override
     protected void onStop() {
@@ -206,63 +231,106 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
             return;
         }
 
-        try {
-            quiz = lessonQuizApi.getQuizForLesson(lessonId);
-        } catch (Exception e) {
-            quiz = null;
-        }
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    return lessonQuizApi.getQuizForLesson(lessonId);
+                },
+                new AsyncApiHelper.ApiCallback<Quiz>() {
+                    @Override
+                    public void onSuccess(Quiz result) {
+                        if (result == null) {
+                            Toast.makeText(StudentLessonQuizActivity.this,
+                                    "Quiz chưa có cho bài này.",
+                                    Toast.LENGTH_SHORT).show();
+                            finish();
+                            return;
+                        }
 
-        if (quiz == null) {
-            Toast.makeText(this, "Quiz chưa có cho bài này.", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+                        quiz = result;
+                        tvQuizTitle.setText(
+                                quiz.getTitle() != null ? quiz.getTitle() : "Quiz"
+                        );
 
-        tvQuizTitle.setText(quiz.getTitle() != null ? quiz.getTitle() : "Quiz");
-        List<QuizQuestion> qs = quiz.getQuestions();
-        adapter.submitList(qs);
+                        adapter.submitList(quiz.getQuestions());
 
-        // reset result UI
-        btnGoNext.setEnabled(false);
-        btnGoNext.setVisibility(Button.GONE);
-        tvScore.setVisibility(TextView.GONE);
-        tvMessage.setVisibility(TextView.GONE);
+                        btnGoNext.setEnabled(false);
+                        btnGoNext.setVisibility(Button.GONE);
+                        tvScore.setVisibility(TextView.GONE);
+                        tvMessage.setVisibility(TextView.GONE);
 
-        // Ensure submit button is default
-        restoreSubmitButtonToDefault();
+                        restoreSubmitButtonToDefault();
 
-        // If nextLessonId not provided via intent, attempt to resolve now (best-effort)
-        if (nextLessonId == null) {
-            nextLessonId = resolveNextLessonIdFallback();
-        }
+                        if (nextLessonId == null) {
+                            resolveNextLessonIdFallbackAsync();
+                        }
+
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(StudentLessonQuizActivity.this,
+                                "Lỗi tải quiz",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
+
 
     /**
      * Fallback method: try to find next lesson from LessonApi using courseId and current lessonId.
      * Returns next lessonId or null if not found.
      */
-    private String resolveNextLessonIdFallback() {
-        if (courseId == null || lessonId == null) return null;
-        try {
-            LessonApi lessonApi = ApiProvider.getLessonApi();
-            if (lessonApi == null) return null;
-            List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-            if (lessons == null || lessons.isEmpty()) return null;
-            for (int i = 0; i < lessons.size(); i++) {
-                Lesson l = lessons.get(i);
-                if (l == null) continue;
-                if (lessonId.equals(l.getId())) {
-                    int nextIdx = i + 1;
-                    if (nextIdx < lessons.size()) {
-                        Lesson next = lessons.get(nextIdx);
-                        if (next != null) return next.getId();
+    private void resolveNextLessonIdFallbackAsync() {
+        if (courseId == null || lessonId == null) return;
+
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    LessonApi lessonApi = ApiProvider.getLessonApi();
+                    if (lessonApi == null) return null;
+
+                    List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
+                    if (lessons == null || lessons.isEmpty()) return null;
+
+                    for (int i = 0; i < lessons.size(); i++) {
+                        Lesson current = lessons.get(i);
+                        if (current == null) continue;
+
+                        if (lessonId.equals(current.getId())) {
+                            int nextIndex = i + 1;
+                            if (nextIndex < lessons.size()) {
+                                Lesson next = lessons.get(nextIndex);
+                                if (next != null) {
+                                    return next.getId(); // ✅ FOUND
+                                }
+                            }
+                            break;
+                        }
                     }
-                    break;
+                    return null; // không có bài tiếp theo
+                },
+                new AsyncApiHelper.ApiCallback<String>() {
+                    @Override
+                    public void onSuccess(String id) {
+                        // ===== MAIN THREAD =====
+                        nextLessonId = id;
+                        // Không toast ở đây vì đây là fallback silent
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                StudentLessonQuizActivity.this,
+                                "Không thể xác định bài học tiếp theo",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
                 }
-            }
-        } catch (Exception ignored) {}
-        return null;
+        );
     }
+
 
     private void onSubmit() {
         if (quiz == null) {
@@ -270,96 +338,94 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
             return;
         }
 
-        // Prepare answers map questionId -> chosenIndex (if null -> -1)
-        Map<String, Integer> answers = new HashMap<>();
-        List<QuizQuestion> qs = quiz.getQuestions();
-        if (qs == null) {
-            Toast.makeText(this, "Không có câu hỏi.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        for (QuizQuestion q : qs) {
-            if (q == null) continue;
-            Integer sel = chosenMap.get(q.getId());
-            answers.put(q.getId(), sel == null ? -1 : sel);
-        }
-
-        // Ensure student logged in
         User currentUser = SessionManager.getInstance(this).getCurrentUser();
         if (currentUser == null) {
             Toast.makeText(this, "Vui lòng đăng nhập để nộp quiz", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Call API to submit attempt; FakeApi sẽ validate lesson completed và quiz structure.
-        QuizAttempt attempt = null;
-        try {
-            attempt = lessonQuizApi.submitQuizAttempt(lessonId, currentUser.getId(), answers);
-        } catch (Exception e) {
-            attempt = null;
+        Map<String, Integer> answers = new HashMap<>();
+        for (QuizQuestion q : quiz.getQuestions()) {
+            Integer sel = chosenMap.get(q.getId());
+            answers.put(q.getId(), sel == null ? -1 : sel);
         }
 
-        if (attempt == null) {
-            // Không thể nộp -> có thể do lesson chưa hoàn thành hoặc validation fail
-            Toast.makeText(this, "Không thể nộp quiz. Kiểm tra điều kiện (hoàn thành lesson).", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND =====
+                    return lessonQuizApi.submitQuizAttempt(
+                            lessonId,
+                            currentUser.getId(),
+                            answers
+                    );
+                },
+                new AsyncApiHelper.ApiCallback<QuizAttempt>() {
+                    @Override
+                    public void onSuccess(QuizAttempt attempt) {
+                        if (attempt == null) {
+                            Toast.makeText(StudentLessonQuizActivity.this,
+                                    "Không thể nộp quiz.",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-        // Show result UI
+                        showResult(attempt);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(StudentLessonQuizActivity.this,
+                                "Lỗi mạng khi nộp quiz",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+    }
+
+    private void showResult(QuizAttempt attempt) {
         tvScore.setVisibility(TextView.VISIBLE);
         tvMessage.setVisibility(TextView.VISIBLE);
+
         int correctCount = attempt.getCorrectCount();
-        int total = (quiz.getQuestions() != null) ? quiz.getQuestions().size() : 0;
-        tvScore.setText("Điểm: " + correctCount + "/" + total + " (" + attempt.getScore() + "%)");
+        int total = quiz.getQuestions() != null ? quiz.getQuestions().size() : 0;
+
+        tvScore.setText(
+                "Điểm: " + correctCount + "/" + total + " (" + attempt.getScore() + "%)"
+        );
 
         if (attempt.isPassed()) {
-            // PASS: reveal wrongs (nếu có) và show correct answers; enable goNext
             tvMessage.setText("Bạn đã đạt yêu cầu! Các câu sai (nếu có) đã được hiển thị.");
             btnGoNext.setEnabled(true);
             btnGoNext.setVisibility(Button.VISIBLE);
 
-            // adapter sẽ highlight: selected-wrong (red) + correct (green)
-            // QuizAttempt.getAnswers() expected Map<String,Integer>
-            Map<String, Integer> attemptAnswers = attempt.getAnswers();
-            adapter.revealWrongAnswers(attemptAnswers);
+            adapter.revealWrongAnswers(attempt.getAnswers());
 
-            // Change submit button to \"Làm lại\" (Retry) and change color to indicate retry action
             btnSubmit.setText("Làm lại");
-            try {
-                btnSubmit.setBackgroundColor(Color.parseColor("#FF9800")); // orange, visible
-                btnSubmit.setTextColor(Color.WHITE);
-            } catch (Exception ignored) {}
+            btnSubmit.setBackgroundColor(Color.parseColor("#FF9800"));
+            btnSubmit.setTextColor(Color.WHITE);
 
-            // Change submit button behavior to perform a retry/reset when tapped
             btnSubmit.setOnClickListener(v -> {
-                // clear selections and reveals so student can retake
                 chosenMap.clear();
                 adapter.clearReveal();
-                adapter.submitList(quiz.getQuestions()); // re-bind current questions
+                adapter.submitList(quiz.getQuestions());
 
-                // hide score/message and goNext until next submission
                 tvScore.setVisibility(TextView.GONE);
                 tvMessage.setVisibility(TextView.GONE);
                 btnGoNext.setVisibility(Button.GONE);
                 btnGoNext.setEnabled(false);
 
-                // restore submit button to original appearance and behavior
                 restoreSubmitButtonToDefault();
             });
 
         } else {
-            // FAIL: theo yêu cầu không reveal answers, user phải thử lại
             tvMessage.setText("Chưa đạt yêu cầu. Vui lòng làm lại (>=8/10).");
             btnGoNext.setEnabled(false);
             btnGoNext.setVisibility(Button.GONE);
-
-            // clear any previous reveal and allow retry
             adapter.clearReveal();
-
-            // keep submit button as-is (Nộp bài) so user can change answers and submit again
         }
-
-        // Note: FakeApi already lưu attempt và sẽ notify AttemptListeners (admin có thể lắng nghe).
     }
+
+
 
     /**
      * Restore submit button to default appearance and set click to submit behavior.
