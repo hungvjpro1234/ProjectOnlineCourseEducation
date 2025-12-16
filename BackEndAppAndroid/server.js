@@ -724,6 +724,25 @@ function parseDurationToMinutes(durationText) {
     }
 }
 
+function parseDurationToSeconds(duration) {
+    if (!duration) return 0;
+
+    // "mm:ss" | "hh:mm:ss"
+    if (duration.includes(":")) {
+        const parts = duration.split(":").map(Number);
+        if (parts.length === 2) {
+            return parts[0] * 60 + parts[1];
+        }
+        if (parts.length === 3) {
+            return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+    }
+
+    // numeric seconds
+    return Number(duration) || 0;
+}
+
+
 /**
  * Add one lesson to course counters.
  * - courseId: integer
@@ -2299,6 +2318,152 @@ app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
     }
 });
 
+app.get("/lesson/:lessonId/progress", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const lessonId = parseInt(req.params.lessonId, 10);
+
+        const progress = await db.oneOrNone(
+            `
+            SELECT * FROM lesson_progress
+            WHERE user_id = $1 AND lesson_id = $2
+            `,
+            [userId, lessonId]
+        );
+
+        if (progress) {
+            return res.send({ success: true, data: progress });
+        }
+
+        // chưa có → tạo default
+        const lesson = await db.one(
+            "SELECT lesson_id, course_id, duration FROM lesson WHERE lesson_id = $1",
+            [lessonId]
+        );
+
+        const totalSecond = parseDurationToSeconds(lesson.duration);
+
+        const inserted = await db.one(
+            `
+            INSERT INTO lesson_progress
+            (user_id, lesson_id, course_id, total_second)
+            VALUES($1,$2,$3,$4)
+            RETURNING *
+            `,
+            [userId, lessonId, lesson.course_id, totalSecond]
+        );
+
+        res.send({ success: true, data: inserted });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+app.post("/lesson/:lessonId/progress", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const lessonId = parseInt(req.params.lessonId, 10);
+        const { currentSecond } = req.body;
+
+        const row = await db.one(
+            `
+            SELECT lp.*, l.duration
+            FROM lesson_progress lp
+            JOIN lesson l ON l.lesson_id = lp.lesson_id
+            WHERE lp.user_id = $1 AND lp.lesson_id = $2
+            `,
+            [userId, lessonId]
+        );
+
+        const totalSecond =
+            row.total_second > 0
+                ? row.total_second
+                : parseDurationToSeconds(row.duration);
+
+        const bestCurrent = Math.max(row.current_second, currentSecond);
+        let percent = totalSecond > 0
+            ? Math.floor((bestCurrent / totalSecond) * 100)
+            : 0;
+
+        percent = Math.min(100, Math.max(0, percent));
+        const completed = percent >= 90 || row.is_completed;
+
+        const updated = await db.one(
+            `
+            UPDATE lesson_progress
+            SET current_second=$1,
+                total_second=$2,
+                progress_percent=$3,
+                is_completed=$4,
+                last_watched=NOW()
+            WHERE progress_id=$5
+            RETURNING *
+            `,
+            [bestCurrent, totalSecond, percent, completed, row.progress_id]
+        );
+
+        res.send({ success: true, data: updated });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+app.post("/lesson/:lessonId/complete", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const lessonId = parseInt(req.params.lessonId, 10);
+
+        const updated = await db.one(
+            `
+            UPDATE lesson_progress
+            SET progress_percent=100,
+                is_completed=true,
+                last_watched=NOW()
+            WHERE user_id=$1 AND lesson_id=$2
+            RETURNING *
+            `,
+            [userId, lessonId]
+        );
+
+        res.send({ success: true, data: updated });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
+
+app.get("/course/:courseId/progress", authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const courseId = parseInt(req.params.courseId, 10);
+
+        const rows = await db.any(
+            `
+            SELECT progress_percent
+            FROM lesson_progress
+            WHERE user_id=$1 AND course_id=$2
+            `,
+            [userId, courseId]
+        );
+
+        if (rows.length === 0) {
+            return res.send({ success: true, progress: 0 });
+        }
+
+        const avg =
+            rows.reduce((s, r) => s + r.progress_percent, 0) / rows.length;
+
+        res.send({
+            success: true,
+            progress: Math.floor(avg),
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false });
+    }
+});
 
 
 app.listen(port, () => console.log(`Server listening on ${port}`));
