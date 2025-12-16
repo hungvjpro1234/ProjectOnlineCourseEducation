@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils;
@@ -297,52 +298,60 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
     }
 
     private void loadCourseData() {
-        currentCourse = courseApi.getCourseDetail(courseId);
-        if (currentCourse == null) {
-            Toast.makeText(this, "Không tìm thấy khóa học", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+        AsyncApiHelper.execute(
+                () -> courseApi.getCourseDetail(courseId),
+                new AsyncApiHelper.ApiCallback<Course>() {
+                    @Override
+                    public void onSuccess(Course course) {
+                        if (course == null) {
+                            Toast.makeText(
+                                    TeacherCourseEditActivity.this,
+                                    "Không tìm thấy khóa học",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            finish();
+                            return;
+                        }
 
-        ImageLoader.getInstance().display(currentCourse.getImageUrl(), imgCourse, R.drawable.ic_image_placeholder);
-        stagedImageUrl = null;
+                        currentCourse = course;
 
-        etTitle.setText(currentCourse.getTitle());
-        etCategory.setText(currentCourse.getCategory());
-        stagedCategoryTags.clear();
-        if (currentCourse.getCategory() != null && !currentCourse.getCategory().trim().isEmpty()) {
-            String[] parts = currentCourse.getCategory().split(",");
-            for (String p : parts) {
-                if (!p.trim().isEmpty()) stagedCategoryTags.add(p.trim());
-            }
-        }
+                        ImageLoader.getInstance().display(
+                                currentCourse.getImageUrl(),
+                                imgCourse,
+                                R.drawable.ic_image_placeholder
+                        );
 
-        etPrice.setText(String.valueOf((long) currentCourse.getPrice()));
-        etDescription.setText(currentCourse.getDescription());
+                        stagedImageUrl = null;
 
-        populateSkills(currentCourse.getSkills());
-        populateRequirements(currentCourse.getRequirements());
+                        etTitle.setText(currentCourse.getTitle());
+                        etCategory.setText(currentCourse.getCategory());
 
-        List<Lesson> loaded = lessonApi.getLessonsForCourse(courseId);
-        localLessons.clear();
-        originalLessonsMap.clear();
-        if (loaded != null) {
-            for (Lesson l : loaded) {
-                Lesson copy = new Lesson(
-                        l.getId(),
-                        l.getCourseId(),
-                        l.getTitle(),
-                        l.getDescription(),
-                        l.getVideoUrl(),
-                        l.getDuration(),
-                        l.getOrder()
-                );
-                localLessons.add(copy);
-                if (copy.getId() != null) originalLessonsMap.put(copy.getId(), copy);
-            }
-        }
-        lessonAdapter.submitList(new ArrayList<>(localLessons));
-        updateLessonsVisibility();
+                        stagedCategoryTags.clear();
+                        if (currentCourse.getCategory() != null) {
+                            for (String p : currentCourse.getCategory().split(",")) {
+                                if (!p.trim().isEmpty()) stagedCategoryTags.add(p.trim());
+                            }
+                        }
+
+                        etPrice.setText(String.valueOf((long) currentCourse.getPrice()));
+                        etDescription.setText(currentCourse.getDescription());
+
+                        populateSkills(currentCourse.getSkills());
+                        populateRequirements(currentCourse.getRequirements());
+
+                        loadLessonsAsync(); // ⬅️ tách riêng (bên dưới)
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherCourseEditActivity.this,
+                                "Không tải được dữ liệu khóa học",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     private void populateSkills(List<String> skills) {
@@ -758,131 +767,140 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
      * Tách ra thực hiện lưu (gọi API). Được gọi khi người dùng confirm ở dialog.
      */
     private void performSaveCourse() {
-        String title = etTitle.getText().toString().trim();
-        String category = etCategory.getText().toString().trim();
-        String priceStr = etPrice.getText().toString().trim();
-        String description = etDescription.getText().toString().trim();
 
-        if (title.isEmpty() || category.isEmpty() || priceStr.isEmpty()) {
-            Toast.makeText(this, "Vui lòng điền đầy đủ thông tin", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== TOÀN BỘ LOGIC CŨ CHẠY Ở BACKGROUND =====
 
-        try {
-            double price = Double.parseDouble(priceStr);
+                    String title = etTitle.getText().toString().trim();
+                    String category = etCategory.getText().toString().trim();
+                    String priceStr = etPrice.getText().toString().trim();
+                    String description = etDescription.getText().toString().trim();
 
-            List<String> skills = new ArrayList<>();
-            for (int i = 0; i < skillsContainer.getChildCount(); i++) {
-                View child = skillsContainer.getChildAt(i);
-                if (child instanceof LinearLayout) {
-                    LinearLayout row = (LinearLayout) child;
-                    for (int j = 0; j < row.getChildCount(); j++) {
-                        View subChild = row.getChildAt(j);
-                        if (subChild instanceof EditText) {
-                            String text = ((EditText) subChild).getText().toString().trim();
-                            if (!text.isEmpty()) {
-                                skills.add(text);
+                    if (title.isEmpty() || category.isEmpty() || priceStr.isEmpty()) {
+                        throw new IllegalArgumentException("Thiếu thông tin");
+                    }
+
+                    double price = Double.parseDouble(priceStr);
+
+                    List<String> skills = new ArrayList<>();
+                    for (int i = 0; i < skillsContainer.getChildCount(); i++) {
+                        View child = skillsContainer.getChildAt(i);
+                        if (child instanceof LinearLayout) {
+                            LinearLayout row = (LinearLayout) child;
+                            for (int j = 0; j < row.getChildCount(); j++) {
+                                View subChild = row.getChildAt(j);
+                                if (subChild instanceof EditText) {
+                                    String text = ((EditText) subChild).getText().toString().trim();
+                                    if (!text.isEmpty()) skills.add(text);
+                                }
                             }
                         }
                     }
-                }
-            }
 
-            List<String> requirements = new ArrayList<>();
-            for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
-                View child = requirementsContainer.getChildAt(i);
-                if (child instanceof LinearLayout) {
-                    LinearLayout row = (LinearLayout) child;
-                    for (int j = 0; j < row.getChildCount(); j++) {
-                        View subChild = row.getChildAt(j);
-                        if (subChild instanceof EditText) {
-                            String text = ((EditText) subChild).getText().toString().trim();
-                            if (!text.isEmpty()) {
-                                requirements.add(text);
+                    List<String> requirements = new ArrayList<>();
+                    for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
+                        View child = requirementsContainer.getChildAt(i);
+                        if (child instanceof LinearLayout) {
+                            LinearLayout row = (LinearLayout) child;
+                            for (int j = 0; j < row.getChildCount(); j++) {
+                                View subChild = row.getChildAt(j);
+                                if (subChild instanceof EditText) {
+                                    String text = ((EditText) subChild).getText().toString().trim();
+                                    if (!text.isEmpty()) requirements.add(text);
+                                }
                             }
                         }
                     }
-                }
-            }
 
-            // CRITICAL FIX: Create a NEW Course object instead of modifying currentCourse
-            // This prevents changes from being visible immediately before admin approval
-            Course updatedCourse = new Course(
-                    currentCourse.getId(),
-                    title,
-                    currentCourse.getTeacher(),
-                    (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty()) ? stagedImageUrl : currentCourse.getImageUrl(),
-                    String.join(", ", stagedCategoryTags),
-                    currentCourse.getLectures(),
-                    currentCourse.getStudents(),
-                    currentCourse.getRating(),
-                    price,
-                    description,
-                    currentCourse.getCreatedAt(),
-                    currentCourse.getRatingCount(),
-                    currentCourse.getTotalDurationMinutes(),
-                    skills,
-                    requirements
-            );
+                    Course updatedCourse = new Course(
+                            currentCourse.getId(),
+                            title,
+                            currentCourse.getTeacher(),
+                            (stagedImageUrl != null && !stagedImageUrl.trim().isEmpty())
+                                    ? stagedImageUrl
+                                    : currentCourse.getImageUrl(),
+                            String.join(", ", stagedCategoryTags),
+                            currentCourse.getLectures(),
+                            currentCourse.getStudents(),
+                            currentCourse.getRating(),
+                            price,
+                            description,
+                            currentCourse.getCreatedAt(),
+                            currentCourse.getRatingCount(),
+                            currentCourse.getTotalDurationMinutes(),
+                            skills,
+                            requirements
+                    );
 
-            for (int i = 0; i < localLessons.size(); i++) {
-                localLessons.get(i).setOrder(i + 1);
-            }
+                    for (int i = 0; i < localLessons.size(); i++) {
+                        localLessons.get(i).setOrder(i + 1);
+                    }
 
-            Set<String> originalIds = new HashSet<>(originalLessonsMap.keySet());
-            Set<String> newIds = new HashSet<>();
-            List<Lesson> toCreate = new ArrayList<>();
-            List<Lesson> toUpdate = new ArrayList<>();
+                    Set<String> originalIds = new HashSet<>(originalLessonsMap.keySet());
+                    Set<String> newIds = new HashSet<>();
+                    List<Lesson> toCreate = new ArrayList<>();
+                    List<Lesson> toUpdate = new ArrayList<>();
 
-            for (Lesson l : localLessons) {
-                if (l.getId() == null || l.getId().trim().isEmpty()) {
-                    toCreate.add(l);
-                } else {
-                    newIds.add(l.getId());
-                    if (originalLessonsMap.containsKey(l.getId())) {
-                        toUpdate.add(l);
-                    } else {
-                        toCreate.add(l);
+                    for (Lesson l : localLessons) {
+                        if (l.getId() == null || l.getId().trim().isEmpty()) {
+                            toCreate.add(l);
+                        } else {
+                            newIds.add(l.getId());
+                            if (originalLessonsMap.containsKey(l.getId())) {
+                                toUpdate.add(l);
+                            } else {
+                                toCreate.add(l);
+                            }
+                        }
+                    }
+
+                    Set<String> toDeleteIds = new HashSet<>(originalIds);
+                    toDeleteIds.removeAll(newIds);
+
+                    // ===== API CALLS =====
+                    courseApi.updateCourse(courseId, updatedCourse);
+
+                    for (Lesson c : toCreate) {
+                        Lesson created = lessonApi.createLesson(c);
+                        if (created != null && created.getId() != null) {
+                            c.setId(created.getId());
+                        }
+                    }
+
+                    for (Lesson u : toUpdate) {
+                        lessonApi.updateLesson(u.getId(), u);
+                    }
+
+                    for (String delId : toDeleteIds) {
+                        lessonApi.deleteLesson(delId);
+                    }
+
+                    hasStagedQuizChanges = false;
+
+                    return true; // success
+                },
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean result) {
+                        Toast.makeText(
+                                TeacherCourseEditActivity.this,
+                                "Lưu khóa học thành công",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                        finish();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherCourseEditActivity.this,
+                                "Lưu thất bại. Vui lòng thử lại.",
+                                Toast.LENGTH_SHORT
+                        ).show();
                     }
                 }
-            }
-
-            Set<String> toDeleteIds = new HashSet<>(originalIds);
-            toDeleteIds.removeAll(newIds);
-
-            // Update course with the NEW object (not the original)
-            courseApi.updateCourse(courseId, updatedCourse);
-
-            // Create new lessons
-            for (Lesson c : toCreate) {
-                Lesson created = lessonApi.createLesson(c);
-                if (created != null && created.getId() != null) {
-                    c.setId(created.getId());
-                }
-            }
-
-            // Update existing lessons
-            for (Lesson u : toUpdate) {
-                lessonApi.updateLesson(u.getId(), u);
-            }
-
-            // Delete removed lessons
-            for (String delId : toDeleteIds) {
-                lessonApi.deleteLesson(delId);
-            }
-
-            // Optionally: if staged quiz changes exist and need persisting, ensure the component
-            // that set hasStagedQuizChanges=true performs persistence (e.g. QuizDialogFragment should call API).
-            // After saving course, reset flag.
-            hasStagedQuizChanges = false;
-
-            // NOTE: removed the success dialog. Show a short toast and finish instead.
-            Toast.makeText(this, "Lưu khóa học thành công", Toast.LENGTH_SHORT).show();
-            finish();
-
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, "Giá phải là một số hợp lệ", Toast.LENGTH_SHORT).show();
-        }
+        );
     }
 
     /**
@@ -904,5 +922,48 @@ public class TeacherCourseEditActivity extends AppCompatActivity {
         StringBuilder sb = new StringBuilder();
         sb.append(baseMsg);
         return sb.toString();
+    }
+
+    private void loadLessonsAsync() {
+        AsyncApiHelper.execute(
+                () -> lessonApi.getLessonsForCourse(courseId),
+                new AsyncApiHelper.ApiCallback<List<Lesson>>() {
+                    @Override
+                    public void onSuccess(List<Lesson> loaded) {
+                        localLessons.clear();
+                        originalLessonsMap.clear();
+
+                        if (loaded != null) {
+                            for (Lesson l : loaded) {
+                                Lesson copy = new Lesson(
+                                        l.getId(),
+                                        l.getCourseId(),
+                                        l.getTitle(),
+                                        l.getDescription(),
+                                        l.getVideoUrl(),
+                                        l.getDuration(),
+                                        l.getOrder()
+                                );
+                                localLessons.add(copy);
+                                if (copy.getId() != null) {
+                                    originalLessonsMap.put(copy.getId(), copy);
+                                }
+                            }
+                        }
+
+                        lessonAdapter.submitList(new ArrayList<>(localLessons));
+                        updateLessonsVisibility();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherCourseEditActivity.this,
+                                "Không tải được danh sách bài học",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 }

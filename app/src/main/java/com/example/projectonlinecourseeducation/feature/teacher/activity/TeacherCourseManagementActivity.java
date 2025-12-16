@@ -34,6 +34,7 @@ import com.example.projectonlinecourseeducation.feature.teacher.adapter.Manageme
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.ManagementCourseStudentAdapter;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.ManagementCourseRequirementAdapter;
 import com.example.projectonlinecourseeducation.feature.teacher.adapter.ManagementCourseSkillAdapter;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
@@ -109,8 +110,6 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
     private CourseStudentApi.StudentUpdateListener courseStudentListener;
     private com.example.projectonlinecourseeducation.data.coursereview.ReviewApi.ReviewUpdateListener reviewUpdateListener; // NEW
 
-    // Executor cho các cuộc gọi blocking (FakeApi hiện tại sync)
-    private final ExecutorService bgExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -140,54 +139,139 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
     /* -------------------- Fetch / Load -------------------- */
 
     private void fetchCourseDetail() {
-        final CourseApi courseApi = ApiProvider.getCourseApi();
+        CourseApi courseApi = ApiProvider.getCourseApi();
         if (courseApi == null) {
             Toast.makeText(this, "Course API chưa được cấu hình.", Toast.LENGTH_SHORT).show();
             return;
         }
-        bgExecutor.execute(() -> {
-            try {
-                Course c = courseApi.getCourseDetail(courseId);
-                if (c == null) c = courseApi.getCourseDetail(null);
-                if (c == null) return;
-                final Course finalC = c;
-                runOnUiThread(() -> {
-                    course = finalC;
-                    loadCourseData();
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "fetchCourseDetail error: " + e.getMessage(), e);
-            }
-        });
+
+        AsyncApiHelper.execute(
+                () -> {
+                    Course c = courseApi.getCourseDetail(courseId);
+                    if (c == null) c = courseApi.getCourseDetail(null);
+                    return c;
+                },
+                new AsyncApiHelper.ApiCallback<Course>() {
+                    @Override
+                    public void onSuccess(Course c) {
+                        if (c == null) return;
+                        course = c;
+                        loadCourseData();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherCourseManagementActivity.this,
+                                "Không tải được thông tin khóa học",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /**
      * Lấy lessons từ LessonApi và set vào lessonAdapter.
      * Nếu LessonApi chưa có hoặc trả rỗng, giữ lessonAdapter trống.
      */
-    private void fetchLessonsFromApi() {
-        final LessonApi lessonApi = ApiProvider.getLessonApi();
-        if (lessonApi == null) {
-            // không có lesson api -> bỏ qua (adapter sẽ rỗng)
+    private void fetchStudentsFromApi() {
+        CourseStudentApi csApi = ApiProvider.getCourseStudentApi();
+        LessonApi lessonApi = ApiProvider.getLessonApi();
+        LessonProgressApi lpApi = ApiProvider.getLessonProgressApi();
+        LessonQuizApi quizApi = ApiProvider.getLessonQuizApi();
+
+        if (csApi == null) {
+            studentAdapter.setStudents(new ArrayList<>());
+            tvStudentCount.setText("0");
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-                if (lessons == null) lessons = new ArrayList<>();
-                final List<Lesson> finalLessons = lessons;
-                runOnUiThread(() -> {
-                    lessonAdapter.setLessons(finalLessons);
-                    // cập nhật lecture count nếu course metadata chưa đúng (tùy impl CourseApi)
-                    if (course != null && finalLessons != null) {
-                        tvLectureCount.setText(String.valueOf(finalLessons.size()));
+        AsyncApiHelper.execute(
+                () -> {
+                    List<CourseStudent> students = csApi.getStudentsForCourse(courseId);
+                    if (students == null) students = new ArrayList<>();
+
+                    List<Lesson> lessons = lessonApi != null
+                            ? lessonApi.getLessonsForCourse(courseId)
+                            : new ArrayList<>();
+                    if (lessons == null) lessons = new ArrayList<>();
+
+                    List<ManagementCourseStudentAdapter.StudentProgressItem> items = new ArrayList<>();
+
+                    for (CourseStudent student : students) {
+                        List<ManagementCourseStudentAdapter.LessonProgressDetail> details = new ArrayList<>();
+
+                        for (int i = 0; i < lessons.size(); i++) {
+                            Lesson lesson = lessons.get(i);
+
+                            int progress = 0;
+                            boolean completed = false;
+
+                            if (lpApi != null) {
+                                LessonProgress lp = lpApi.getLessonProgress(
+                                        lesson.getId(),
+                                        student.getId()
+                                );
+                                if (lp != null) {
+                                    progress = lp.getCompletionPercentage();
+                                    completed = lp.isCompleted();
+                                }
+                            }
+
+                            int quizCorrect = -1;
+                            int quizTotal = 10;
+
+                            if (quizApi != null) {
+                                Quiz q = quizApi.getQuizForLesson(lesson.getId());
+                                if (q != null && q.getQuestions() != null) {
+                                    quizTotal = q.getQuestions().size();
+                                }
+
+                                List<QuizAttempt> attempts =
+                                        quizApi.getAttemptsForLesson(lesson.getId(), student.getId());
+                                if (attempts != null && !attempts.isEmpty()) {
+                                    quizCorrect = attempts.get(0).getCorrectCount();
+                                }
+                            }
+
+                            details.add(new ManagementCourseStudentAdapter.LessonProgressDetail(
+                                    i + 1,
+                                    lesson.getTitle(),
+                                    progress,
+                                    completed,
+                                    quizCorrect,
+                                    quizTotal
+                            ));
+                        }
+
+                        items.add(new ManagementCourseStudentAdapter.StudentProgressItem(
+                                student,
+                                computeAggregateProgress(details),
+                                countCompleted(details),
+                                details.size(),
+                                details
+                        ));
                     }
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "fetchLessonsFromApi error: " + e.getMessage(), e);
-            }
-        });
+
+                    return new Object[]{items, students.size()};
+                },
+                new AsyncApiHelper.ApiCallback<Object>() {
+                    @Override
+                    public void onSuccess(Object result) {
+                        Object[] arr = (Object[]) result;
+                        studentAdapter.setStudents(
+                                (List<ManagementCourseStudentAdapter.StudentProgressItem>) arr[0]
+                        );
+                        tvStudentCount.setText(String.valueOf(arr[1]));
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchStudentsFromApi error", e);
+                    }
+                }
+        );
     }
 
     /**
@@ -197,136 +281,30 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
      * MỞ RỘNG: Lấy thêm attempts quiz (LessonQuizApi) cho mỗi lesson/student -> gắn quizCorrect & quizTotal
      * vào LessonProgressDetail để hiển thị "x/10".
      */
-    private void fetchStudentsFromApi() {
-        final CourseStudentApi csApi = ApiProvider.getCourseStudentApi();
-        final LessonApi lessonApi = ApiProvider.getLessonApi();
-        final LessonProgressApi lpApi = ApiProvider.getLessonProgressApi();
-        final LessonQuizApi quizApi = ApiProvider.getLessonQuizApi(); // may be null
+    private void fetchLessonsFromApi() {
+        LessonApi lessonApi = ApiProvider.getLessonApi();
+        if (lessonApi == null) return;
 
-        if (csApi == null) {
-            // fallback: giữ adapter rỗng và cập nhật count = 0
-            runOnUiThread(() -> {
-                if (studentAdapter != null) studentAdapter.setStudents(new ArrayList<>());
-                tvStudentCount.setText("0");
-            });
-            return;
-        }
+        AsyncApiHelper.execute(
+                () -> {
+                    List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
+                    return lessons != null ? lessons : new ArrayList<>();
+                },
+                new AsyncApiHelper.ApiCallback<List<Lesson>>() {
+                    @Override
+                    public void onSuccess(List<Lesson> lessons) {
+                        lessonAdapter.setLessons(lessons);
+                        if (course != null) {
+                            tvLectureCount.setText(String.valueOf(lessons.size()));
+                        }
+                    }
 
-        bgExecutor.execute(() -> {
-            List<CourseStudent> students = new ArrayList<>();
-            try {
-                students = csApi.getStudentsForCourse(courseId);
-                if (students == null) students = new ArrayList<>();
-            } catch (Exception e) {
-                Log.w(TAG, "Error while getting students from CourseStudentApi: " + e.getMessage(), e);
-            }
-
-            // Lấy danh sách lesson để show tiến độ cho từng student
-            List<Lesson> lessons = new ArrayList<>();
-            try {
-                if (lessonApi != null) {
-                    lessons = lessonApi.getLessonsForCourse(courseId);
-                    if (lessons == null) lessons = new ArrayList<>();
-                }
-            } catch (Exception ignored) {}
-
-            final List<ManagementCourseStudentAdapter.StudentProgressItem> items = new ArrayList<>();
-
-            for (CourseStudent student : students) {
-                List<ManagementCourseStudentAdapter.LessonProgressDetail> ldetails = new ArrayList<>();
-
-                if (!lessons.isEmpty()) {
-                    for (int j = 0; j < lessons.size(); j++) {
-                        Lesson lesson = lessons.get(j);
-                        int progressPercent = 0;
-                        boolean isCompleted = false;
-
-                        try {
-                            if (lpApi != null && lesson != null) {
-                                // gọi phiên bản mới có studentId (default impl sẽ fallback nếu provider cũ)
-                                LessonProgress lp = lpApi.getLessonProgress(lesson.getId(), student != null ? student.getId() : null);
-                                if (lp != null) {
-                                    progressPercent = lp.getCompletionPercentage();
-                                    isCompleted = lp.isCompleted();
-                                }
-                            }
-                        } catch (Exception ignored) {}
-
-                        // NEW: Lấy quiz attempts cho student + lesson, chọn latest attempt để hiển thị quizCorrect
-                        int quizCorrect = -1; // -1 => chưa làm
-                        int quizTotal = 10;   // fallback
-                        try {
-                            if (quizApi != null && lesson != null) {
-                                // determine quiz total if quiz exists
-                                try {
-                                    Quiz q = quizApi.getQuizForLesson(lesson.getId());
-                                    if (q != null && q.getQuestions() != null) {
-                                        quizTotal = q.getQuestions().size();
-                                        if (quizTotal <= 0) quizTotal = 10;
-                                    }
-                                } catch (Exception ignored) {}
-
-                                // get attempts for this lesson/student (FakeApi returns newest-first)
-                                try {
-                                    List<QuizAttempt> attempts = quizApi.getAttemptsForLesson(lesson.getId(), student != null ? student.getId() : null);
-                                    if (attempts != null && !attempts.isEmpty()) {
-                                        QuizAttempt latest = attempts.get(0);
-                                        if (latest != null) {
-                                            // Some implementations store correctCount or similar
-                                            try {
-                                                quizCorrect = latest.getCorrectCount();
-                                                // clamp
-                                                if (quizCorrect < 0) quizCorrect = -1;
-                                                else if (quizCorrect > quizTotal) quizCorrect = quizTotal;
-                                            } catch (Exception ignored) {
-                                                // fallback: try getScore -> convert to count if possible
-                                                try {
-                                                    int scorePercent = latest.getScore();
-                                                    // derive approx correctCount = round(scorePercent/100.0 * quizTotal)
-                                                    int approx = (int) Math.round(((double) scorePercent / 100.0) * quizTotal);
-                                                    quizCorrect = Math.max(0, Math.min(quizTotal, approx));
-                                                } catch (Exception ignored2) {
-                                                    quizCorrect = -1;
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (Exception ignored) {}
-                            }
-                        } catch (Exception ignored) {}
-
-                        // create detail with quiz info
-                        ManagementCourseStudentAdapter.LessonProgressDetail detail =
-                                new ManagementCourseStudentAdapter.LessonProgressDetail(
-                                        j + 1,
-                                        lesson.getTitle() != null ? lesson.getTitle() : ("Bài " + (j + 1)),
-                                        progressPercent,
-                                        isCompleted,
-                                        quizCorrect,
-                                        quizTotal
-                                );
-
-                        ldetails.add(detail);
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchLessonsFromApi error", e);
                     }
                 }
-
-                ManagementCourseStudentAdapter.StudentProgressItem spi = new ManagementCourseStudentAdapter.StudentProgressItem(
-                        student, // CourseStudent object (may be null)
-                        computeAggregateProgress(ldetails),
-                        countCompleted(ldetails),
-                        ldetails.size(),
-                        ldetails
-                );
-                items.add(spi);
-            }
-
-            // cập nhật UI: adapter + số học viên
-            final int studentCount = students.size();
-            runOnUiThread(() -> {
-                if (studentAdapter != null) studentAdapter.setStudents(items);
-                tvStudentCount.setText(String.valueOf(studentCount));
-            });
-        });
+        );
     }
 
     private int computeAggregateProgress(List<ManagementCourseStudentAdapter.LessonProgressDetail> details) {
@@ -669,25 +647,28 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
     private void fetchReviewsFromApi() {
         reviewApi = ApiProvider.getReviewApi();
         if (reviewApi == null) {
-            runOnUiThread(() -> {
-                if (reviewAdapter != null) reviewAdapter.setReviews(new ArrayList<>());
-            });
+            reviewAdapter.setReviews(new ArrayList<>());
             return;
         }
 
-        bgExecutor.execute(() -> {
-            try {
-                List<com.example.projectonlinecourseeducation.core.model.course.CourseReview> reviews =
-                        reviewApi.getReviewsForCourse(courseId);
-                if (reviews == null) reviews = new ArrayList<>();
-                final List<com.example.projectonlinecourseeducation.core.model.course.CourseReview> finalReviews = reviews;
-                runOnUiThread(() -> {
-                    if (reviewAdapter != null) reviewAdapter.setReviews(finalReviews);
-                });
-            } catch (Exception e) {
-                Log.w(TAG, "fetchReviewsFromApi error: " + e.getMessage(), e);
-            }
-        });
+        AsyncApiHelper.execute(
+                () -> {
+                    List<com.example.projectonlinecourseeducation.core.model.course.CourseReview> reviews =
+                            reviewApi.getReviewsForCourse(courseId);
+                    return reviews != null ? reviews : new ArrayList<>();
+                },
+                new AsyncApiHelper.ApiCallback<List<com.example.projectonlinecourseeducation.core.model.course.CourseReview>>() {
+                    @Override
+                    public void onSuccess(List<com.example.projectonlinecourseeducation.core.model.course.CourseReview> reviews) {
+                        reviewAdapter.setReviews(reviews);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.w(TAG, "fetchReviewsFromApi error", e);
+                    }
+                }
+        );
     }
 
     /**
@@ -791,10 +772,6 @@ public class TeacherCourseManagementActivity extends AppCompatActivity {
             if (reviewUpdateListener != null && reviewApi != null) {
                 reviewApi.removeReviewUpdateListener(reviewUpdateListener);
             }
-        } catch (Exception ignored) {}
-
-        try {
-            bgExecutor.shutdownNow();
         } catch (Exception ignored) {}
     }
 }

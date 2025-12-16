@@ -23,6 +23,7 @@ import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.core.utils.ImageLoader;
 import com.example.projectonlinecourseeducation.core.utils.YouTubeUtils; // dùng để extract videoId
@@ -215,27 +216,45 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
             return;
         }
 
-        // Load lesson from API
-        Lesson loaded = lessonApi.getLessonDetail(lessonId);
-        if (loaded == null) {
-            // fallback: try to search in getLessonsForCourse
-            List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-            for (Lesson l : lessons) {
-                if (l.getId().equals(lessonId)) {
-                    loaded = l;
-                    break;
+        AsyncApiHelper.execute(
+                () -> {
+                    Lesson loaded = lessonApi.getLessonDetail(lessonId);
+                    if (loaded != null) return loaded;
+
+                    List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
+                    for (Lesson l : lessons) {
+                        if (lessonId.equals(l.getId())) {
+                            return l;
+                        }
+                    }
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Lesson>() {
+                    @Override
+                    public void onSuccess(Lesson result) {
+                        if (result == null) {
+                            Toast.makeText(
+                                    TeacherLessonManagementActivity.this,
+                                    "Không tìm thấy bài học",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            finish();
+                            return;
+                        }
+                        lesson = result;
+                        displayLessonData();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherLessonManagementActivity.this,
+                                "Lỗi tải bài học",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
                 }
-            }
-        }
-
-        if (loaded == null) {
-            Toast.makeText(this, "Không tìm thấy bài học", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-
-        lesson = loaded;
-        displayLessonData();
+        );
     }
 
     private void displayLessonData() {
@@ -289,8 +308,24 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
     private void loadCommentsFromApi() {
         if (lessonId == null) return;
 
-        List<LessonComment> comments = lessonCommentApi.getCommentsForLesson(lessonId);
-        runOnUiThread(() -> commentAdapter.setComments(comments));
+        AsyncApiHelper.execute(
+                () -> lessonCommentApi.getCommentsForLesson(lessonId),
+                new AsyncApiHelper.ApiCallback<List<LessonComment>>() {
+                    @Override
+                    public void onSuccess(List<LessonComment> result) {
+                        commentAdapter.setComments(result);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherLessonManagementActivity.this,
+                                "Lỗi tải bình luận",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     private void setupQuizAdapter() {
@@ -305,41 +340,38 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
     }
 
     private void loadQuizFromApi() {
-        if (lessonId == null) {
-            // hide quiz block
-            runOnUiThread(() -> {
-                if (tvQuizTitle != null) tvQuizTitle.setText("Quiz");
-                if (quizAdapter != null) quizAdapter.updateQuestions(new ArrayList<>());
-                if (rvQuiz != null) rvQuiz.setVisibility(View.GONE);
-                if (imgQuizExpand != null) imgQuizExpand.setVisibility(View.GONE);
-            });
-            return;
-        }
+        if (lessonId == null) return;
 
-        Quiz quiz = null;
-        try {
-            quiz = lessonQuizApi != null ? lessonQuizApi.getQuizForLesson(lessonId) : null;
-        } catch (Exception ignored) {}
+        AsyncApiHelper.execute(
+                () -> lessonQuizApi.getQuizForLesson(lessonId),
+                new AsyncApiHelper.ApiCallback<Quiz>() {
+                    @Override
+                    public void onSuccess(Quiz quiz) {
+                        currentQuiz = quiz;
 
-        final Quiz finalQuiz = quiz;
-        runOnUiThread(() -> {
-            currentQuiz = finalQuiz;
-            if (finalQuiz == null || finalQuiz.getQuestions() == null || finalQuiz.getQuestions().isEmpty()) {
-                // Show placeholder: no quiz
-                if (tvQuizTitle != null) tvQuizTitle.setText("Quiz (chưa có)");
-                if (quizAdapter != null) quizAdapter.updateQuestions(new ArrayList<>());
-                // still show header with collapsed arrow but keep RecyclerView gone
-                if (rvQuiz != null) rvQuiz.setVisibility(View.GONE);
-                if (imgQuizExpand != null) imgQuizExpand.setVisibility(View.GONE);
-            } else {
-                // Show quiz
-                int count = finalQuiz.getQuestions().size();
-                if (tvQuizTitle != null) tvQuizTitle.setText("Quiz (" + count + " câu)");
-                if (quizAdapter != null) quizAdapter.updateQuestions(finalQuiz.getQuestions());
-                if (rvQuiz != null) rvQuiz.setVisibility(isQuizExpanded ? View.VISIBLE : View.GONE);
-                if (imgQuizExpand != null) imgQuizExpand.setVisibility(View.VISIBLE);
-            }
-        });
+                        if (quiz == null || quiz.getQuestions().isEmpty()) {
+                            tvQuizTitle.setText("Quiz (chưa có)");
+                            quizAdapter.updateQuestions(new ArrayList<>());
+                            rvQuiz.setVisibility(View.GONE);
+                            imgQuizExpand.setVisibility(View.GONE);
+                        } else {
+                            tvQuizTitle.setText("Quiz (" + quiz.getQuestions().size() + " câu)");
+                            quizAdapter.updateQuestions(quiz.getQuestions());
+                            rvQuiz.setVisibility(isQuizExpanded ? View.VISIBLE : View.GONE);
+                            imgQuizExpand.setVisibility(View.VISIBLE);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherLessonManagementActivity.this,
+                                "Lỗi tải quiz",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /**
@@ -388,28 +420,46 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
                 return;
             }
 
-            // Get teacher name
             User currentUser = SessionManager.getInstance(this).getCurrentUser();
             String teacherName = currentUser != null ? currentUser.getName() : "Teacher";
 
-            // Add reply via API
-            LessonComment updated = lessonCommentApi.addReply(comment.getId(), teacherName, replyContent);
+            // ✅ BỌC ASYNC
+            AsyncApiHelper.execute(
+                    () -> lessonCommentApi.addReply(comment.getId(), teacherName, replyContent),
+                    new AsyncApiHelper.ApiCallback<LessonComment>() {
+                        @Override
+                        public void onSuccess(LessonComment updated) {
+                            if (updated != null) {
+                                // 🔔 tạo notification (sẽ sửa ở bước 6)
+                                createNotificationForStudent(updated, teacherName);
 
-            if (updated != null) {
-                // 🔔 TẠO THÔNG BÁO CHO STUDENT khi teacher reply
-                createNotificationForStudent(updated, teacherName);
+                                DialogConfirmHelper.showSuccessDialog(
+                                        TeacherLessonManagementActivity.this,
+                                        "Thành công",
+                                        "Đã trả lời bình luận",
+                                        R.drawable.ic_check_success,
+                                        "Đóng",
+                                        () -> loadCommentsFromApi()
+                                );
+                            } else {
+                                Toast.makeText(
+                                        TeacherLessonManagementActivity.this,
+                                        "Lỗi khi trả lời bình luận",
+                                        Toast.LENGTH_SHORT
+                                ).show();
+                            }
+                        }
 
-                DialogConfirmHelper.showSuccessDialog(
-                        this,
-                        "Thành công",
-                        "Đã trả lời bình luận",
-                        R.drawable.ic_check_success,
-                        "Đóng",
-                        () -> loadCommentsFromApi()
-                );
-            } else {
-                Toast.makeText(this, "Lỗi khi trả lời bình luận", Toast.LENGTH_SHORT).show();
-            }
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(
+                                    TeacherLessonManagementActivity.this,
+                                    "Lỗi mạng",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        }
+                    }
+            );
         });
 
         builder.setNegativeButton("Hủy", null);
@@ -423,7 +473,7 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
     private void showDeleteCommentDialog(LessonComment comment) {
         if (comment == null) return;
 
-        DialogConfirmHelper.showConfirmDialog(
+        DialogConfirmHelper.showConfirmDialog (
                 this,
                 "Xóa bình luận",
                 "Bạn chắc chắn muốn xóa bình luận này? Bình luận sẽ được đánh dấu là '[Bình luận đã bị xóa]'.",
@@ -432,14 +482,37 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
                 "Hủy",
                 R.color.blue_700,
                 () -> {
-                    LessonComment updated = lessonCommentApi.markCommentAsDeleted(comment.getId());
+                    AsyncApiHelper.execute(
+                            () -> lessonCommentApi.markCommentAsDeleted(comment.getId()),
+                            new AsyncApiHelper.ApiCallback<LessonComment>() {
+                                @Override
+                                public void onSuccess(LessonComment updated) {
+                                    if (updated != null) {
+                                        Toast.makeText(
+                                                TeacherLessonManagementActivity.this,
+                                                "Đã xóa bình luận",
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                        loadCommentsFromApi();
+                                    } else {
+                                        Toast.makeText(
+                                                TeacherLessonManagementActivity.this,
+                                                "Lỗi khi xóa bình luận",
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                    }
+                                }
 
-                    if (updated != null) {
-                        Toast.makeText(this, "Đã xóa bình luận", Toast.LENGTH_SHORT).show();
-                        loadCommentsFromApi();
-                    } else {
-                        Toast.makeText(this, "Lỗi khi xóa bình luận", Toast.LENGTH_SHORT).show();
-                    }
+                                @Override
+                                public void onError(Exception e) {
+                                    Toast.makeText(
+                                            TeacherLessonManagementActivity.this,
+                                            "Lỗi mạng",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                }
+                            }
+                    );
                 }
         );
     }
@@ -460,14 +533,37 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
                 "Hủy",
                 R.color.blue_700,
                 () -> {
-                    LessonComment updated = lessonCommentApi.deleteReply(comment.getId());
+                    AsyncApiHelper.execute(
+                            () -> lessonCommentApi.deleteReply(comment.getId()),
+                            new AsyncApiHelper.ApiCallback<LessonComment>() {
+                                @Override
+                                public void onSuccess(LessonComment updated) {
+                                    if (updated != null) {
+                                        Toast.makeText(
+                                                TeacherLessonManagementActivity.this,
+                                                "Đã xóa trả lời",
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                        loadCommentsFromApi();
+                                    } else {
+                                        Toast.makeText(
+                                                TeacherLessonManagementActivity.this,
+                                                "Lỗi khi xóa trả lời",
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                    }
+                                }
 
-                    if (updated != null) {
-                        Toast.makeText(this, "Đã xóa trả lời", Toast.LENGTH_SHORT).show();
-                        loadCommentsFromApi();
-                    } else {
-                        Toast.makeText(this, "Lỗi khi xóa trả lời", Toast.LENGTH_SHORT).show();
-                    }
+                                @Override
+                                public void onError(Exception e) {
+                                    Toast.makeText(
+                                            TeacherLessonManagementActivity.this,
+                                            "Lỗi mạng",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                }
+                            }
+                    );
                 }
         );
     }
@@ -586,26 +682,28 @@ public class TeacherLessonManagementActivity extends AppCompatActivity {
      * Tạo thông báo cho student khi teacher reply comment
      */
     private void createNotificationForStudent(LessonComment comment, String teacherName) {
-        try {
-            // Lấy thông tin course và lesson để có đầy đủ thông tin cho notification
-            Course course = ApiProvider.getCourseApi().getCourseDetail(courseId);
-            Lesson lesson = ApiProvider.getLessonApi().getLessonDetail(comment.getLessonId());
+        AsyncApiHelper.execute(
+                () -> {
+                    Course course = ApiProvider.getCourseApi().getCourseDetail(courseId);
+                    Lesson lesson = ApiProvider.getLessonApi().getLessonDetail(comment.getLessonId());
 
-            if (course == null || lesson == null) return;
+                    if (course == null || lesson == null) return null;
 
-            // 🔔 Tạo thông báo cho student (comment owner)
-            ApiProvider.getNotificationApi().createTeacherReplyNotification(
-                    comment.getUserId(),        // studentId - người comment
-                    teacherName,                // tên teacher reply
-                    comment.getLessonId(),      // ID bài học
-                    lesson.getTitle(),          // tên bài học
-                    courseId,                   // ID khóa học
-                    course.getTitle(),          // tên khóa học
-                    comment.getId()             // ID comment
-            );
-        } catch (Exception e) {
-            // Không crash app nếu tạo notification thất bại
-            e.printStackTrace();
-        }
+                    ApiProvider.getNotificationApi().createTeacherReplyNotification(
+                            comment.getUserId(),
+                            teacherName,
+                            comment.getLessonId(),
+                            lesson.getTitle(),
+                            courseId,
+                            course.getTitle(),
+                            comment.getId()
+                    );
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Void>() {
+                    @Override public void onSuccess(Void v) {}
+                    @Override public void onError(Exception e) {}
+                }
+        );
     }
 }

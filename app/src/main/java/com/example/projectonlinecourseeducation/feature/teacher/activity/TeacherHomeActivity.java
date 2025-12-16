@@ -27,6 +27,7 @@ import com.example.projectonlinecourseeducation.feature.teacher.fragment.Teacher
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
 import com.google.android.material.badge.BadgeDrawable;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 
 public class TeacherHomeActivity extends AppCompatActivity {
 
@@ -213,8 +214,29 @@ public class TeacherHomeActivity extends AppCompatActivity {
      */
     private void updateNotificationBadge() {
         if (notificationApi == null || currentUserId == null) return;
-        int unreadCount = notificationApi.getUnreadCount(currentUserId);
-        setNotificationBadge(unreadCount);
+
+        AsyncApiHelper.execute(
+                // chạy background
+                () -> notificationApi.getUnreadCount(currentUserId),
+
+                // callback main thread
+                new AsyncApiHelper.ApiCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer unreadCount) {
+                        setNotificationBadge(unreadCount);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Không crash UI, chỉ log / ignore
+                        Toast.makeText(
+                                TeacherHomeActivity.this,
+                                "Không thể tải thông báo",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /**

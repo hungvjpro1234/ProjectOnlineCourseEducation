@@ -17,6 +17,7 @@ import com.example.projectonlinecourseeducation.core.utils.DialogConfirmHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.ApiResult;
 import com.example.projectonlinecourseeducation.feature.auth.activity.MainActivity2;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 
 /**
  * Activity chỉnh sửa thông tin cá nhân Teacher
@@ -103,88 +104,129 @@ public class TeacherEditProfileActivity extends AppCompatActivity {
             edtName.requestFocus();
             return;
         }
+
         if (TextUtils.isEmpty(newUsername)) {
             edtUsername.setError("Vui lòng nhập username.");
             edtUsername.requestFocus();
             return;
         }
+
         if (newUsername.length() < 4) {
             edtUsername.setError("Username phải có ít nhất 4 ký tự.");
             edtUsername.requestFocus();
             return;
         }
+
         if (TextUtils.isEmpty(newEmail)) {
             edtEmail.setError("Vui lòng nhập email.");
             edtEmail.requestFocus();
             return;
         }
+
         if (!newEmail.contains("@")) {
             edtEmail.setError("Email không hợp lệ.");
             edtEmail.requestFocus();
             return;
         }
 
-        // ===== Gọi API fake update profile =====
-        ApiResult<User> profileResult = ApiProvider.getAuthApi()
-                .updateCurrentUserProfile(newName, newEmail, newUsername);
+        // ===== Update profile (ASYNC) =====
+        AsyncApiHelper.execute(
+                () -> ApiProvider.getAuthApi()
+                        .updateCurrentUserProfile(newName, newEmail, newUsername),
 
-        if (!profileResult.isSuccess()) {
-            Toast.makeText(this, profileResult.getMessage(), Toast.LENGTH_SHORT).show();
-            return;
-        }
+                new AsyncApiHelper.ApiCallback<ApiResult<User>>() {
+                    @Override
+                    public void onSuccess(ApiResult<User> profileResult) {
+                        if (!profileResult.isSuccess()) {
+                            Toast.makeText(
+                                    TeacherEditProfileActivity.this,
+                                    profileResult.getMessage(),
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
 
-        // Kiểm tra có đổi username không
-        boolean usernameChanged;
-        if (originalUsername == null) {
-            usernameChanged = !TextUtils.isEmpty(newUsername);
-        } else {
-            usernameChanged = !originalUsername.equals(newUsername);
-        }
+                        // Sau khi update profile xong -> xử lý đổi mật khẩu + điều hướng
+                        handlePasswordAndNavigation(
+                                newUsername,
+                                oldPassword,
+                                newPassword,
+                                confirmPassword
+                        );
+                    }
 
-        // ===== Xử lý đổi mật khẩu (nếu user nhập) =====
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherEditProfileActivity.this,
+                                "Lỗi cập nhật thông tin: " + e.getMessage(),
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    private void handlePasswordAndNavigation(
+            String newUsername,
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
+    ) {
+        boolean usernameChanged = originalUsername == null
+                ? !TextUtils.isEmpty(newUsername)
+                : !originalUsername.equals(newUsername);
+
         boolean wantChangePassword =
                 !TextUtils.isEmpty(oldPassword) ||
                         !TextUtils.isEmpty(newPassword) ||
                         !TextUtils.isEmpty(confirmPassword);
 
-        if (wantChangePassword) {
-            if (TextUtils.isEmpty(oldPassword)) {
-                edtOldPassword.setError("Vui lòng nhập mật khẩu cũ.");
-                edtOldPassword.requestFocus();
-                return;
-            }
-            if (TextUtils.isEmpty(newPassword)) {
-                edtNewPassword.setError("Vui lòng nhập mật khẩu mới.");
-                edtNewPassword.requestFocus();
-                return;
-            }
-            if (TextUtils.isEmpty(confirmPassword)) {
-                edtConfirmPassword.setError("Vui lòng nhập lại mật khẩu mới.");
-                edtConfirmPassword.requestFocus();
-                return;
-            }
-            if (!newPassword.equals(confirmPassword)) {
-                edtConfirmPassword.setError("Mật khẩu nhập lại không khớp.");
-                edtConfirmPassword.requestFocus();
-                return;
-            }
-
-            ApiResult<Boolean> pwdResult = ApiProvider.getAuthApi()
-                    .changeCurrentUserPassword(oldPassword, newPassword);
-
-            if (!pwdResult.isSuccess()) {
-                Toast.makeText(this, pwdResult.getMessage(), Toast.LENGTH_SHORT).show();
-                return;
-            }
+        if (!wantChangePassword) {
+            handleNavigation(usernameChanged, false);
+            return;
         }
 
-        // ===== Quyết định flow điều hướng =====
-        boolean loginInfoChanged = usernameChanged || wantChangePassword;
+        AsyncApiHelper.execute(
+                () -> ApiProvider.getAuthApi()
+                        .changeCurrentUserPassword(oldPassword, newPassword),
+
+                new AsyncApiHelper.ApiCallback<ApiResult<Boolean>>() {
+                    @Override
+                    public void onSuccess(ApiResult<Boolean> pwdResult) {
+                        if (!pwdResult.isSuccess()) {
+                            Toast.makeText(
+                                    TeacherEditProfileActivity.this,
+                                    pwdResult.getMessage(),
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
+
+                        handleNavigation(usernameChanged, true);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(
+                                TeacherEditProfileActivity.this,
+                                "Lỗi đổi mật khẩu: " + e.getMessage(),
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    private void handleNavigation(boolean usernameChanged, boolean passwordChanged) {
+        boolean loginInfoChanged = usernameChanged || passwordChanged;
 
         if (loginInfoChanged) {
-            Toast.makeText(this,
+            Toast.makeText(
+                    this,
                     "Cập nhật thông tin đăng nhập thành công. Vui lòng đăng nhập lại.",
-                    Toast.LENGTH_LONG).show();
+                    Toast.LENGTH_LONG
+            ).show();
 
             ApiProvider.getAuthApi().setCurrentUser(null);
 

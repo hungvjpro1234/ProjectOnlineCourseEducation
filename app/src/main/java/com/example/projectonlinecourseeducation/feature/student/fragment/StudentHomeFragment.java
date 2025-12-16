@@ -32,6 +32,7 @@ import com.example.projectonlinecourseeducation.data.course.CourseApi.Sort;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.feature.student.activity.StudentCourseProductDetailActivity;
 import com.example.projectonlinecourseeducation.feature.student.adapter.HomeCourseAdapter;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -257,28 +258,53 @@ public class StudentHomeFragment extends Fragment {
     }
 
     private void applyQuery() {
-        // Lấy full list theo filter + search, không giới hạn
-        List<Course> all = api.filterSearchSort(currentCategory, currentQuery, currentSort, 0);
-        totalMatched = all.size();
+        AsyncApiHelper.execute(
+                // chạy background thread
+                () -> api.filterSearchSort(
+                        currentCategory,
+                        currentQuery,
+                        currentSort,
+                        0
+                ),
 
-        if (currentLimit <= 0) currentLimit = 4;
-        if (totalMatched == 0) {
-            adapter.submitList(new ArrayList<Course>());
-            updateLoadMoreButton();
-            return;
-        }
+                // callback main thread
+                new AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> all) {
 
-        if (currentLimit > totalMatched) currentLimit = totalMatched;
+                        if (!isAdded() || adapter == null) return;
 
-        List<Course> out;
-        if (currentLimit < totalMatched) {
-            out = new ArrayList<>(all.subList(0, currentLimit));
-        } else {
-            out = new ArrayList<>(all);
-        }
+                        totalMatched = all.size();
 
-        adapter.submitList(out);
-        updateLoadMoreButton();
+                        if (currentLimit <= 0) currentLimit = 4;
+
+                        if (totalMatched == 0) {
+                            adapter.submitList(new ArrayList<>());
+                            updateLoadMoreButton();
+                            return;
+                        }
+
+                        if (currentLimit > totalMatched) {
+                            currentLimit = totalMatched;
+                        }
+
+                        List<Course> out;
+                        if (currentLimit < totalMatched) {
+                            out = new ArrayList<>(all.subList(0, currentLimit));
+                        } else {
+                            out = new ArrayList<>(all);
+                        }
+
+                        adapter.submitList(out);
+                        updateLoadMoreButton();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Home screen → có thể ignore hoặc log
+                    }
+                }
+        );
     }
 
     private void updateLoadMoreButton() {

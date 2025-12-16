@@ -19,6 +19,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification.NotificationType;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
@@ -29,14 +30,8 @@ import com.example.projectonlinecourseeducation.feature.teacher.activity.Teacher
 
 import java.util.List;
 
-/**
- * Fragment hiển thị thông báo cho Teacher
- * Teacher nhận thông báo:
- * - STUDENT_LESSON_COMMENT → navigate to TeacherLessonManagementActivity
- * - STUDENT_COURSE_REVIEW → navigate to TeacherCourseManagementActivity
- * - COURSE_APPROVED / COURSE_REJECTED → navigate to TeacherHomeActivity (Management tab)
- */
-public class TeacherNotificationFragment extends Fragment implements NotificationApi.NotificationUpdateListener {
+public class TeacherNotificationFragment extends Fragment
+        implements NotificationApi.NotificationUpdateListener {
 
     private RecyclerView rvNotifications;
     private LinearLayout layoutEmpty;
@@ -50,14 +45,15 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+
         View view = inflater.inflate(R.layout.fragment_teacher_notification, container, false);
 
-        // Init APIs
         notificationApi = ApiProvider.getNotificationApi();
         authApi = ApiProvider.getAuthApi();
 
-        // Get current user
         User currentUser = authApi.getCurrentUser();
         if (currentUser == null) {
             Toast.makeText(requireContext(), "Vui lòng đăng nhập", Toast.LENGTH_SHORT).show();
@@ -65,26 +61,22 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         }
         currentUserId = currentUser.getId();
 
-        // Init views
         rvNotifications = view.findViewById(R.id.rvNotifications);
         layoutEmpty = view.findViewById(R.id.layoutEmpty);
         tvMarkAllRead = view.findViewById(R.id.tvMarkAllRead);
 
-        // Setup RecyclerView
         setupRecyclerView();
 
-        // Load notifications
+        // Load notifications (ASYNC)
         loadNotifications();
 
-        // Mark all as read button
         tvMarkAllRead.setOnClickListener(v -> markAllAsRead());
 
-        // Register listener TRƯỚC KHI mark as viewed để badge được update
+        // Register listener
         notificationApi.addNotificationUpdateListener(this);
 
-        // Mark all as VIEWED when fragment is opened
-        // Điều này sẽ trigger listener → TeacherHomeActivity update badge → badge về 0
-        notificationApi.markAllAsViewed(currentUserId);
+        // Mark all as VIEWED (ASYNC)
+        markAllAsViewed();
 
         return view;
     }
@@ -95,38 +87,133 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         rvNotifications.setAdapter(adapter);
     }
 
+    /**
+     * 🔴 LOAD NOTIFICATIONS (ASYNC)
+     */
     private void loadNotifications() {
-        List<Notification> notifications = notificationApi.getNotificationsForUser(currentUserId);
+        AsyncApiHelper.execute(
+                () -> notificationApi.getNotificationsForUser(currentUserId),
+                new AsyncApiHelper.ApiCallback<List<Notification>>() {
+                    @Override
+                    public void onSuccess(List<Notification> notifications) {
+                        if (!isAdded()) return;
 
-        if (notifications.isEmpty()) {
-            rvNotifications.setVisibility(View.GONE);
-            layoutEmpty.setVisibility(View.VISIBLE);
-        } else {
-            rvNotifications.setVisibility(View.VISIBLE);
-            layoutEmpty.setVisibility(View.GONE);
-            adapter.setNotifications(notifications);
-        }
+                        if (notifications.isEmpty()) {
+                            rvNotifications.setVisibility(View.GONE);
+                            layoutEmpty.setVisibility(View.VISIBLE);
+                        } else {
+                            rvNotifications.setVisibility(View.VISIBLE);
+                            layoutEmpty.setVisibility(View.GONE);
+                            adapter.setNotifications(notifications);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi tải thông báo",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 
+    /**
+     * 🔴 MARK ALL AS VIEWED (ASYNC)
+     */
+    private void markAllAsViewed() {
+        AsyncApiHelper.execute(
+                () -> {
+                    notificationApi.markAllAsViewed(currentUserId);
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void result) {
+                        // Không cần UI update
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Có thể log nếu cần
+                    }
+                }
+        );
+    }
+
+    /**
+     * 🔴 MARK ALL AS READ (ASYNC)
+     */
+    private void markAllAsRead() {
+        AsyncApiHelper.execute(
+                () -> notificationApi.markAllAsRead(currentUserId),
+                new AsyncApiHelper.ApiCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer count) {
+                        if (!isAdded()) return;
+
+                        if (count > 0) {
+                            Toast.makeText(requireContext(),
+                                    "Đã đánh dấu " + count + " thông báo đã đọc",
+                                    Toast.LENGTH_SHORT).show();
+                            loadNotifications();
+                        } else {
+                            Toast.makeText(requireContext(),
+                                    "Không có thông báo nào để đánh dấu",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi khi đánh dấu thông báo",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+    }
+
+    /**
+     * 🔴 MARK SINGLE NOTIFICATION AS READ (ASYNC)
+     */
     private void onNotificationClick(Notification notification) {
-        // Mark as READ
-        notificationApi.markAsRead(notification.getId());
+        AsyncApiHelper.execute(
+                () -> {
+                    notificationApi.markAsRead(notification.getId());
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void result) {
+                        if (!isAdded()) return;
 
-        // Navigate based on notification type
-        NotificationType type = notification.getType();
+                        NotificationType type = notification.getType();
 
-        if (type == NotificationType.STUDENT_LESSON_COMMENT) {
-            // Student đã comment vào bài học cụ thể
-            navigateToLessonManagement(notification);
-        } else if (type == NotificationType.STUDENT_COURSE_COMMENT) {
-            // Student đã review/đánh giá khóa học
-            navigateToCourseManagement(notification);
-        } else {
-            Toast.makeText(requireContext(), "Loại thông báo không hợp lệ", Toast.LENGTH_SHORT).show();
-        }
+                        if (type == NotificationType.STUDENT_LESSON_COMMENT) {
+                            navigateToLessonManagement(notification);
+                        } else if (type == NotificationType.STUDENT_COURSE_COMMENT) {
+                            navigateToCourseManagement(notification);
+                        } else {
+                            Toast.makeText(requireContext(),
+                                    "Loại thông báo không hợp lệ",
+                                    Toast.LENGTH_SHORT).show();
+                        }
 
-        // Refresh list
-        loadNotifications();
+                        loadNotifications();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi xử lý thông báo",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 
     private void navigateToLessonManagement(Notification notification) {
@@ -142,7 +229,6 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         intent.putExtra(TeacherLessonManagementActivity.EXTRA_COURSE_ID, courseId);
         intent.putExtra(TeacherLessonManagementActivity.EXTRA_LESSON_ID, lessonId);
         startActivity(intent);
-
     }
 
     private void navigateToCourseManagement(Notification notification) {
@@ -156,39 +242,18 @@ public class TeacherNotificationFragment extends Fragment implements Notificatio
         Intent intent = new Intent(requireContext(), TeacherCourseManagementActivity.class);
         intent.putExtra("course_id", courseId);
         startActivity(intent);
-
-    }
-
-    private void navigateToTeacherHome() {
-        // Navigate to TeacherHomeActivity and switch to Management tab (index 2)
-        Intent intent = new Intent(requireContext(), TeacherHomeActivity.class);
-        intent.putExtra("selectedTab", 2); // Management tab index
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        startActivity(intent);
-    }
-
-    private void markAllAsRead() {
-        int count = notificationApi.markAllAsRead(currentUserId);
-        if (count > 0) {
-            Toast.makeText(requireContext(), "Đã đánh dấu " + count + " thông báo đã đọc", Toast.LENGTH_SHORT).show();
-            loadNotifications();
-        } else {
-            Toast.makeText(requireContext(), "Không có thông báo nào để đánh dấu", Toast.LENGTH_SHORT).show();
-        }
     }
 
     @Override
     public void onNotificationsChanged(String userId) {
-        // Reload notifications when there's a change
         if (userId.equals(currentUserId) && isAdded()) {
-            requireActivity().runOnUiThread(this::loadNotifications);
+            loadNotifications();
         }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Unregister listener
         if (notificationApi != null) {
             notificationApi.removeNotificationUpdateListener(this);
         }

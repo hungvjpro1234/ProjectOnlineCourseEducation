@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
@@ -93,9 +94,28 @@ public class TeacherHomeFragment extends Fragment {
             return;
         }
 
-        // Lấy danh sách khóa học do teacher này tạo
-        List<Course> courses = courseApi.getCoursesByTeacher(currentUser.getName());
-        adapter.submitList(courses);
+        AsyncApiHelper.execute(
+                () -> courseApi.getCoursesByTeacher(currentUser.getName()),
+                new AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> courses) {
+                        if (isAdded()) {
+                            adapter.submitList(courses);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (isAdded()) {
+                            Toast.makeText(
+                                    getContext(),
+                                    "Lỗi tải khóa học: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        }
+                    }
+                }
+        );
     }
 
     private void confirmDeleteCourse(Course course) {
@@ -105,14 +125,41 @@ public class TeacherHomeFragment extends Fragment {
                 getContext(),
                 "Xóa khóa học",
                 "Bạn chắc chắn muốn xóa khóa học \"" + course.getTitle() + "\"?",
-                R.drawable.delete,     // icon delete.png của bạn
+                R.drawable.delete,
                 "Xóa",
                 "Hủy",
-                R.color.error_red,    // màu nút Xóa
+                R.color.error_red,
                 () -> {
-                    courseApi.deleteCourse(course.getId());
-                    Toast.makeText(getContext(), "Xóa khóa học thành công", Toast.LENGTH_SHORT).show();
-                    loadCourses();
+                    AsyncApiHelper.execute(
+                            () -> {
+                                courseApi.deleteCourse(course.getId());
+                                return null;
+                            },
+                            new AsyncApiHelper.ApiCallback<Void>() {
+                                @Override
+                                public void onSuccess(Void result) {
+                                    if (isAdded()) {
+                                        Toast.makeText(
+                                                getContext(),
+                                                "Xóa khóa học thành công",
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                        loadCourses();
+                                    }
+                                }
+
+                                @Override
+                                public void onError(Exception e) {
+                                    if (isAdded()) {
+                                        Toast.makeText(
+                                                getContext(),
+                                                "Xóa thất bại: " + e.getMessage(),
+                                                Toast.LENGTH_SHORT
+                                        ).show();
+                                    }
+                                }
+                            }
+                    );
                 }
         );
     }

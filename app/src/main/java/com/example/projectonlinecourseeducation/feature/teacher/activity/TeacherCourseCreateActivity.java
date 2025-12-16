@@ -33,6 +33,8 @@ import com.example.projectonlinecourseeducation.feature.teacher.adapter.LessonCr
 import com.example.projectonlinecourseeducation.feature.teacher.quiz.QuizDraftDialogFragment;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -237,32 +239,15 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         }
 
         btnCreate.setOnClickListener(v -> {
-            // show confirm before creating; include info about draft quizzes (they will be saved)
-            String title = "Xác nhận tạo khóa học";
-            String baseMsg = "Bạn có chắc muốn tạo khóa học với thông tin hiện tại?";
-            String createMsg = buildCreateConfirmMessage(baseMsg);
-
             DialogConfirmHelper.showConfirmDialog(
-                    TeacherCourseCreateActivity.this,
-                    title,
-                    createMsg,
+                    this,
+                    "Xác nhận tạo khóa học",
+                    buildCreateConfirmMessage("Bạn có chắc muốn tạo khóa học?"),
                     R.drawable.save_create_course,
                     "Tạo",
                     "Hủy",
                     R.color.blue_700,
-                    () -> {
-                        boolean ok = performCreateCourse();
-                        if (ok) {
-                            DialogConfirmHelper.showSuccessDialog(
-                                    TeacherCourseCreateActivity.this,
-                                    "Tạo khóa học thành công",
-                                    "Khóa học đã được tạo thành công.",
-                                    R.drawable.confirm_success,
-                                    "Đóng",
-                                    () -> finish()
-                            );
-                        }
-                    }
+                    this::performCreateCourseAsync
             );
         });
     }
@@ -481,125 +466,6 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         }
     }
 
-    private boolean performCreateCourse() {
-        String title = etTitle.getText().toString().trim();
-        String priceStr = etPrice.getText().toString().trim();
-        String desc = etDescription.getText().toString().trim();
-
-        if (title.isEmpty()) {
-            Toast.makeText(this, "Tên khóa học không được để trống", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        if (stagedCategoryTags.isEmpty()) {
-            Toast.makeText(this, "Vui lòng chọn ít nhất 1 danh mục", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-        if (priceStr.isEmpty()) {
-            Toast.makeText(this, "Vui lòng nhập giá", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-
-        double price;
-        try {
-            price = Double.parseDouble(priceStr);
-        } catch (NumberFormatException ex) {
-            Toast.makeText(this, "Giá không hợp lệ", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-
-        // collect skills
-        List<String> skills = new ArrayList<>();
-        for (int i = 0; i < skillsContainer.getChildCount(); i++) {
-            View row = skillsContainer.getChildAt(i);
-            if (row instanceof LinearLayout) {
-                for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
-                    View child = ((LinearLayout) row).getChildAt(j);
-                    if (child instanceof EditText) {
-                        String t = ((EditText) child).getText().toString().trim();
-                        if (!t.isEmpty()) skills.add(t);
-                    }
-                }
-            }
-        }
-
-        // collect requirements
-        List<String> requirements = new ArrayList<>();
-        for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
-            View row = requirementsContainer.getChildAt(i);
-            if (row instanceof LinearLayout) {
-                for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
-                    View child = ((LinearLayout) row).getChildAt(j);
-                    if (child instanceof EditText) {
-                        String t = ((EditText) child).getText().toString().trim();
-                        if (!t.isEmpty()) requirements.add(t);
-                    }
-                }
-            }
-        }
-
-        // Lấy tên giáo viên từ Auth API (nếu có)
-        String teacherName = "TÊN_GIÁO_VIÊN_PLACEHOLDER";
-        try {
-            AuthApi a = ApiProvider.getAuthApi();
-            if (a != null) {
-                User u = a.getCurrentUser();
-                if (u != null && u.getName() != null && !u.getName().trim().isEmpty()) {
-                    teacherName = u.getName();
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // Khởi tạo Course
-        Course newCourse = new Course(
-                null, // id - createCourse assigns it
-                title,
-                teacherName,
-                stagedImageUrl != null ? stagedImageUrl : "",
-                String.join(", ", stagedCategoryTags),
-                0, // lecture count: backend will compute
-                0,
-                0.0,
-                price,
-                desc,
-                "",
-                0,
-                0,
-                skills,
-                requirements
-        );
-
-        // Create course via CourseApi
-        Course created = courseApi.createCourse(newCourse);
-        if (created == null || created.getId() == null) {
-            Toast.makeText(this, "Tạo khóa học thất bại", Toast.LENGTH_SHORT).show();
-            return false;
-        }
-
-        // Create lessons for this course via LessonApi and persist draft quizzes (if any)
-        for (int i = 0; i < localLessons.size(); i++) {
-            Lesson l = localLessons.get(i);
-            l.setCourseId(created.getId());
-            l.setOrder(i + 1);
-            Lesson createdLesson = lessonApi.createLesson(l);
-            if (createdLesson != null && createdLesson.getId() != null) {
-                l.setId(createdLesson.getId());
-                l.setDuration(createdLesson.getDuration());
-                // if there is a draft quiz for this position -> persist it
-                Quiz draft = draftQuizzes.get(i);
-                if (draft != null) {
-                    // attach lessonId and call createQuiz
-                    Quiz toSave = new Quiz(null, createdLesson.getId(), draft.getTitle(), draft.getQuestions());
-                    try {
-                        ApiProvider.getLessonQuizApi().createQuiz(toSave);
-                    } catch (Throwable ignored) {}
-                }
-            }
-        }
-
-        Toast.makeText(this, "Tạo khóa học thành công", Toast.LENGTH_SHORT).show();
-        return true;
-    }
-
     private void handleBackWithConfirm() {
         if (hasUnsavedChanges()) {
             // Build message including info about draft quizzes (they will be lost if leaving)
@@ -657,5 +523,152 @@ public class TeacherCourseCreateActivity extends AppCompatActivity {
         StringBuilder sb = new StringBuilder();
         sb.append(baseMsg);
         return sb.toString();
+    }
+
+    private Course buildCourseFromInput() {
+        String title = etTitle.getText().toString().trim();
+        String priceStr = etPrice.getText().toString().trim();
+        String desc = etDescription.getText().toString().trim();
+
+        if (title.isEmpty()) {
+            Toast.makeText(this, "Tên khóa học không được để trống", Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        if (stagedCategoryTags.isEmpty()) {
+            Toast.makeText(this, "Vui lòng chọn ít nhất 1 danh mục", Toast.LENGTH_SHORT).show();
+            return null;
+        }
+        if (priceStr.isEmpty()) {
+            Toast.makeText(this, "Vui lòng nhập giá", Toast.LENGTH_SHORT).show();
+            return null;
+        }
+
+        double price;
+        try {
+            price = Double.parseDouble(priceStr);
+        } catch (NumberFormatException ex) {
+            Toast.makeText(this, "Giá không hợp lệ", Toast.LENGTH_SHORT).show();
+            return null;
+        }
+
+        // Lấy tên giáo viên (local)
+        String teacherName = "TÊN_GIÁO_VIÊN";
+        AuthApi authApi = ApiProvider.getAuthApi();
+        if (authApi != null && authApi.getCurrentUser() != null) {
+            teacherName = authApi.getCurrentUser().getName();
+        }
+
+        return new Course(
+                null,
+                title,
+                teacherName,
+                stagedImageUrl != null ? stagedImageUrl : "",
+                String.join(", ", stagedCategoryTags),
+                0,
+                0,
+                0.0,
+                price,
+                desc,
+                "",
+                0,
+                0,
+                collectSkills(),
+                collectRequirements()
+        );
+    }
+    private List<String> collectSkills() {
+        List<String> skills = new ArrayList<>();
+        for (int i = 0; i < skillsContainer.getChildCount(); i++) {
+            View row = skillsContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
+                    View child = ((LinearLayout) row).getChildAt(j);
+                    if (child instanceof EditText) {
+                        String t = ((EditText) child).getText().toString().trim();
+                        if (!t.isEmpty()) skills.add(t);
+                    }
+                }
+            }
+        }
+        return skills;
+    }
+
+    private List<String> collectRequirements() {
+        List<String> reqs = new ArrayList<>();
+        for (int i = 0; i < requirementsContainer.getChildCount(); i++) {
+            View row = requirementsContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                for (int j = 0; j < ((LinearLayout) row).getChildCount(); j++) {
+                    View child = ((LinearLayout) row).getChildAt(j);
+                    if (child instanceof EditText) {
+                        String t = ((EditText) child).getText().toString().trim();
+                        if (!t.isEmpty()) reqs.add(t);
+                    }
+                }
+            }
+        }
+        return reqs;
+    }
+    private void performCreateCourseAsync() {
+        Course newCourse = buildCourseFromInput();
+        if (newCourse == null) return;
+
+        btnCreate.setEnabled(false);
+
+        AsyncApiHelper.execute(
+                () -> {
+                    // 🔴 BACKGROUND THREAD – CHỈ API CALL
+
+                    Course created = courseApi.createCourse(newCourse);
+                    if (created == null || created.getId() == null) {
+                        throw new RuntimeException("Tạo khóa học thất bại");
+                    }
+
+                    for (int i = 0; i < localLessons.size(); i++) {
+                        Lesson l = localLessons.get(i);
+                        l.setCourseId(created.getId());
+                        l.setOrder(i + 1);
+
+                        Lesson createdLesson = lessonApi.createLesson(l);
+
+                        Quiz draft = draftQuizzes.get(i);
+                        if (draft != null && createdLesson != null) {
+                            Quiz toSave = new Quiz(
+                                    null,
+                                    createdLesson.getId(),
+                                    draft.getTitle(),
+                                    draft.getQuestions()
+                            );
+                            ApiProvider.getLessonQuizApi().createQuiz(toSave);
+                        }
+                    }
+
+                    return true;
+                },
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean result) {
+                        btnCreate.setEnabled(true);
+                        DialogConfirmHelper.showSuccessDialog(
+                                TeacherCourseCreateActivity.this,
+                                "Tạo khóa học thành công",
+                                "Khóa học đã được tạo thành công.",
+                                R.drawable.confirm_success,
+                                "Đóng",
+                                () -> finish()
+                        );
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        btnCreate.setEnabled(true);
+                        Toast.makeText(
+                                TeacherCourseCreateActivity.this,
+                                "Lỗi khi tạo khóa học: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                }
+        );
     }
 }

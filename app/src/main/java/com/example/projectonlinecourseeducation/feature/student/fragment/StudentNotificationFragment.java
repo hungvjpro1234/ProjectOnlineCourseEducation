@@ -19,6 +19,7 @@ import com.example.projectonlinecourseeducation.R;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification.NotificationType;
 import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.core.utils.AsyncApiHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
 import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
@@ -80,7 +81,23 @@ public class StudentNotificationFragment extends Fragment implements Notificatio
 
         // Mark all as VIEWED when fragment is opened
         // Điều này sẽ trigger listener → StudentHomeActivity update badge → badge về 0
-        notificationApi.markAllAsViewed(currentUserId);
+        AsyncApiHelper.execute(
+                () -> {
+                    notificationApi.markAllAsViewed(currentUserId);
+                    return true;
+                },
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean ignored) {
+                        // Không cần UI update
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Có thể bỏ trống hoặc log
+                    }
+                }
+        );
 
         return view;
     }
@@ -92,31 +109,65 @@ public class StudentNotificationFragment extends Fragment implements Notificatio
     }
 
     private void loadNotifications() {
-        List<Notification> notifications = notificationApi.getNotificationsForUser(currentUserId);
+        AsyncApiHelper.execute(
+                () -> notificationApi.getNotificationsForUser(currentUserId),
+                new AsyncApiHelper.ApiCallback<List<Notification>>() {
+                    @Override
+                    public void onSuccess(List<Notification> notifications) {
+                        if (!isAdded()) return;
 
-        if (notifications.isEmpty()) {
-            rvNotifications.setVisibility(View.GONE);
-            layoutEmpty.setVisibility(View.VISIBLE);
-        } else {
-            rvNotifications.setVisibility(View.VISIBLE);
-            layoutEmpty.setVisibility(View.GONE);
-            adapter.setNotifications(notifications);
-        }
+                        if (notifications.isEmpty()) {
+                            rvNotifications.setVisibility(View.GONE);
+                            layoutEmpty.setVisibility(View.VISIBLE);
+                        } else {
+                            rvNotifications.setVisibility(View.VISIBLE);
+                            layoutEmpty.setVisibility(View.GONE);
+                            adapter.setNotifications(notifications);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi tải thông báo", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 
     private void onNotificationClick(Notification notification) {
-        // Mark as READ
-        notificationApi.markAsRead(notification.getId());
+        AsyncApiHelper.execute(
+                () -> {
+                    notificationApi.markAsRead(notification.getId());
+                    return true;
+                },
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean ignored) {
+                        if (!isAdded()) return;
 
-        // Navigate based on notification type
-        if (notification.getType() == NotificationType.TEACHER_REPLY_COMMENT) {
-            navigateToLessonVideo(notification);
-        } else {
-            Toast.makeText(requireContext(), "Loại thông báo không hợp lệ", Toast.LENGTH_SHORT).show();
-        }
+                        if (notification.getType() ==
+                                NotificationType.TEACHER_REPLY_COMMENT) {
+                            navigateToLessonVideo(notification);
+                        } else {
+                            Toast.makeText(requireContext(),
+                                    "Loại thông báo không hợp lệ",
+                                    Toast.LENGTH_SHORT).show();
+                        }
 
-        // Refresh list
-        loadNotifications();
+                        loadNotifications();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi cập nhật trạng thái thông báo",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 
     private void navigateToLessonVideo(Notification notification) {
@@ -135,13 +186,34 @@ public class StudentNotificationFragment extends Fragment implements Notificatio
     }
 
     private void markAllAsRead() {
-        int count = notificationApi.markAllAsRead(currentUserId);
-        if (count > 0) {
-            Toast.makeText(requireContext(), "Đã đánh dấu " + count + " thông báo đã đọc", Toast.LENGTH_SHORT).show();
-            loadNotifications();
-        } else {
-            Toast.makeText(requireContext(), "Không có thông báo nào để đánh dấu", Toast.LENGTH_SHORT).show();
-        }
+        AsyncApiHelper.execute(
+                () -> notificationApi.markAllAsRead(currentUserId),
+                new AsyncApiHelper.ApiCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer count) {
+                        if (!isAdded()) return;
+
+                        if (count > 0) {
+                            Toast.makeText(requireContext(),
+                                    "Đã đánh dấu " + count + " thông báo đã đọc",
+                                    Toast.LENGTH_SHORT).show();
+                            loadNotifications();
+                        } else {
+                            Toast.makeText(requireContext(),
+                                    "Không có thông báo nào để đánh dấu",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        if (!isAdded()) return;
+                        Toast.makeText(requireContext(),
+                                "Lỗi khi đánh dấu thông báo",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
     }
 
     @Override
