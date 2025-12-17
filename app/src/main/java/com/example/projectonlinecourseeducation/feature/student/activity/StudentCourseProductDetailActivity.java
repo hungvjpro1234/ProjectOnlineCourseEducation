@@ -2,6 +2,7 @@ package com.example.projectonlinecourseeducation.feature.student.activity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -489,22 +490,38 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
      * (Chỉ gọi khi khóa học chưa ở trạng thái PURCHASED)
      */
     private void updateAddToCartButtonState() {
-        // bảo đảm chạy trên main thread nếu được gọi từ listener
-        runOnUiThread(() -> {
-            if (btnAddToCart == null) return;
-            boolean inCart = isInCart(courseId);
-            if (inCart) {
-                btnAddToCart.setText("Đi tới giỏ hàng");
-                btnAddToCart.setBackgroundTintList(
-                        ContextCompat.getColorStateList(this, R.color.blue_900)
-                );
-            } else {
-                btnAddToCart.setText("Thêm vào giỏ hàng");
-                btnAddToCart.setBackgroundTintList(
-                        ContextCompat.getColorStateList(this, R.color.purple_200)
-                );
-            }
-        });
+        AsyncApiHelper.execute(
+                () -> cartApi != null && cartApi.isInCart(courseId),
+                new AsyncApiHelper.ApiCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean inCart) {
+                        if (btnAddToCart == null) return;
+
+                        if (inCart) {
+                            btnAddToCart.setText("Đi tới giỏ hàng");
+                            btnAddToCart.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(
+                                            StudentCourseProductDetailActivity.this,
+                                            R.color.blue_900
+                                    )
+                            );
+                        } else {
+                            btnAddToCart.setText("Thêm vào giỏ hàng");
+                            btnAddToCart.setBackgroundTintList(
+                                    ContextCompat.getColorStateList(
+                                            StudentCourseProductDetailActivity.this,
+                                            R.color.purple_200
+                                    )
+                            );
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // silent fail, tránh spam UI
+                    }
+                }
+        );
     }
 
     /**
@@ -514,12 +531,10 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
      * - PURCHASED    : ẩn "Thêm vào giỏ", "Mua ngay" -> "Học ngay" + ẩn giá
      */
     private void updatePurchaseUi() {
-
         CourseStatusResolver.resolveStatus(courseId, status -> {
             currentStatus = status;
 
             if (status == CourseStatus.PURCHASED) {
-                // Ẩn nút giỏ hàng, chỉ còn "Học ngay" + ẩn giá
                 btnAddToCart.setVisibility(View.GONE);
                 btnBuyNow.setText("Học ngay");
                 btnBuyNow.setBackgroundTintList(
@@ -530,7 +545,6 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                 tvPrice.setVisibility(View.GONE);
 
             } else {
-                // Chưa mua: hiện đầy đủ 2 nút + giá
                 btnAddToCart.setVisibility(View.VISIBLE);
                 btnBuyNow.setText("Mua ngay");
                 btnBuyNow.setBackgroundTintList(
@@ -540,7 +554,6 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                 );
                 tvPrice.setVisibility(View.VISIBLE);
 
-                // update trạng thái nút Add to Cart (cũng async)
                 updateAddToCartButtonState();
             }
         });
@@ -551,7 +564,6 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         btnAddToCart.setOnClickListener(v -> {
-            // Nếu đã mua thì không cho thao tác giỏ nữa
             if (currentStatus == CourseStatus.PURCHASED) {
                 Toast.makeText(this,
                         "Bạn đã sở hữu khóa học này",
@@ -559,35 +571,47 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
                 return;
             }
 
-            boolean inCart = isInCart(courseId);
-            if (!inCart) {
-                // Thêm vào giỏ hàng qua CartApi
-                if (currentCourse != null) {
-                    cartApi.addToCart(currentCourse);
-                    // Không gọi updateAddToCartButtonState() thủ công ở đây nữa —
-                    // để tránh duplicate: listener của CartApi sẽ notify và cập nhật UI.
-
-                    // 👉 Toast thông báo đã thêm vào giỏ hàng
-                    Toast.makeText(
-                            this,
-                            "Đã thêm khóa học vào giỏ hàng",
-                            Toast.LENGTH_SHORT
-                    ).show();
-                } else {
-                    Toast.makeText(
-                            this,
-                            "Không thể thêm vào giỏ hàng, dữ liệu khóa học bị lỗi",
-                            Toast.LENGTH_SHORT
-                    ).show();
-                }
-            } else {
-                // Đã ở trong giỏ -> chuyển sang màn Home + mở tab Giỏ hàng
-                Intent intent = new Intent(this, StudentHomeActivity.class);
+            // ✅ FIX: Check nếu đã có trong cart → navigate đến Cart
+            if (currentStatus == CourseStatus.IN_CART) {
+                // Navigate đến StudentHomeActivity và mở tab Cart
+                Intent intent = new Intent(this, com.example.projectonlinecourseeducation.feature.student.activity.StudentHomeActivity.class);
                 intent.putExtra("open_cart", true);
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                 startActivity(intent);
-                finish();
+                return;
             }
+
+            // ✅ Thêm vào giỏ hàng (khi chưa có trong cart)
+            AsyncApiHelper.execute(
+                    () -> {
+                        if (currentCourse != null && cartApi != null) {
+                            cartApi.addToCart(currentCourse);
+                        }
+                        return true;
+                    },
+                    new AsyncApiHelper.ApiCallback<Boolean>() {
+                        @Override
+                        public void onSuccess(Boolean result) {
+                            Toast.makeText(
+                                    StudentCourseProductDetailActivity.this,
+                                    "Đã thêm khóa học vào giỏ hàng",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+
+                            // ✅ Update button state ngay sau khi thêm thành công
+                            updateAddToCartButtonState();
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(
+                                    StudentCourseProductDetailActivity.this,
+                                    "Lỗi thêm vào giỏ hàng",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        }
+                    }
+            );
         });
 
         // Nút "Mua ngay" / "Học ngay"
@@ -616,28 +640,68 @@ public class StudentCourseProductDetailActivity extends AppCompatActivity {
 
             showPaymentConfirmDialog(
                     message,
-                    () -> showPaymentSuccessDialog(
-                            "Thanh toán thành công",
-                            true,
+                    () -> AsyncApiHelper.execute(
                             () -> {
-                                // SAFE ORDER: thêm vào MyCourse trước, sau đó gọi recordPurchase để backend/fake tăng students
-                                if (myCourseApi != null) {
-                                    myCourseApi.addPurchasedCourse(currentCourse);
-                                }
-                                if (cartApi != null) {
-                                    cartApi.removeFromCart(courseId);
-                                }
-                                // call backend/fake to record purchase (this will notify listeners)
-                                if (courseApi != null) {
-                                    courseApi.recordPurchase(courseId);
-                                }
-                                // Không gọi updatePurchaseUi() thủ công ở đây — rely on listeners to update UI
+                                // ===== BACKGROUND THREAD =====
 
-                                Intent intent = new Intent(this, StudentHomeActivity.class);
-                                intent.putExtra("open_my_course", true);
-                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);
-                                finish();
+                                // ✅ FIX: Thêm vào cart (backend tự handle duplicate)
+                                if (cartApi != null && currentCourse != null) {
+                                    try {
+                                        cartApi.addToCart(currentCourse);
+                                    } catch (Exception e) {
+                                        Log.e("ProductDetail", "Error adding to cart before checkout", e);
+                                        // Continue anyway - course might already be in cart
+                                    }
+                                }
+
+                                // ✅ Gọi checkout → Backend xử lý:
+                                // - Chuyển IN_CART → PURCHASED
+                                // - Thêm vào course_student
+                                // - Tăng students count
+                                List<Course> purchasedCourses = new ArrayList<>();
+                                if (cartApi != null) {
+                                    purchasedCourses = cartApi.checkout();
+                                }
+
+                                // ✅ Update MyCourse cache
+                                if (myCourseApi != null && purchasedCourses != null && !purchasedCourses.isEmpty()) {
+                                    myCourseApi.addPurchasedCourses(purchasedCourses);
+                                }
+
+                                return true;
+                            },
+                            new AsyncApiHelper.ApiCallback<Boolean>() {
+                                @Override
+                                public void onSuccess(Boolean result) {
+                                    // ===== MAIN THREAD =====
+
+                                    showPaymentSuccessDialog(
+                                            "Thanh toán thành công",
+                                            true,
+                                            () -> {
+                                                Intent intent = new Intent(
+                                                        StudentCourseProductDetailActivity.this,
+                                                        StudentHomeActivity.class
+                                                );
+                                                intent.putExtra("open_my_course", true);
+                                                intent.addFlags(
+                                                        Intent.FLAG_ACTIVITY_CLEAR_TOP |
+                                                                Intent.FLAG_ACTIVITY_NEW_TASK
+                                                );
+                                                startActivity(intent);
+                                                finish();
+                                            }
+                                    );
+                                }
+
+                                @Override
+                                public void onError(Exception e) {
+                                    Toast.makeText(
+                                            StudentCourseProductDetailActivity.this,
+                                            "Thanh toán thất bại, vui lòng thử lại",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                }
                             }
                     )
             );

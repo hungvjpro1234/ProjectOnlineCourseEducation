@@ -11,42 +11,23 @@ public class CartApiResponse<T> {
     @SerializedName("success")
     private boolean success;
 
-    @SerializedName("message")
-    private String message;
-
     @SerializedName("data")
     private T data;
 
-    public CartApiResponse() {
+    @SerializedName("added")
+    private Boolean added;
+
+    @SerializedName("removed")
+    private Boolean removed;
+
+    public boolean isSuccess() { return success; }
+    public T getData() { return data; }
+
+    public boolean isAdded() {
+        return Boolean.TRUE.equals(added);
     }
 
-    public CartApiResponse(boolean success, String message, T data) {
-        this.success = success;
-        this.message = message;
-        this.data = data;
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public T getData() {
-        return data;
-    }
-
-    public void setData(T data) {
-        this.data = data;
+    public boolean isRemoved() {
+        return Boolean.TRUE.equals(removed);
     }
 }

@@ -14,55 +14,34 @@ import retrofit2.http.Path;
  */
 public interface CartRetrofitService {
 
-    /**
-     * GET /cart/:userId
-     * Lấy danh sách cart items cho user
-     * Backend response: { success, data: [CartItemDto] }
-     *
-     * NOTE: Backend hiện tại chỉ trả về payment_status records.
-     * Backend cần JOIN với course table để trả về full Course data.
-     */
+    // ✅ GET cart → List<Course>
     @GET("cart/{userId}")
-    Call<CartApiResponse<List<CartItemDto>>> getCartItems(@Path("userId") int userId);
+    Call<CartApiResponse<List<CartCourseDto>>> getCartItems(
+            @Path("userId") int userId
+    );
 
-    /**
-     * POST /cart/add
-     * Thêm course vào giỏ hàng
-     * Request body: { userId, courseId, price_snapshot?, course_name? }
-     * Response: { success, message }
-     */
+    // ✅ add to cart
     @POST("cart/add")
-    Call<CartApiResponse<Void>> addToCart(@Body AddToCartRequest request);
+    Call<CartApiResponse<Void>> addToCart(
+            @Body AddToCartRequest request
+    );
 
-    /**
-     * POST /cart/remove
-     * Xóa course khỏi giỏ hàng
-     * Request body: { userId, courseId }
-     * Response: { success, message }
-     */
+    // ✅ remove from cart
     @POST("cart/remove")
-    Call<CartApiResponse<Void>> removeFromCart(@Body RemoveFromCartRequest request);
+    Call<CartApiResponse<Void>> removeFromCart(
+            @Body RemoveFromCartRequest request
+    );
 
-    /**
-     * POST /cart/checkout
-     * Thanh toán toàn bộ giỏ hàng
-     * Request body: { userId, courseIds: [1, 2, 3] }
-     * Response: { success, message, data: { purchased: [...] } }
-     */
+    // ✅ checkout (backend IGNORE courseIds)
     @POST("cart/checkout")
-    Call<CartApiResponse<Void>> checkout(@Body CheckoutRequest request);
+    Call<CartApiResponse<List<CartCourseDto>>> checkout(
+            @Body CheckoutRequest request
+    );
 
-    /**
-     * GET /course/:userId/:courseId/status
-     * Kiểm tra trạng thái của course cho user
-     * Response: { success, data: { status: "NOT_PURCHASED" | "IN_CART" | "PURCHASED" } }
-     */
+    // ✅ get course status
     @GET("course/{userId}/{courseId}/status")
-    Call<CartApiResponse<CourseStatusDto>> getCourseStatus(
+    Call<CourseStatusResponse> getCourseStatus(
             @Path("userId") int userId,
             @Path("courseId") int courseId
     );
-
-    // NOTE: Backend chưa có endpoint POST /cart/clear
-    // Sẽ cần implement trong backend hoặc dùng workaround (remove từng item)
 }

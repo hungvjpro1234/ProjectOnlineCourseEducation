@@ -12,30 +12,11 @@ public class CheckoutRequest {
     @SerializedName("userId")
     private Integer userId;
 
-    @SerializedName("courseIds")
-    private List<Integer> courseIds;
-
-    public CheckoutRequest() {
-    }
-
-    public CheckoutRequest(Integer userId, List<Integer> courseIds) {
+    public CheckoutRequest(Integer userId) {
         this.userId = userId;
-        this.courseIds = courseIds;
     }
 
     public Integer getUserId() {
         return userId;
-    }
-
-    public void setUserId(Integer userId) {
-        this.userId = userId;
-    }
-
-    public List<Integer> getCourseIds() {
-        return courseIds;
-    }
-
-    public void setCourseIds(List<Integer> courseIds) {
-        this.courseIds = courseIds;
     }
 }

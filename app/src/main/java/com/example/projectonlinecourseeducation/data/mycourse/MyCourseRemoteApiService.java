@@ -1,5 +1,7 @@
 package com.example.projectonlinecourseeducation.data.mycourse;
 
+import android.util.Log;
+
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
@@ -13,7 +15,9 @@ import com.example.projectonlinecourseeducation.data.cart.remote.CheckoutRequest
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import retrofit2.Call;
 import retrofit2.Response;
@@ -25,10 +29,21 @@ import retrofit2.Response;
  * LƯU Ý:
  * - Tất cả method là synchronous
  * - PHẢI được gọi bên trong AsyncApiHelper
+ *
+ * CACHE STRATEGY:
+ * - Có local cache purchasedCourseIds để tăng performance
+ * - Cache được sync khi gọi getMyCourses()
+ * - isPurchased() check cache trước, fallback backend nếu cache chưa init
  */
 public class MyCourseRemoteApiService implements MyCourseApi {
 
+    private static final String TAG = "MyCourseRemoteApi";
+
     private final MyCourseRetrofitService retrofitService;
+
+    // ===== LOCAL CACHE (for performance) =====
+    private final Set<String> purchasedCourseIds = new HashSet<>();
+    private boolean cacheInitialized = false;
 
     public MyCourseRemoteApiService() {
         this.retrofitService =
@@ -55,16 +70,25 @@ public class MyCourseRemoteApiService implements MyCourseApi {
             }
 
             List<Course> result = new ArrayList<>();
+
+            // ✅ SYNC CACHE
+            purchasedCourseIds.clear();
+
             for (CourseDto dto : body.getData()) {
                 Course course = CourseMapper.toCourse(dto);
-                if (course != null) {
+                if (course != null && course.getId() != null) {
                     result.add(course);
+                    purchasedCourseIds.add(course.getId()); // Update cache
                 }
             }
+
+            cacheInitialized = true; // Mark cache as ready
+            Log.d(TAG, "getMyCourses: synced " + purchasedCourseIds.size() + " courses to cache");
+
             return result;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "getMyCourses error", e);
             return Collections.emptyList();
         }
     }
@@ -73,66 +97,51 @@ public class MyCourseRemoteApiService implements MyCourseApi {
     public boolean isPurchased(String courseId) {
         if (courseId == null) return false;
 
-        try {
-            int cid = Integer.parseInt(courseId);
-            Call<MyCourseStatusResponse> call =
-                    retrofitService.isPurchased(cid);
-
-            Response<MyCourseStatusResponse> response = call.execute();
-            if (!response.isSuccessful() || response.body() == null) {
-                return false;
-            }
-
-            MyCourseStatusResponse body = response.body();
-            return body.isSuccess() && body.isPurchased();
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        // ✅ CHECK CACHE ONLY
+        // Cache được preload trong StudentHomeActivity.onCreate()
+        // KHÔNG GỌI backend fallback để tránh Binder transaction overflow
+        if (!cacheInitialized) {
+            Log.d(TAG, "isPurchased(" + courseId + "): cache not ready yet, returning false (will be updated after preload)");
             return false;
         }
+
+        boolean inCache = purchasedCourseIds.contains(courseId);
+        Log.d(TAG, "isPurchased(" + courseId + "): cache result = " + inCache);
+        return inCache;
     }
 
     /**
-     * ⚠️ Không gọi trực tiếp backend
-     * Việc add course vào my-courses xảy ra thông qua /cart/checkout
+     * ✅ FIX: Chỉ update local cache
+     * Backend đã tự động thêm vào MyCourse qua /cart/checkout
+     * Method này CHỈ để sync cache sau khi purchase thành công
      */
     @Override
     public void addPurchasedCourse(Course course) {
         if (course == null || course.getId() == null) return;
-        addPurchasedCourses(Collections.singletonList(course));
+
+        // ✅ UPDATE CACHE ONLY
+        purchasedCourseIds.add(course.getId());
+        cacheInitialized = true; // Ensure cache is marked as ready
+
+        Log.d(TAG, "addPurchasedCourse: added " + course.getId() + " to cache");
     }
 
     /**
-     * Thực hiện checkout (POST /cart/checkout)
-     * → backend tự insert course_student + PURCHASED
+     * ✅ FIX: Chỉ update local cache cho multiple courses
      */
     @Override
     public void addPurchasedCourses(List<Course> courses) {
         if (courses == null || courses.isEmpty()) return;
 
-        User currentUser = ApiProvider.getAuthApi().getCurrentUser();
-        if (currentUser == null || currentUser.getId() == null) return;
-
-        try {
-            List<Integer> courseIds = new ArrayList<>();
-            for (Course c : courses) {
-                if (c != null && c.getId() != null) {
-                    courseIds.add(Integer.parseInt(c.getId()));
-                }
+        // ✅ UPDATE CACHE ONLY
+        for (Course course : courses) {
+            if (course != null && course.getId() != null) {
+                purchasedCourseIds.add(course.getId());
             }
-
-            if (courseIds.isEmpty()) return;
-
-            CheckoutRequest request = new CheckoutRequest(
-                    Integer.parseInt(currentUser.getId()),
-                    courseIds
-            );
-
-            retrofitService.checkout(request).execute();
-
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+        cacheInitialized = true;
+
+        Log.d(TAG, "addPurchasedCourses: added " + courses.size() + " courses to cache");
     }
 
     /**
