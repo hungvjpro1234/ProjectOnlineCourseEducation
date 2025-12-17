@@ -1,7 +1,7 @@
 package com.example.projectonlinecourseeducation.data.coursereview;
 
 import com.example.projectonlinecourseeducation.core.model.course.CourseReview;
-import static com.example.projectonlinecourseeducation.core.utils.OnlyApiService.ReviewSeedData.REVIEWS_JSON;
+import static com.example.projectonlinecourseeducation.core.utils.FinalClass.ReviewSeedData.REVIEWS_JSON;
 import com.example.projectonlinecourseeducation.data.ApiProvider; // NEW
 
 import org.json.JSONArray;

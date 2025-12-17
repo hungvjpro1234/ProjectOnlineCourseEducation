@@ -1,5 +1,5 @@
 // core/utils/OnlyFakeApiService/ReviewSeedData.java
-package com.example.projectonlinecourseeducation.core.utils.OnlyApiService;
+package com.example.projectonlinecourseeducation.core.utils.FinalClass;
 
 public final class ReviewSeedData {
 

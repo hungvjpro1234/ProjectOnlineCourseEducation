@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.utils.OnlyApiService;
+package com.example.projectonlinecourseeducation.core.utils.FinalClass;
 
 import android.app.Activity;
 import android.app.Dialog;
