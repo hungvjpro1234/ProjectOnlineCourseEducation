@@ -269,6 +269,246 @@ function authMiddleware(req, res, next) {
     }
 }
 
+// ================= NOTIFICATION HELPERS =================
+async function createStudentLessonCommentNotification({
+    teacherId,
+    studentName,
+    lessonId,
+    lessonTitle,
+    courseId,
+    courseTitle,
+    commentId,
+}) {
+    await db.none(
+        `
+        INSERT INTO notification(
+          notification_id, user_id, type, status,
+          title, message,
+          sender_name,
+          course_title, lesson_title,
+          target_course_id, target_lesson_id, target_comment_id,
+          created_at
+        )
+        VALUES(
+          gen_random_uuid(), $1, 'STUDENT_LESSON_COMMENT', 'UNREAD',
+          'Học viên mới bình luận trong bài học',
+          $2,
+          $3,
+          $4, $5,
+          $6, $7, $8,
+          NOW()
+        )
+        `,
+        [
+            teacherId,
+            `${studentName} đã bình luận trong bài "${lessonTitle}"`,
+            studentName,
+            courseTitle,
+            lessonTitle,
+            courseId,
+            lessonId,
+            commentId,
+        ]
+    );
+}
+
+async function createStudentCourseReviewNotification({
+    teacherId,
+    studentName,
+    courseId,
+    courseTitle,
+    reviewId,
+    rating,
+}) {
+    await db.none(
+        `
+        INSERT INTO notification(
+          notification_id, user_id, type, status,
+          title, message,
+          sender_name,
+          course_title,
+          target_course_id, target_review_id,
+          created_at
+        )
+        VALUES(
+          gen_random_uuid(), $1, 'STUDENT_COURSE_COMMENT', 'UNREAD',
+          'Học viên mới đánh giá khóa học',
+          $2,
+          $3,
+          $4,
+          $5, $6,
+          NOW()
+        )
+        `,
+        [
+            teacherId,
+            `${studentName} đã đánh giá khóa học "${courseTitle}" - ${rating.toFixed(
+                1
+            )} sao`,
+            studentName,
+            courseTitle,
+            courseId,
+            reviewId,
+        ]
+    );
+}
+
+function transformNotificationRow(r) {
+    return {
+        id: r.notification_id,
+        userId: r.user_id,
+        type: r.type,
+        status: r.status,
+        createdAt: new Date(r.created_at).getTime(),
+
+        title: r.title,
+        message: r.message,
+
+        senderName: r.sender_name,
+        avatarUrl: r.avatar_url,
+
+        courseTitle: r.course_title,
+        lessonTitle: r.lesson_title,
+
+        targetCourseId: r.target_course_id,
+        targetLessonId: r.target_lesson_id,
+        targetCommentId: r.target_comment_id,
+        targetReviewId: r.target_review_id,
+    };
+}
+
+async function createTeacherReplyNotification({
+    studentId,
+    teacherName,
+    lessonId,
+    lessonTitle,
+    courseId,
+    courseTitle,
+    commentId,
+}) {
+    await db.none(
+        `
+        INSERT INTO notification(
+          notification_id, user_id, type, status,
+          title, message,
+          sender_name,
+          course_title, lesson_title,
+          target_course_id, target_lesson_id, target_comment_id
+        )
+        VALUES(
+          gen_random_uuid(), $1, 'TEACHER_REPLY_COMMENT', 'UNREAD',
+          'Giáo viên đã trả lời bình luận của bạn',
+          $2,
+          $3, $4, $5, $6, $7
+        )
+        `,
+        [
+            studentId,
+            `${teacherName} đã trả lời bình luận của bạn trong bài "${lessonTitle}"`,
+            teacherName,
+            courseTitle,
+            lessonTitle,
+            courseId,
+            lessonId,
+            commentId,
+        ]
+    );
+}
+
+app.get("/notifications", authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+
+    const rows = await db.any(
+        `SELECT * FROM notification
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+    );
+
+    res.send({
+        success: true,
+        data: rows.map(transformNotificationRow),
+    });
+});
+
+app.get("/notifications/unread/count", authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+
+    const row = await db.one(
+        `SELECT COUNT(*)::int AS cnt
+         FROM notification
+         WHERE user_id=$1 AND status='UNREAD'`,
+        [userId]
+    );
+
+    res.send({ success: true, count: row.cnt });
+});
+
+app.patch("/notifications/:id/viewed", authMiddleware, async (req, res) => {
+    await db.none(
+        `UPDATE notification
+         SET status='VIEWED'
+         WHERE notification_id=$1 AND status='UNREAD'`,
+        [req.params.id]
+    );
+    res.send({ success: true });
+});
+
+app.patch("/notifications/:id/read", authMiddleware, async (req, res) => {
+    await db.none(
+        `UPDATE notification
+         SET status='READ'
+         WHERE notification_id=$1`,
+        [req.params.id]
+    );
+    res.send({ success: true });
+});
+
+app.patch("/notifications/viewed-all", authMiddleware, async (req, res) => {
+    await db.none(
+        `UPDATE notification
+         SET status='VIEWED'
+         WHERE user_id=$1 AND status='UNREAD'`,
+        [req.user.userId]
+    );
+    res.send({ success: true });
+});
+
+app.patch("/notifications/read-all", authMiddleware, async (req, res) => {
+    await db.none(
+        `UPDATE notification
+         SET status='READ'
+         WHERE user_id=$1`,
+        [req.user.userId]
+    );
+    res.send({ success: true });
+});
+
+app.delete("/notifications/:id", authMiddleware, async (req, res) => {
+    await db.none(`DELETE FROM notification WHERE notification_id=$1`, [
+        req.params.id,
+    ]);
+    res.send({ success: true });
+});
+
+app.delete("/notifications/read/all", authMiddleware, async (req, res) => {
+    await db.none(
+        `DELETE FROM notification
+         WHERE user_id=$1 AND status='READ'`,
+        [req.user.userId]
+    );
+    res.send({ success: true });
+});
+
+app.delete("/notifications/all", authMiddleware, async (req, res) => {
+    await db.none(
+        "DELETE FROM notification WHERE user_id = $1",
+        [req.user.userId]
+    );
+    res.send({ success: true });
+});
+
+
 // ================= COURSE REVIEWS =================
 
 // GET /course/:courseId/reviews
@@ -300,7 +540,7 @@ app.get("/course/:courseId/reviews", async (req, res) => {
         );
 
         // 🔥 map đúng FakeCourseReview
-        const reviews = rows.map(r => ({
+        const reviews = rows.map((r) => ({
             id: String(r.review_id),
             courseId: String(r.course_id),
             userName: r.username || "Ẩn danh",
@@ -369,6 +609,29 @@ app.post("/course/:courseId/reviews", authMiddleware, async (req, res) => {
             [stats.avg, stats.cnt, courseId]
         );
 
+        // 🔔 CREATE NOTIFICATION cho teacher
+        const course = await db.one(
+            "SELECT teacher, title FROM course WHERE course_id = $1",
+            [courseId]
+        );
+
+        // map teacher username -> user_id
+        const teacherUser = await db.oneOrNone(
+            "SELECT user_id FROM appuser WHERE username = $1",
+            [course.teacher]
+        );
+
+        if (teacherUser) {
+            await createStudentCourseReviewNotification({
+                teacherId: teacherUser.user_id,
+                studentName: user?.username || "Ẩn danh",
+                courseId,
+                courseTitle: course.title,
+                reviewId: inserted.review_id,
+                rating,
+            });
+        }
+
         res.send({
             success: true,
             data: {
@@ -388,7 +651,6 @@ app.post("/course/:courseId/reviews", authMiddleware, async (req, res) => {
         });
     }
 });
-
 
 // ================= ADMIN: Get users by role =================
 app.get("/admin/users", authMiddleware, async (req, res) => {
@@ -485,7 +747,6 @@ app.get("/admin/my-courses/:userId", authMiddleware, async (req, res) => {
         });
     }
 });
-
 
 app.get("/", (req, res) => {
     res.send("Hello World");
@@ -863,7 +1124,6 @@ function parseDurationToSeconds(duration) {
     return Number(duration) || 0;
 }
 
-
 /**
  * Add one lesson to course counters.
  * - courseId: integer
@@ -1160,7 +1420,6 @@ app.post("/course/:id/approve-edit", authMiddleware, async (req, res) => {
     }
 });
 
-
 // Reject pending edit (admin)
 app.post("/course/:id/reject-edit", authMiddleware, async (req, res) => {
     try {
@@ -1267,7 +1526,6 @@ app.get("/my-courses", authMiddleware, async (req, res) => {
         });
     }
 });
-
 
 // PUT /auth/profile  => body: { newName, newEmail, newUsername }
 app.put("/auth/profile", authMiddleware, async (req, res) => {
@@ -1413,17 +1671,13 @@ app.get("/my-courses/:courseId/status", authMiddleware, async (req, res) => {
     }
 });
 
-
 // CREATE
 app.post("/course", upload.single("courseAvatar"), async (req, res) => {
     try {
         const payload = req.body || {};
 
         // image: note DB column is `imageurl` (snake_case / lowercase)
-        const imageUrl = req.file
-            ? `/uploads/${req.file.filename}`
-            : "";
-
+        const imageUrl = req.file ? `/uploads/${req.file.filename}` : "";
 
         // required fields
         const { title, description, teacher } = payload;
@@ -1714,12 +1968,10 @@ app.patch(
 
             // ensure pending not empty
             if (Object.keys(pending).length === 0) {
-                return res
-                    .status(400)
-                    .send({
-                        success: false,
-                        message: "Không có thay đổi được gửi lên",
-                    });
+                return res.status(400).send({
+                    success: false,
+                    message: "Không có thay đổi được gửi lên",
+                });
             }
 
             // Ensure course exists
@@ -2027,7 +2279,8 @@ app.post("/course/:id/purchase", async (req, res) => {
 // Lấy toàn bộ giỏ hàng của user
 // GET /cart/:userId
 app.get("/cart/:userId", async (req, res) => {
-    const rows = await db.any(`
+    const rows = await db.any(
+        `
         SELECT
           cps.course_id,
           cps.price_snapshot,
@@ -2044,26 +2297,26 @@ app.get("/cart/:userId", async (req, res) => {
         WHERE cps.user_id = $1
           AND cps.status = 'IN_CART'
         ORDER BY cps.created_at DESC
-    `, [req.params.userId]);
+    `,
+        [req.params.userId]
+    );
 
     // 🔥 FE Fake expect List<Course>
-    const courses = rows.map(r => ({
+    const courses = rows.map((r) => ({
         id: String(r.course_id),
         title: r.title,
         imageUrl: r.imageurl,
         price: r.price_snapshot ?? r.price,
         teacher: r.teacher,
-        rating: r.rating
+        rating: r.rating,
     }));
 
     res.send({ success: true, data: courses });
 });
 
-
 app.post("/cart/add", async (req, res) => {
     const { userId, courseId, price_snapshot, course_name } = req.body;
     if (!userId || !courseId) {
-        
         return res.send({ success: true, added: false });
     }
 
@@ -2092,7 +2345,6 @@ app.post("/cart/add", async (req, res) => {
         return res.send({ success: true, added: false });
     }
 });
-
 
 // Remove from cart (revert về NOT_PURCHASED)
 // POST /cart/remove  body: { userId, courseId }
@@ -2129,12 +2381,15 @@ app.post("/cart/checkout", async (req, res) => {
     }
 
     try {
-        const coursesInCart = await db.any(`
+        const coursesInCart = await db.any(
+            `
             SELECT c.*
             FROM course_payment_status cps
             JOIN course c ON c.course_id = cps.course_id
             WHERE cps.user_id = $1 AND cps.status = 'IN_CART'
-        `, [userId]);
+        `,
+            [userId]
+        );
 
         if (coursesInCart.length === 0) {
             return res.send({ success: true, data: [] });
@@ -2175,7 +2430,6 @@ app.post("/cart/checkout", async (req, res) => {
         return res.send({ success: true, data: [] });
     }
 });
-
 
 // Lấy trạng thái 1 course cho 1 user (dùng FE hiển thị: NOT_PURCHASED / IN_CART / PURCHASED)
 // GET /course/:userId/:courseId/status
@@ -2226,7 +2480,11 @@ app.get("/lesson/course/:courseId", authMiddleware, async (req, res) => {
             `
             SELECT * FROM lesson
             WHERE course_id = $1
-            ${isStudent ? "AND is_initial_approved = true AND is_delete_requested = false" : ""}
+            ${
+                isStudent
+                    ? "AND is_initial_approved = true AND is_delete_requested = false"
+                    : ""
+            }
             ORDER BY lesson_order ASC
             `,
             [courseId]
@@ -2244,7 +2502,8 @@ app.get("/lesson/course/:courseId", authMiddleware, async (req, res) => {
 
 app.post("/lesson", authMiddleware, async (req, res) => {
     try {
-        const { courseId, title, description, videoUrl, duration, order } = req.body;
+        const { courseId, title, description, videoUrl, duration, order } =
+            req.body;
         if (!courseId || !title) {
             return res.status(400).send({ success: false });
         }
@@ -2259,7 +2518,6 @@ app.post("/lesson", authMiddleware, async (req, res) => {
 
         const isInitialApproved = course.is_approved === true ? false : false;
         // lesson luôn pending nếu thêm mới
-
 
         const row = await db.one(
             `
@@ -2324,7 +2582,6 @@ app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
         const p = pending.pending_data;
 
         await db.tx(async (t) => {
-
             // 🔥 1. LẤY DURATION CŨ + COURSE ID (TRƯỚC UPDATE)
             const old = await t.one(
                 "SELECT duration, course_id FROM lesson WHERE lesson_id = $1",
@@ -2387,7 +2644,6 @@ app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
         res.status(500).send({ success: false });
     }
 });
-
 
 app.get("/lesson/:lessonId/progress", authMiddleware, async (req, res) => {
     try {
@@ -2453,9 +2709,8 @@ app.post("/lesson/:lessonId/progress", authMiddleware, async (req, res) => {
                 : parseDurationToSeconds(row.duration);
 
         const bestCurrent = Math.max(row.current_second, currentSecond);
-        let percent = totalSecond > 0
-            ? Math.floor((bestCurrent / totalSecond) * 100)
-            : 0;
+        let percent =
+            totalSecond > 0 ? Math.floor((bestCurrent / totalSecond) * 100) : 0;
 
         percent = Math.min(100, Math.max(0, percent));
         const completed = percent >= 90 || row.is_completed;
@@ -2535,6 +2790,162 @@ app.get("/course/:courseId/progress", authMiddleware, async (req, res) => {
         res.status(500).send({ success: false });
     }
 });
+
+// ================= LESSON COMMENT =================
+app.post("/lesson/:lessonId/comment", authMiddleware, async (req, res) => {
+    try {
+        const lessonId = parseInt(req.params.lessonId, 10);
+        const userId = req.user.userId;
+        const { content } = req.body;
+
+        if (!Number.isFinite(lessonId) || !content) {
+            return res.status(400).send({
+                success: false,
+                message: "Thiếu dữ liệu",
+            });
+        }
+
+        // 1️⃣ Insert comment
+        const inserted = await db.one(
+            `
+            INSERT INTO lesson_comment(lesson_id, user_id, content, created_at)
+            VALUES($1,$2,$3,NOW())
+            RETURNING comment_id
+            `,
+            [lessonId, userId, content]
+        );
+
+        // 2️⃣ Lấy lesson + course
+        const lesson = await db.one(
+            `
+            SELECT l.title AS lesson_title,
+                   c.course_id,
+                   c.title AS course_title,
+                   c.teacher
+            FROM lesson l
+            JOIN course c ON c.course_id = l.course_id
+            WHERE l.lesson_id = $1
+            `,
+            [lessonId]
+        );
+
+        // 3️⃣ Lấy teacherId
+        const teacherUser = await db.oneOrNone(
+            "SELECT user_id FROM appuser WHERE username = $1",
+            [lesson.teacher]
+        );
+
+        // 4️⃣ Lấy student name
+        const student = await db.oneOrNone(
+            "SELECT username FROM appuser WHERE user_id = $1",
+            [userId]
+        );
+
+        // 5️⃣ CREATE NOTIFICATION
+        if (teacherUser) {
+            await createStudentLessonCommentNotification({
+                teacherId: teacherUser.user_id,
+                studentName: student?.username || "Ẩn danh",
+                lessonId,
+                lessonTitle: lesson.lesson_title,
+                courseId: lesson.course_id,
+                courseTitle: lesson.course_title,
+                commentId: inserted.comment_id,
+            });
+        }
+
+        return res.send({
+            success: true,
+            data: {
+                id: inserted.comment_id,
+                lessonId,
+                content,
+                createdAt: Date.now(),
+            },
+        });
+    } catch (err) {
+        console.error("POST /lesson/:lessonId/comment error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi comment lesson",
+        });
+    }
+});
+
+// ================= TEACHER REPLY COMMENT =================
+app.post(
+    "/lesson/comment/:commentId/reply",
+    authMiddleware,
+    async (req, res) => {
+        try {
+            const commentId = parseInt(req.params.commentId, 10);
+            const { content } = req.body;
+            const teacherId = req.user.userId;
+
+            if (!Number.isFinite(commentId) || !content) {
+                return res.status(400).send({
+                    success: false,
+                    message: "Thiếu dữ liệu",
+                });
+            }
+
+            // 1️⃣ Lấy comment + lesson + course
+            const comment = await db.one(
+                `
+                SELECT lc.user_id AS student_id,
+                       l.lesson_id,
+                       l.title AS lesson_title,
+                       c.course_id,
+                       c.title AS course_title
+                FROM lesson_comment lc
+                JOIN lesson l ON l.lesson_id = lc.lesson_id
+                JOIN course c ON c.course_id = l.course_id
+                WHERE lc.comment_id = $1
+                `,
+                [commentId]
+            );
+
+            // 2️⃣ Update reply
+            await db.none(
+                `
+                UPDATE lesson_comment
+                SET reply = $1,
+                    replied_at = NOW()
+                WHERE comment_id = $2
+                `,
+                [content, commentId]
+            );
+
+            // 3️⃣ Lấy teacher name
+            const teacher = await db.oneOrNone(
+                "SELECT username FROM appuser WHERE user_id = $1",
+                [teacherId]
+            );
+
+            // 4️⃣ CREATE NOTIFICATION cho student
+            await createTeacherReplyNotification({
+                studentId: comment.student_id,
+                teacherName: teacher?.username || "Giáo viên",
+                lessonId: comment.lesson_id,
+                lessonTitle: comment.lesson_title,
+                courseId: comment.course_id,
+                courseTitle: comment.course_title,
+                commentId,
+            });
+
+            res.send({ success: true });
+        } catch (err) {
+            console.error(
+                "POST /lesson/comment/:commentId/reply error",
+                err
+            );
+            res.status(500).send({
+                success: false,
+                message: "Lỗi reply comment",
+            });
+        }
+    }
+);
 
 
 app.listen(port, () => console.log(`Server listening on ${port}`));
