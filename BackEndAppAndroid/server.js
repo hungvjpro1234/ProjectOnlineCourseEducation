@@ -905,126 +905,140 @@ app.get("/course/:id/pending", authMiddleware, async (req, res) => {
     }
 });
 
-// Approve pending edit (admin) -> apply pending_data to course row
 app.post("/course/:id/approve-edit", authMiddleware, async (req, res) => {
     try {
         const role =
             req.user && req.user.role
                 ? String(req.user.role).toUpperCase()
                 : null;
-        if (role !== "ADMIN")
+        if (role !== "ADMIN") {
             return res
                 .status(403)
                 .send({ success: false, message: "Chỉ admin" });
+        }
 
         const courseId = parseInt(req.params.id, 10);
-        const pending = await getPendingEdit(courseId);
-        if (!pending)
+        if (!Number.isFinite(courseId)) {
             return res
-                .status(404)
-                .send({ success: false, message: "No pending edit" });
-
-        const pendingData = pending.pending_data || {};
-
-        // Build SET list and values for UPDATE dynamically
-        const setClauses = [];
-        const values = [];
-        let idx = 1;
-        if (pendingData.title !== undefined) {
-            setClauses.push(`title=$${idx++}`);
-            values.push(pendingData.title);
-        }
-        if (pendingData.description !== undefined) {
-            setClauses.push(`description=$${idx++}`);
-            values.push(pendingData.description);
-        }
-        if (pendingData.teacher !== undefined) {
-            setClauses.push(`teacher=$${idx++}`);
-            values.push(pendingData.teacher);
-        }
-        if (pendingData.category !== undefined) {
-            setClauses.push(`category=$${idx++}`);
-            values.push(pendingData.category);
-        }
-        if (pendingData.lectures !== undefined) {
-            setClauses.push(`lectures=$${idx++}`);
-            values.push(pendingData.lectures);
-        }
-        if (pendingData.students !== undefined) {
-            setClauses.push(`students=$${idx++}`);
-            values.push(pendingData.students);
-        }
-        if (pendingData.rating !== undefined) {
-            setClauses.push(`rating=$${idx++}`);
-            values.push(pendingData.rating);
-        }
-        if (pendingData.price !== undefined) {
-            setClauses.push(`price=$${idx++}`);
-            values.push(pendingData.price);
-        }
-        if (pendingData.createdAt !== undefined) {
-            setClauses.push(`created_at=$${idx++}`);
-            values.push(new Date(pendingData.createdAt));
-        }
-        if (pendingData.ratingCount !== undefined) {
-            setClauses.push(`ratingcount=$${idx++}`);
-            values.push(pendingData.ratingCount);
-        }
-        if (pendingData.totalDurationMinutes !== undefined) {
-            setClauses.push(`totaldurationminutes=$${idx++}`);
-            values.push(pendingData.totalDurationMinutes);
-        }
-        if (pendingData.imageUrl !== undefined) {
-            setClauses.push(`imageurl=$${idx++}`);
-            values.push(pendingData.imageUrl);
-        }
-        if (pendingData.skills !== undefined) {
-            setClauses.push(`skills=$${idx++}`);
-            values.push(JSON.stringify(pendingData.skills));
-        }
-        if (pendingData.requirements !== undefined) {
-            setClauses.push(`requirements=$${idx++}`);
-            values.push(JSON.stringify(pendingData.requirements));
+                .status(400)
+                .send({ success: false, message: "Invalid course id" });
         }
 
-        if (setClauses.length === 0) {
-            // nothing to apply
-            // mark edit approved anyway
-            await db.none(
-                `UPDATE course SET is_edit_approved = true WHERE course_id = $1`,
+        await db.tx(async (t) => {
+            // 1️⃣ APPLY PENDING COURSE DATA (CODE CŨ CỦA BẠN)
+            const pending = await getPendingEdit(courseId);
+            if (pending) {
+                const pendingData = pending.pending_data || {};
+
+                const setClauses = [];
+                const values = [];
+                let idx = 1;
+
+                if (pendingData.title !== undefined) {
+                    setClauses.push(`title=$${idx++}`);
+                    values.push(pendingData.title);
+                }
+                if (pendingData.description !== undefined) {
+                    setClauses.push(`description=$${idx++}`);
+                    values.push(pendingData.description);
+                }
+                if (pendingData.teacher !== undefined) {
+                    setClauses.push(`teacher=$${idx++}`);
+                    values.push(pendingData.teacher);
+                }
+                if (pendingData.category !== undefined) {
+                    setClauses.push(`category=$${idx++}`);
+                    values.push(pendingData.category);
+                }
+                if (pendingData.price !== undefined) {
+                    setClauses.push(`price=$${idx++}`);
+                    values.push(pendingData.price);
+                }
+                if (pendingData.imageUrl !== undefined) {
+                    setClauses.push(`imageurl=$${idx++}`);
+                    values.push(pendingData.imageUrl);
+                }
+                if (pendingData.skills !== undefined) {
+                    setClauses.push(`skills=$${idx++}`);
+                    values.push(JSON.stringify(pendingData.skills));
+                }
+                if (pendingData.requirements !== undefined) {
+                    setClauses.push(`requirements=$${idx++}`);
+                    values.push(JSON.stringify(pendingData.requirements));
+                }
+
+                if (setClauses.length > 0) {
+                    const sql = `
+                        UPDATE course
+                        SET ${setClauses.join(", ")},
+                            is_edit_approved = true
+                        WHERE course_id = $${idx}
+                        RETURNING *
+                    `;
+                    values.push(courseId);
+                    await t.one(sql, values);
+                } else {
+                    await t.none(
+                        `UPDATE course SET is_edit_approved = true WHERE course_id = $1`,
+                        [courseId]
+                    );
+                }
+
+                await t.none(
+                    `UPDATE course_pending_edits SET status='APPROVED' WHERE id=$1`,
+                    [pending.id]
+                );
+            }
+
+            // 2️⃣ APPROVE TOÀN BỘ LESSON PENDING CỦA COURSE 🔥
+            const lessons = await t.any(
+                `
+                SELECT lesson_id, duration
+                FROM lesson
+                WHERE course_id = $1
+                  AND (is_edit_approved = false OR is_initial_approved = false)
+                `,
                 [courseId]
             );
-            await db.none(
-                `UPDATE course_pending_edits SET status='APPROVED' WHERE id = $1`,
-                [pending.id]
-            );
-            return res.send({
-                success: true,
-                message: "No fields to apply. Marked approved.",
-            });
-        }
 
-        const sql = `UPDATE course SET ${setClauses.join(
-            ", "
-        )}, is_edit_approved = true WHERE course_id = $${idx} RETURNING *`;
-        values.push(courseId);
-        const updated = await db.one(sql, values);
+            for (const l of lessons) {
+                const minutes = parseDurationToMinutes(l.duration);
 
-        // mark pending as approved
-        await db.none(
-            `UPDATE course_pending_edits SET status='APPROVED' WHERE id = $1`,
-            [pending.id]
-        );
+                await t.none(
+                    `
+                    UPDATE lesson
+                    SET is_initial_approved = true,
+                        is_edit_approved = true
+                    WHERE lesson_id = $1
+                    `,
+                    [l.lesson_id]
+                );
 
-        res.send({ success: true, data: transformCourseRow(updated) });
+                await t.none(
+                    `
+                    UPDATE course
+                    SET lectures = COALESCE(lectures,0) + 1,
+                        totaldurationminutes = COALESCE(totaldurationminutes,0) + $1
+                    WHERE course_id = $2
+                    `,
+                    [minutes, courseId]
+                );
+            }
+        });
+
+        res.send({
+            success: true,
+            message: "Đã duyệt chỉnh sửa khóa học & toàn bộ bài học",
+        });
     } catch (err) {
-        console.error(err);
+        console.error("POST /course/:id/approve-edit error", err);
         res.status(500).send({
             success: false,
-            message: "Lỗi khi duyệt chỉnh sửa",
+            message: "Lỗi khi duyệt chỉnh sửa khóa học",
         });
     }
 });
+
 
 // Reject pending edit (admin)
 app.post("/course/:id/reject-edit", authMiddleware, async (req, res) => {
@@ -1928,6 +1942,7 @@ app.get("/cart/:userId", async (req, res) => {
 app.post("/cart/add", async (req, res) => {
     const { userId, courseId, price_snapshot, course_name } = req.body;
     if (!userId || !courseId) {
+        
         return res.send({ success: true, added: false });
     }
 
@@ -2121,7 +2136,9 @@ app.post("/lesson", authMiddleware, async (req, res) => {
             return res.status(404).send({ success: false });
         }
 
-        const isInitialApproved = course.is_approved === false ? false : false;
+        const isInitialApproved = course.is_approved === true ? false : false;
+        // lesson luôn pending nếu thêm mới
+
 
         const row = await db.one(
             `
@@ -2186,6 +2203,20 @@ app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
         const p = pending.pending_data;
 
         await db.tx(async (t) => {
+
+            // 🔥 1. LẤY DURATION CŨ + COURSE ID (TRƯỚC UPDATE)
+            const old = await t.one(
+                "SELECT duration, course_id FROM lesson WHERE lesson_id = $1",
+                [lessonId]
+            );
+
+            const oldMin = parseDurationToMinutes(old.duration);
+            const newMin = parseDurationToMinutes(
+                p.duration !== undefined ? p.duration : old.duration
+            );
+            const delta = newMin - oldMin;
+
+            // 🔥 2. UPDATE LESSON
             await t.none(
                 `
                 UPDATE lesson SET
@@ -2207,6 +2238,22 @@ app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
                 ]
             );
 
+            // 🔥 3. UPDATE COURSE TOTAL DURATION (NẾU CÓ THAY ĐỔI)
+            if (delta !== 0) {
+                await t.none(
+                    `
+                    UPDATE course
+                    SET totaldurationminutes = GREATEST(
+                        COALESCE(totaldurationminutes,0) + $1,
+                        0
+                    )
+                    WHERE course_id = $2
+                    `,
+                    [delta, old.course_id]
+                );
+            }
+
+            // 🔥 4. XÓA PENDING
             await t.none(
                 "DELETE FROM lesson_pending_edit WHERE lesson_id = $1",
                 [lessonId]
@@ -2219,6 +2266,7 @@ app.post("/lesson/:id/approve-edit", authMiddleware, async (req, res) => {
         res.status(500).send({ success: false });
     }
 });
+
 
 app.get("/lesson/:lessonId/progress", authMiddleware, async (req, res) => {
     try {
