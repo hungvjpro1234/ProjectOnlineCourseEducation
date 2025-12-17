@@ -40,7 +40,7 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.projectonlinecourseeducation.data.ApiProvider;
-import com.example.projectonlinecourseeducation.data.auth.AuthRemoteApiService;
+import com.example.projectonlinecourseeducation.core.apiservice.AuthService;
 import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 
 public class MainActivity2 extends AppCompatActivity {

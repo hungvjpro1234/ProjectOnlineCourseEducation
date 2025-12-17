@@ -30,6 +30,7 @@ import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi;
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
+import com.example.projectonlinecourseeducation.data.notification.NotificationService;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCardAdapter;
 import com.example.projectonlinecourseeducation.feature.student.adapter.ProductCourseReviewDetailedAdapter;
 import com.google.android.material.button.MaterialButton;
@@ -543,7 +544,7 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
             // Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
             com.example.projectonlinecourseeducation.data.notification.NotificationApi notificationApi =
                     ApiProvider.getNotificationApi();
-            String teacherId = ((com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService) notificationApi)
+            String teacherId = ((NotificationService) notificationApi)
                     .getTeacherIdByName(currentCourse.getTeacher());
 
             notificationApi.createStudentCourseReviewNotification(

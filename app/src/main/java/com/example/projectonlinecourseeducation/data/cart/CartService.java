@@ -1,0 +1,180 @@
+package com.example.projectonlinecourseeducation.data.cart;
+
+import com.example.projectonlinecourseeducation.core.model.course.Course;
+import com.example.projectonlinecourseeducation.core.model.user.User;
+import com.example.projectonlinecourseeducation.data.ApiProvider;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * CHANGES:
+ * - Thêm cơ chế CartUpdateListener để UI có thể đăng ký và nhận notify tự động
+ *   khi có thay đổi add/remove/clear.
+ * - FIX: Phân quyền giỏ hàng theo userId - mỗi user có giỏ hàng riêng
+ */
+public class CartService implements CartApi {
+
+    private static CartService instance;
+
+    public static CartService getInstance() {
+        if (instance == null) {
+            instance = new CartService();
+        }
+        return instance;
+    }
+
+    // "Bảng" cart_courses trong RAM - PER USER (key = userId)
+    private final Map<String, List<Course>> cartCoursesMap = new HashMap<>();
+
+    // Registered listeners
+    private final List<CartApi.CartUpdateListener> listeners = new ArrayList<>();
+
+    private CartService() {
+    }
+
+    /**
+     * Helper: Lấy userId của user hiện tại
+     */
+    private String getCurrentUserId() {
+        User currentUser = ApiProvider.getAuthApi() != null
+            ? ApiProvider.getAuthApi().getCurrentUser()
+            : null;
+        if (currentUser == null || currentUser.getId() == null) {
+            return "_GUEST_"; // fallback for guest/unauthenticated users
+        }
+        return currentUser.getId();
+    }
+
+    /**
+     * Helper: Lấy giỏ hàng của user hiện tại
+     */
+    private List<Course> getCurrentUserCart() {
+        String userId = getCurrentUserId();
+        if (!cartCoursesMap.containsKey(userId)) {
+            cartCoursesMap.put(userId, new ArrayList<>());
+        }
+        return cartCoursesMap.get(userId);
+    }
+
+    @Override
+    public synchronized List<Course> getCartCourses() {
+        // trả bản copy của giỏ hàng user hiện tại để UI không chỉnh trực tiếp list bên trong
+        return new ArrayList<>(getCurrentUserCart());
+    }
+
+    @Override
+    public synchronized boolean addToCart(Course course) {
+        if (course == null || course.getId() == null) return false;
+        List<Course> userCart = getCurrentUserCart();
+        // Không cho trùng courseId
+        for (Course c : userCart) {
+            if (course.getId().equals(c.getId())) {
+                return false; // đã có rồi
+            }
+        }
+        userCart.add(course);
+        notifyCartChanged();
+        return true;
+    }
+
+    @Override
+    public synchronized boolean removeFromCart(String courseId) {
+        if (courseId == null) return false;
+        List<Course> userCart = getCurrentUserCart();
+        for (int i = 0; i < userCart.size(); i++) {
+            if (courseId.equals(userCart.get(i).getId())) {
+                userCart.remove(i);
+                notifyCartChanged();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public synchronized void clearCart() {
+        List<Course> userCart = getCurrentUserCart();
+        if (userCart.isEmpty()) return;
+        userCart.clear();
+        notifyCartChanged();
+    }
+
+    @Override
+    public synchronized boolean isInCart(String courseId) {
+        if (courseId == null) return false;
+        List<Course> userCart = getCurrentUserCart();
+        for (Course c : userCart) {
+            if (courseId.equals(c.getId())) return true;
+        }
+        return false;
+    }
+
+    @Override
+    public synchronized int getTotalItems() {
+        return getCurrentUserCart().size();
+    }
+
+    @Override
+    public synchronized double getTotalPrice() {
+        double total = 0;
+        List<Course> userCart = getCurrentUserCart();
+        for (Course c : userCart) {
+            if (c != null) {
+                total += c.getPrice();
+            }
+        }
+        return total;
+    }
+
+    // ----------------- Listener registration -----------------
+
+    @Override
+    public synchronized void addCartUpdateListener(CartApi.CartUpdateListener listener) {
+        if (listener == null) return;
+        if (!listeners.contains(listener)) listeners.add(listener);
+    }
+
+    @Override
+    public synchronized void removeCartUpdateListener(CartApi.CartUpdateListener listener) {
+        listeners.remove(listener);
+    }
+
+    private synchronized void notifyCartChanged() {
+        // copy to avoid concurrent modification while notifying
+        List<CartApi.CartUpdateListener> copy = new ArrayList<>(listeners);
+        for (CartApi.CartUpdateListener l : copy) {
+            try {
+                l.onCartChanged();
+            } catch (Exception ignored) {
+                // ignore listener exceptions to avoid breaking others
+            }
+        }
+    }
+
+    // ------------------ ADMIN: Get data for specific user ------------------
+
+    @Override
+    public synchronized List<Course> getCartCoursesForUser(String userId) {
+        if (userId == null) return new ArrayList<>();
+        if (!cartCoursesMap.containsKey(userId)) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(cartCoursesMap.get(userId));
+    }
+
+    @Override
+    public synchronized double getTotalPriceForUser(String userId) {
+        if (userId == null) return 0;
+        List<Course> userCart = getCartCoursesForUser(userId);
+        double total = 0;
+        for (Course c : userCart) {
+            if (c != null) {
+                total += c.getPrice();
+            }
+        }
+        return total;
+    }
+}

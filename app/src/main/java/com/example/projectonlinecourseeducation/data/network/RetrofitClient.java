@@ -21,10 +21,9 @@ import retrofit2.converter.gson.GsonConverterFactory;
  */
 public class RetrofitClient {
 
-    // TODO: Change to your backend server URL
     // For emulator: use 10.0.2.2:3000
     // For physical device: use your computer's IP (e.g., 192.168.1.100:3000)
-    private static final String BASE_URL = "http://10.0.2.2:3000/";
+    private static final String BASE_URL = "https://projectonlinecourseeducation.onrender.com";
 
     private static RetrofitClient instance;
     private final Retrofit retrofit;

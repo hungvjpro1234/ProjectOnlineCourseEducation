@@ -1,54 +1,54 @@
 package com.example.projectonlinecourseeducation.data;
 
 import com.example.projectonlinecourseeducation.data.auth.AuthApi;
-import com.example.projectonlinecourseeducation.data.auth.AuthFakeApiService;
+import com.example.projectonlinecourseeducation.data.auth.AuthService;
 import com.example.projectonlinecourseeducation.data.cart.CartApi;
-import com.example.projectonlinecourseeducation.data.cart.CartFakeApiService;
+import com.example.projectonlinecourseeducation.data.cart.CartService;
 import com.example.projectonlinecourseeducation.data.course.CourseApi;
-import com.example.projectonlinecourseeducation.data.course.CourseFakeApiService;
+import com.example.projectonlinecourseeducation.data.course.CourseService;
 import com.example.projectonlinecourseeducation.data.lesson.LessonApi;
-import com.example.projectonlinecourseeducation.data.lesson.LessonFakeApiService;
+import com.example.projectonlinecourseeducation.data.lesson.LessonService;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
-import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressFakeApiService;
+import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressService;
 import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi;
-import com.example.projectonlinecourseeducation.data.coursereview.ReviewFakeApiService;
+import com.example.projectonlinecourseeducation.data.coursereview.ReviewService;
 import com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi;
-import com.example.projectonlinecourseeducation.data.mycourse.MyCourseFakeApiService;
+import com.example.projectonlinecourseeducation.data.mycourse.MyCourseService;
 import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentApi;
-import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentFakeApiService;
+import com.example.projectonlinecourseeducation.data.lessoncomment.LessonCommentService;
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
-import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizFakeApiService;
+import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizService;
 
 // NEW imports for CourseStudentApi
 import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;
-import com.example.projectonlinecourseeducation.data.course.CourseStudentFakeApiService;
+import com.example.projectonlinecourseeducation.data.course.CourseStudentService;
 
 // NEW imports for NotificationApi
 import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
-import com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService;
+import com.example.projectonlinecourseeducation.data.notification.NotificationService;
 
 public class ApiProvider {
 
     // Mặc định đang dùng FakeApi cho Course + Auth + Cart + Lesson + Review + LessonProgress
-    private static AuthApi authApi = AuthFakeApiService.getInstance();
-    private static CourseApi courseApi = CourseFakeApiService.getInstance();
-    private static LessonApi lessonApi = LessonFakeApiService.getInstance();
-    private static LessonProgressApi lessonProgressApi = LessonProgressFakeApiService.getInstance();
-    private static ReviewApi reviewApi = ReviewFakeApiService.getInstance();
-    private static CartApi cartApi = CartFakeApiService.getInstance();
-    private static LessonQuizApi lessonQuizApi = LessonQuizFakeApiService.getInstance();
+    private static AuthApi authApi = AuthService.getInstance();
+    private static CourseApi courseApi = CourseService.getInstance();
+    private static LessonApi lessonApi = LessonService.getInstance();
+    private static LessonProgressApi lessonProgressApi = LessonProgressService.getInstance();
+    private static ReviewApi reviewApi = ReviewService.getInstance();
+    private static CartApi cartApi = CartService.getInstance();
+    private static LessonQuizApi lessonQuizApi = LessonQuizService.getInstance();
 
     // MyCourseApi: quản lý các khóa học student đã mua
-    private static MyCourseApi myCourseApi = MyCourseFakeApiService.getInstance();
+    private static MyCourseApi myCourseApi = MyCourseService.getInstance();
 
     // LessonCommentApi: quản lý bình luận bài học
-    private static LessonCommentApi lessonCommentApi = LessonCommentFakeApiService.getInstance();
+    private static LessonCommentApi lessonCommentApi = LessonCommentService.getInstance();
 
     // -------- CourseStudentApi (NEW) --------
-    private static CourseStudentApi courseStudentApi = CourseStudentFakeApiService.getInstance();
+    private static CourseStudentApi courseStudentApi = CourseStudentService.getInstance();
 
     // NotificationApi: quản lý thông báo cho 3 role (Student, Teacher, Admin)
-    private static NotificationApi notificationApi = NotificationFakeApiService.getInstance();
+    private static NotificationApi notificationApi = NotificationService.getInstance();
 
     // -------- Getters / Setters --------
     // -------- Auth --------

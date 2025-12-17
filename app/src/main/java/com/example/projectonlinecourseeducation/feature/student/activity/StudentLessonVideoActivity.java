@@ -31,7 +31,7 @@ import com.example.projectonlinecourseeducation.data.lessoncomment.LessonComment
 import com.example.projectonlinecourseeducation.data.lessonquiz.LessonQuizApi;
 import com.example.projectonlinecourseeducation.data.network.SessionManager;
 import com.example.projectonlinecourseeducation.data.notification.NotificationApi;
-import com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService;
+import com.example.projectonlinecourseeducation.data.notification.NotificationService;
 import com.example.projectonlinecourseeducation.feature.student.adapter.LessonCommentAdapter;
 import com.google.android.material.button.MaterialButton;
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants;
@@ -717,7 +717,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
             // NOTE: Vì Course model không có teacherId, dùng helper method map tên → userId
             // Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
             NotificationApi notificationApi = ApiProvider.getNotificationApi();
-            String teacherId = ((NotificationFakeApiService) notificationApi)
+            String teacherId = ((NotificationService) notificationApi)
                     .getTeacherIdByName(course.getTeacher());
 
             notificationApi.createStudentLessonCommentNotification(

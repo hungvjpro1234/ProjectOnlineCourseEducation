@@ -142,7 +142,7 @@ Copy nội dung từ các file sau đây:
 **Thêm import** ở đầu file:
 ```java
 import com.example.projectonlinecourseeducation.data.ApiProvider;
-import com.example.projectonlinecourseeducation.data.auth.AuthRemoteApiService;
+import com.example.projectonlinecourseeducation.core.apiservice.AuthService;
 import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 ```
 
