@@ -27,10 +27,15 @@ public class NotificationFakeApiService implements NotificationApi {
     // Listeners for notification updates
     private final List<NotificationUpdateListener> listeners;
 
+    private static final boolean ENABLE_DEMO_NOTIFICATIONS = false;
+
     private NotificationFakeApiService() {
         this.notificationsByUser = new HashMap<>();
         this.listeners = new CopyOnWriteArrayList<>();
-        initSampleData();
+
+        if (ENABLE_DEMO_NOTIFICATIONS) {
+            initSampleData();
+        }
     }
 
     public static synchronized NotificationFakeApiService getInstance() {
@@ -43,158 +48,8 @@ public class NotificationFakeApiService implements NotificationApi {
     // ================ SAMPLE DATA ================
 
     private void initSampleData() {
-        long now = System.currentTimeMillis();
-        long oneHourAgo = now - 3600000;
-        long twoDaysAgo = now - 2 * 24 * 3600000L;
-        long threeDaysAgo = now - 3 * 24 * 3600000L;
-        long oneWeekAgo = now - 7 * 24 * 3600000L;
-
-        // ========== STUDENT NOTIFICATIONS (student1) ==========
-        List<Notification> studentNotifications = new ArrayList<>();
-
-        // Thông báo 1: Teacher reply comment (UNREAD)
-        studentNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("student1")
-                .type(NotificationType.TEACHER_REPLY_COMMENT)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(oneHourAgo)
-                .title("Giáo viên đã trả lời bình luận của bạn")
-                .message("Nguyễn Văn A đã trả lời bình luận của bạn trong bài \"Introduction to Java\"")
-                .avatarUrl(null)
-                .targetCourseId("1")
-                .targetLessonId("L1")
-                .targetCommentId("C123")
-                .targetReviewId(null)
-                .senderName("Nguyễn Văn A")
-                .courseTitle("Lập trình Java từ cơ bản đến nâng cao")
-                .lessonTitle("Introduction to Java")
-                .build());
-
-        // Thông báo 2: Teacher reply comment (VIEWED)
-        studentNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("student1")
-                .type(NotificationType.TEACHER_REPLY_COMMENT)
-                .status(NotificationStatus.VIEWED)
-                .createdAt(twoDaysAgo)
-                .title("Giáo viên đã trả lời bình luận của bạn")
-                .message("Trần Thị B đã trả lời bình luận của bạn trong bài \"Variables and Data Types\"")
-                .avatarUrl(null)
-                .targetCourseId(null)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Trần Thị B")
-                .courseTitle("Python cho người mới bắt đầu")
-                .lessonTitle("Variables and Data Types")
-                .build());
-
-        // Thông báo 3: Teacher reply comment (READ)
-        studentNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("student1")
-                .type(NotificationType.TEACHER_REPLY_COMMENT)
-                .status(NotificationStatus.READ)
-                .createdAt(oneWeekAgo)
-                .title("Giáo viên đã trả lời bình luận của bạn")
-                .message("Lê Văn C đã trả lời bình luận của bạn trong bài \"Functions and Methods\"")
-                .avatarUrl(null)
-                .targetCourseId(null)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Lê Văn C")
-                .courseTitle("JavaScript ES6 toàn tập")
-                .lessonTitle("Functions and Methods")
-                .build());
-
-        // Map cho cả userId và username để đảm bảo student nào cũng thấy thông báo fake
-        notificationsByUser.put("student1", studentNotifications); // username
-        notificationsByUser.put("u1", studentNotifications);      // id của Student One (theo AuthFakeApiService)
-
-        // ========== TEACHER NOTIFICATIONS (teacher) ==========
-        List<Notification> teacherNotifications = new ArrayList<>();
-
-        // Thông báo 1: Student comment (UNREAD)
-        teacherNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("teacher")
-                .type(NotificationType.STUDENT_LESSON_COMMENT)
-                .status(NotificationStatus.UNREAD)
-                .createdAt(oneHourAgo)
-                .title("Học viên mới bình luận trong bài học")
-                .message("Nguyễn Văn H đã bình luận trong bài \"Introduction to Java\"")
-                .avatarUrl(null)
-                .targetCourseId("1")
-                .targetLessonId("L1")
-                .targetCommentId("C999")
-                .targetReviewId(null)
-                .senderName("Nguyễn Văn H")
-                .courseTitle("Lập trình Java từ cơ bản đến nâng cao")
-                .lessonTitle("Introduction to Java")
-                .build());
-
-        // Thông báo 2: Student review (UNREAD)
-        teacherNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("teacher")
-                .type(NotificationType.STUDENT_COURSE_COMMENT)  // Updated type
-                .status(NotificationStatus.UNREAD)
-                .createdAt(twoDaysAgo)
-                .title("Học viên mới đánh giá khóa học")
-                .message("Trần Thị P đã đánh giá khóa học \"Lập trình Java từ cơ bản đến nâng cao\" - 5.0 sao")
-                .avatarUrl(null)
-                .targetCourseId("1")
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId("R123")
-                .senderName("Trần Thị P")
-                .courseTitle("Lập trình Java từ cơ bản đến nâng cao")
-                .lessonTitle(null)
-                .build());
-
-        // Thông báo 3: Student comment in another lesson (VIEWED)
-        teacherNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("teacher")
-                .type(NotificationType.STUDENT_LESSON_COMMENT)
-                .status(NotificationStatus.VIEWED)
-                .createdAt(threeDaysAgo)
-                .title("Học viên mới bình luận trong bài học")
-                .message("Lê Văn C đã bình luận trong bài \"Variables and Data Types\"")
-                .avatarUrl(null)
-                .targetCourseId(null)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Lê Văn C")
-                .courseTitle("Lập trình Java từ cơ bản đến nâng cao")
-                .lessonTitle("Variables and Data Types")
-                .build());
-
-        // Thông báo 4: Student course review (READ)
-        teacherNotifications.add(new Notification.Builder()
-                .id(UUID.randomUUID().toString())
-                .userId("teacher")
-                .type(NotificationType.STUDENT_COURSE_COMMENT)
-                .status(NotificationStatus.READ)
-                .createdAt(oneWeekAgo)
-                .title("Học viên mới đánh giá khóa học")
-                .message("Nguyễn Thị D đã đánh giá khóa học \"Python cho người mới bắt đầu\" - 4.5 sao")
-                .avatarUrl(null)
-                .targetCourseId(null)
-                .targetLessonId(null)
-                .targetCommentId(null)
-                .targetReviewId(null)
-                .senderName("Nguyễn Thị D")
-                .courseTitle("Python cho người mới bắt đầu")
-                .lessonTitle(null)
-                .build());
-
-        // Map cho cả userId và username để đảm bảo teacher nào cũng thấy thông báo fake
-        notificationsByUser.put("teacher", teacherNotifications); // username
-        notificationsByUser.put("u2", teacherNotifications);      // id của Nguyễn A (theo AuthFakeApiService)
+        // ❌ Không seed dữ liệu
+        // Notification chỉ được tạo khi có action thật
     }
 
     // ================ QUERY NOTIFICATIONS ================
@@ -488,17 +343,18 @@ public class NotificationFakeApiService implements NotificationApi {
      *
      * NOTE: Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
      */
-    public String getTeacherIdByName(String teacherName) {
-        if (teacherName == null) return "u2"; // Fallback: Nguyễn A
+    private static final Map<String, String> TEACHER_NAME_TO_ID = Map.of(
+            "Nguyễn A", "u2",
+            "Teacher Assistant", "u5",
+            "Teacher Three", "u10",
+            "Teacher Four", "u11",
+            "Teacher Five", "u12"
+    );
 
-        // Map tên teacher trong sample data → userId từ AuthFakeApiService
-        switch (teacherName.trim()) {
-            case "Nguyễn A":
-                return "u2";  // Teacher chính (username: teacher)
-            case "Teacher Assistant":
-                return "u5";  // Teacher phụ (username: teacher2)
-            default:
-                return "u2";  // Fallback: mặc định là Nguyễn A
-        }
+    public String getTeacherIdByName(String teacherName) {
+        return TEACHER_NAME_TO_ID.getOrDefault(
+                teacherName == null ? "" : teacherName.trim(),
+                "u2"
+        );
     }
 }

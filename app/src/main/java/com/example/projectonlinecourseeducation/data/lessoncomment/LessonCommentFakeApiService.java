@@ -1,6 +1,7 @@
 package com.example.projectonlinecourseeducation.data.lessoncomment;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
+import static com.example.projectonlinecourseeducation.core.utils.OnlyApiService.LessonCommentSeedData.COMMENTS_JSON;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -32,38 +33,6 @@ public class LessonCommentFakeApiService implements LessonCommentApi {
 
     // Registered listeners
     private final List<LessonCommentApi.LessonCommentUpdateListener> listeners = new ArrayList<>();
-
-    // JSON seed
-    private static final String COMMENTS_JSON = "[\n" +
-            "  {\n" +
-            "    \"lessonId\": \"c1_l1\",\n" +
-            "    \"userId\": \"student1\",\n" +
-            "    \"userName\": \"Nguyễn Văn A\",\n" +
-            "    \"content\": \"Em chưa hiểu rõ phần cài đặt JDK, thầy có thể giải thích thêm không ạ?\",\n" +
-            "    \"createdAtOffsetMs\": -259200000\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"lessonId\": \"c1_l1\",\n" +
-            "    \"userId\": \"student2\",\n" +
-            "    \"userName\": \"Trần Thị B\",\n" +
-            "    \"content\": \"Video rất hay và dễ hiểu. Cảm ơn thầy!\",\n" +
-            "    \"createdAtOffsetMs\": -172800000\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"lessonId\": \"c1_l1\",\n" +
-            "    \"userId\": \"student3\",\n" +
-            "    \"userName\": \"Lê Văn C\",\n" +
-            "    \"content\": \"Cho em hỏi là sau khi cài JDK xong thì phải config biến môi trường như thế nào ạ?\",\n" +
-            "    \"createdAtOffsetMs\": -18000000\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"lessonId\": \"c1_l2\",\n" +
-            "    \"userId\": \"student1\",\n" +
-            "    \"userName\": \"Nguyễn Văn A\",\n" +
-            "    \"content\": \"Phần này khó quá, em cần xem lại nhiều lần.\",\n" +
-            "    \"createdAtOffsetMs\": -86400000\n" +
-            "  }\n" +
-            "]";
 
     private LessonCommentFakeApiService() {
         seedFromJson();

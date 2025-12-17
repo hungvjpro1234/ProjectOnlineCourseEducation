@@ -3,6 +3,7 @@ package com.example.projectonlinecourseeducation.data.lessonquiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
+import static com.example.projectonlinecourseeducation.core.utils.OnlyApiService.LessonQuizSeedData.QUIZZES_JSON;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;
@@ -14,19 +15,6 @@ import org.json.JSONObject;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Fake in-memory implementation của LessonQuizApi
- *
- * - Seed từ JSON, parse bằng org.json
- * - ENFORCE: mỗi QuizQuestion phải có đúng 4 options; correctOptionIndex phải trong [0..3].
- * - ENFORCE: mỗi Quiz có chính xác EXPECTED_QUESTION_COUNT câu (mặc định 10).
- * - submitQuizAttempt: kiểm tra quiz tồn tại và quiz hợp lệ, kiểm tra LessonProgress.isCompleted(),
- *   chấm điểm, lưu attempt, trả QuizAttempt.
- * - Khi attempt lưu thành công -> notify attempt listeners (onAttemptSubmitted).
- *
- * NOTE: this implementation stores quizzes keyed by lessonId (one quiz per lesson),
- * following the pattern used in LessonFakeApiService (lessonMap keyed by lessonId).
- */
 public class LessonQuizFakeApiService implements LessonQuizApi {
 
     // Singleton
@@ -35,27 +23,6 @@ public class LessonQuizFakeApiService implements LessonQuizApi {
         if (instance == null) instance = new LessonQuizFakeApiService();
         return instance;
     }
-
-    // ------------------ Seed JSON (dev) ------------------
-    private static final String QUIZZES_JSON = "[\n" +
-            "  {\n" +
-            "    \"id\":null,\n" +
-            "    \"lessonId\":\"c1_l1\",\n" +
-            "    \"title\":\"Quiz: Kiểm tra nhanh Giới thiệu Java\",\n" +
-            "    \"questions\": [\n" +
-            "      {\"id\":\"c1_l1_q1\",\"text\":\"Câu 1: Java là gì?\",\"options\":[\"Ngôn ngữ lập trình hướng đối tượng\",\"Một hệ điều hành\",\"Một cơ sở dữ liệu\",\"Một công cụ thiết kế\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q2\",\"text\":\"Câu 2: JDK viết tắt của?\",\"options\":[\"Java Development Kit\",\"Java Deployment Kit\",\"Joint Development Kit\",\"Java Debugging Kit\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q3\",\"text\":\"Câu 3: Dấu để kết thúc câu lệnh trong Java?\",\"options\":[\";\",\":\",\".\",\",\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q4\",\"text\":\"Câu 4: Từ khóa để kế thừa lớp trong Java?\",\"options\":[\"extends\",\"implements\",\"inherits\",\"super\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q5\",\"text\":\"Câu 5: Phương thức main có chữ ký nào đúng?\",\"options\":[\"public static void main(String[] args)\",\"private void main()\",\"public int main(String[] args)\",\"static main(String args)\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q6\",\"text\":\"Câu 6: IDE phổ biến cho Java là?\",\"options\":[\"IntelliJ IDEA\",\"Photoshop\",\"Excel\",\"PowerPoint\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q7\",\"text\":\"Câu 7: Biến để chạy chương trình mẫu 'Hello World' nên nằm trong phương thức nào?\",\"options\":[\"main\",\"class\",\"package\",\"interface\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q8\",\"text\":\"Câu 8: Định dạng đúng của gói (package) trong Java thường là?\",\"options\":[\"com.example.myapp\",\"com-example-myapp\",\"com example myapp\",\"com:example:myapp\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q9\",\"text\":\"Câu 9: Để in ra console dùng phương thức nào?\",\"options\":[\"System.out.println\",\"console.log\",\"print\",\"echo\"],\"correctIndex\":0},\n" +
-            "      {\"id\":\"c1_l1_q10\",\"text\":\"Câu 10: File .java sau khi biên dịch sẽ tạo file nào?\",\"options\":[\".class\",\".exe\",\".py\",\".jar\"],\"correctIndex\":0}\n" +
-            "    ]\n" +
-            "  },\n" +
-            "]";
 
     // ------------------ In-memory storage ------------------
     // Keyed by lessonId -> Quiz (one quiz per lesson, like lessonMap pattern)

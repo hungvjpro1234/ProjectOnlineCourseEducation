@@ -7,6 +7,7 @@ import org.json.JSONObject;
 
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.model.user.User.Role;
+import static com.example.projectonlinecourseeducation.core.utils.OnlyApiService.AuthSeedData.SEED_JSON;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,57 +25,8 @@ public class AuthFakeApiService implements AuthApi {
 
     private final List<User> users = new ArrayList<>();
 
-    // User hiện đang đăng nhập (fake session local)
+    // User hiện đang đăng nhập
     private User currentUser;
-
-    // Seed JSON: có username + role
-    private static final String SEED_JSON = "[\n" +
-            "  {\n" +
-            "    \"id\": \"u1\",\n" +
-            "    \"name\": \"Student One\",\n" +
-            "    \"username\": \"student1\",\n" +
-            "    \"email\": \"student1@example.com\",\n" +
-            "    \"password\": \"Pass123\",\n" +
-            "    \"verified\": true,\n" +
-            "    \"role\": \"STUDENT\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\": \"u2\",\n" +
-            "    \"name\": \"Nguyễn A\",\n" +
-            "    \"username\": \"teacher\",\n" +
-            "    \"email\": \"teacher@example.com\",\n" +
-            "    \"password\": \"teacher\",\n" +
-            "    \"verified\": true,\n" +
-            "    \"role\": \"TEACHER\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\": \"u3\",\n" +
-            "    \"name\": \"Admin Boss\",\n" +
-            "    \"username\": \"admin\",\n" +
-            "    \"email\": \"admin@example.com\",\n" +
-            "    \"password\": \"admin\",\n" +
-            "    \"verified\": true,\n" +
-            "    \"role\": \"ADMIN\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\": \"u4\",\n" +
-            "    \"name\": \"Student Two\",\n" +
-            "    \"username\": \"student2\",\n" +
-            "    \"email\": \"student2@example.com\",\n" +
-            "    \"password\": \"Pass456\",\n" +
-            "    \"verified\": true,\n" +
-            "    \"role\": \"STUDENT\"\n" +
-            "  },\n" +
-            "  {\n" +
-            "    \"id\": \"u5\",\n" +
-            "    \"name\": \"Teacher Assistant\",\n" +
-            "    \"username\": \"teacher2\",\n" +
-            "    \"email\": \"teacher2@example.com\",\n" +
-            "    \"password\": \"Teach789\",\n" +
-            "    \"verified\": true,\n" +
-            "    \"role\": \"TEACHER\"\n" +
-            "  }\n" +
-            "]";
 
     private AuthFakeApiService() {
         try {
@@ -265,7 +217,6 @@ public class AuthFakeApiService implements AuthApi {
     }
 
     // ====== ADMIN: Lấy danh sách users theo role ======
-
     @Override
     public List<User> getAllUsersByRole(Role role) {
         if (role == null) return new ArrayList<>();

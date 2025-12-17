@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.utils.OnlyFakeApiService;
+package com.example.projectonlinecourseeducation.core.utils.OnlyApiService;
 
 import android.app.Activity;
 import android.app.Application;
