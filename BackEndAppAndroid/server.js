@@ -269,6 +269,127 @@ function authMiddleware(req, res, next) {
     }
 }
 
+// ================= COURSE REVIEWS =================
+
+// GET /course/:courseId/reviews
+app.get("/course/:courseId/reviews", async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.courseId, 10);
+        if (!Number.isFinite(courseId)) {
+            return res.status(400).send({
+                success: false,
+                message: "Invalid course id",
+            });
+        }
+
+        const rows = await db.any(
+            `
+            SELECT
+              cr.review_id,
+              cr.course_id,
+              cr.rating,
+              cr.comment,
+              cr.created_at,
+              u.username
+            FROM course_review cr
+            LEFT JOIN appuser u ON u.user_id = cr.user_id
+            WHERE cr.course_id = $1
+            ORDER BY cr.created_at DESC
+            `,
+            [courseId]
+        );
+
+        // 🔥 map đúng FakeCourseReview
+        const reviews = rows.map(r => ({
+            id: String(r.review_id),
+            courseId: String(r.course_id),
+            userName: r.username || "Ẩn danh",
+            rating: Number(r.rating || 0),
+            comment: r.comment || "",
+            createdAt: new Date(r.created_at).getTime(),
+        }));
+
+        res.send({
+            success: true,
+            data: reviews,
+        });
+    } catch (err) {
+        console.error("GET /course/:courseId/reviews error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi lấy review",
+        });
+    }
+});
+
+// POST /course/:courseId/reviews
+app.post("/course/:courseId/reviews", authMiddleware, async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.courseId, 10);
+        const userId = req.user.userId;
+        const { rating, comment } = req.body;
+
+        if (!Number.isFinite(courseId) || rating === undefined) {
+            return res.status(400).send({
+                success: false,
+                message: "Thiếu dữ liệu",
+            });
+        }
+
+        const inserted = await db.one(
+            `
+            INSERT INTO course_review(course_id, user_id, rating, comment, created_at)
+            VALUES($1,$2,$3,$4,NOW())
+            RETURNING review_id, course_id, rating, comment, created_at
+            `,
+            [courseId, userId, rating, comment || ""]
+        );
+
+        // lấy username
+        const user = await db.oneOrNone(
+            "SELECT username FROM appuser WHERE user_id = $1",
+            [userId]
+        );
+
+        // 🔥 Update rating course (GIỐNG Fake gọi ApiProvider)
+        const stats = await db.one(
+            `
+            SELECT COUNT(*)::int AS cnt, COALESCE(AVG(rating),0)::float AS avg
+            FROM course_review WHERE course_id = $1
+            `,
+            [courseId]
+        );
+
+        await db.none(
+            `
+            UPDATE course
+            SET rating = $1, ratingcount = $2
+            WHERE course_id = $3
+            `,
+            [stats.avg, stats.cnt, courseId]
+        );
+
+        res.send({
+            success: true,
+            data: {
+                id: String(inserted.review_id),
+                courseId: String(inserted.course_id),
+                userName: user?.username || "Ẩn danh",
+                rating: Number(inserted.rating),
+                comment: inserted.comment || "",
+                createdAt: new Date(inserted.created_at).getTime(),
+            },
+        });
+    } catch (err) {
+        console.error("POST /course/:courseId/reviews error", err);
+        res.status(500).send({
+            success: false,
+            message: "Lỗi thêm review",
+        });
+    }
+});
+
+
 // ================= ADMIN: Get users by role =================
 app.get("/admin/users", authMiddleware, async (req, res) => {
     try {
