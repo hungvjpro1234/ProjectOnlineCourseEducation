@@ -143,10 +143,21 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                     }
 
                     if (belongsToCurrentCourse) {
-                        runOnUiThread(() -> {
-                            List<Lesson> lessons = lessonApi.getLessonsForCourse(courseId);
-                            bindLessonsWithProgress(lessons);
-                        });
+                        // ✅ FIX: Wrap với AsyncApiHelper để tránh sync call
+                        AsyncApiHelper.execute(
+                                () -> lessonApi.getLessonsForCourse(courseId),
+                                new AsyncApiHelper.ApiCallback<List<Lesson>>() {
+                                    @Override
+                                    public void onSuccess(List<Lesson> lessons) {
+                                        bindLessonsWithProgress(lessons);
+                                    }
+
+                                    @Override
+                                    public void onError(Exception e) {
+                                        // Silent fail - listener callback
+                                    }
+                                }
+                        );
                     }
                 }
             };
@@ -164,10 +175,22 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 @Override
                 public void onReviewsChanged(String changedCourseId) {
                     if (changedCourseId == null || !changedCourseId.equals(courseId)) return;
-                    runOnUiThread(() -> {
-                        List<CourseReview> reviews = reviewApi.getReviewsForCourse(courseId);
-                        reviewAdapter.submitList(reviews);
-                    });
+
+                    // ✅ FIX: Wrap với AsyncApiHelper để tránh sync call
+                    AsyncApiHelper.execute(
+                            () -> reviewApi.getReviewsForCourse(courseId),
+                            new AsyncApiHelper.ApiCallback<List<CourseReview>>() {
+                                @Override
+                                public void onSuccess(List<CourseReview> reviews) {
+                                    reviewAdapter.submitList(reviews);
+                                }
+
+                                @Override
+                                public void onError(Exception e) {
+                                    // Silent fail - listener callback
+                                }
+                            }
+                    );
                 }
             };
             reviewApi.addReviewUpdateListener(reviewUpdateListener);
@@ -343,69 +366,116 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
 
     /**
-     * Bind lessons -> build UI models with per-student progress + quiz state.
+     * ✅ REFACTORED: Async wrapper để load tất cả data trước khi bind UI
      *
-     * Fix: ensure unlocking is strictly sequential:
-     *  - To unlock lesson N+1, lesson N must have video completed AND (if lesson N has quiz) quiz must be passed.
-     *
-     * This method now:
-     *  - queries LessonProgress per student
-     *  - queries LessonQuizApi to detect hasQuiz and attempts to see if passed
-     *  - passes completed + quizPassed into LessonItemUiModel so adapter can show correct buttons
+     * Chiến lược:
+     * 1. Load ALL lesson progress + quiz data trong background thread
+     * 2. Build UI models trên main thread với data đã có
+     * 3. Tránh multiple sync calls trong loops
      */
     private void bindLessonsWithProgress(List<Lesson> lessons) {
         if (lessons == null || lessons.isEmpty()) {
             lessonAdapter.submitItems(null);
-            // also set course progress to 0
             updateCourseProgress(null);
             return;
         }
 
+        // ✅ FIX: Wrap toàn bộ data loading với AsyncApiHelper
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    // Load ALL data cần thiết CHO TẤT CẢ lessons
+                    User currentUser = SessionManager.getInstance(this).getCurrentUser();
+                    String studentId = currentUser != null ? currentUser.getId() : null;
+
+                    List<LessonDataForUI> lessonsData = new ArrayList<>();
+
+                    for (Lesson lesson : lessons) {
+                        // Load progress
+                        LessonProgress progress = null;
+                        try {
+                            progress = lessonProgressApi.getLessonProgress(lesson.getId(), studentId);
+                        } catch (Exception ignored) {}
+
+                        int percent = 0;
+                        boolean completed = false;
+                        if (progress != null) {
+                            percent = progress.getCompletionPercentage();
+                            completed = progress.isCompleted();
+                        }
+
+                        // Load quiz data
+                        boolean hasQuiz = false;
+                        boolean quizPassed = false;
+                        try {
+                            if (lessonQuizApi != null) {
+                                hasQuiz = lessonQuizApi.getQuizForLesson(lesson.getId()) != null;
+                                if (hasQuiz) {
+                                    List<com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt> attempts =
+                                            lessonQuizApi.getAttemptsForLesson(lesson.getId(), studentId);
+                                    if (attempts != null) {
+                                        for (com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt a : attempts) {
+                                            if (a != null && a.isPassed()) {
+                                                quizPassed = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) { }
+
+                        lessonsData.add(new LessonDataForUI(lesson, percent, completed, hasQuiz, quizPassed));
+                    }
+
+                    return lessonsData;
+                },
+                new AsyncApiHelper.ApiCallback<List<LessonDataForUI>>() {
+                    @Override
+                    public void onSuccess(List<LessonDataForUI> lessonsData) {
+                        // ===== MAIN THREAD =====
+                        // Build UI models từ pre-loaded data
+                        buildLessonUiModels(lessonsData, lessons);
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Fallback: show lessons without progress
+                        lessonAdapter.submitItems(null);
+                    }
+                }
+        );
+    }
+
+    /**
+     * Helper class chứa data đã load cho mỗi lesson
+     */
+    private static class LessonDataForUI {
+        Lesson lesson;
+        int percent;
+        boolean completed;
+        boolean hasQuiz;
+        boolean quizPassed;
+
+        LessonDataForUI(Lesson lesson, int percent, boolean completed, boolean hasQuiz, boolean quizPassed) {
+            this.lesson = lesson;
+            this.percent = percent;
+            this.completed = completed;
+            this.hasQuiz = hasQuiz;
+            this.quizPassed = quizPassed;
+        }
+    }
+
+    /**
+     * Build UI models từ pre-loaded data (runs on main thread)
+     */
+    private void buildLessonUiModels(List<LessonDataForUI> lessonsData, List<Lesson> lessons) {
         List<LessonCardAdapter.LessonItemUiModel> items = new ArrayList<>();
 
         // allPreviousUnlocked: true nếu tất cả lesson trước đó đã hoàn thành *và* (nếu có quiz) đã pass
         boolean allPreviousUnlocked = true;
 
-        // Lấy current user để query progress per-student
-        User currentUser = SessionManager.getInstance(this).getCurrentUser();
-        String studentId = currentUser != null ? currentUser.getId() : null;
-
-        for (Lesson lesson : lessons) {
-            // Lấy progress per-student
-            LessonProgress progress = null;
-            try {
-                progress = lessonProgressApi.getLessonProgress(lesson.getId(), studentId);
-            } catch (Exception ignored) {}
-
-            int percent = 0;
-            boolean completed = false;
-
-            if (progress != null) {
-                percent = progress.getCompletionPercentage();
-                completed = progress.isCompleted();
-            }
-
-            // Check if lesson has quiz
-            boolean hasQuiz = false;
-            boolean quizPassed = false;
-            try {
-                if (lessonQuizApi != null) {
-                    hasQuiz = lessonQuizApi.getQuizForLesson(lesson.getId()) != null;
-                    if (hasQuiz) {
-                        // check attempts for this student; if any attempt.passed == true => quizPassed
-                        List<com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt> attempts =
-                                lessonQuizApi.getAttemptsForLesson(lesson.getId(), studentId);
-                        if (attempts != null) {
-                            for (com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt a : attempts) {
-                                if (a != null && a.isPassed()) {
-                                    quizPassed = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ignored) { }
+        for (LessonDataForUI data : lessonsData) {
 
             // determine lock state for THIS lesson:
             // unlocked only when all previous lessons are unlocked
@@ -413,19 +483,19 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
 
             // create UI model with completed + quizPassed so adapter can enable quiz button correctly
             items.add(new LessonCardAdapter.LessonItemUiModel(
-                    lesson,
-                    percent,
+                    data.lesson,
+                    data.percent,
                     isLocked,
-                    hasQuiz,
-                    completed,
-                    quizPassed
+                    data.hasQuiz,
+                    data.completed,
+                    data.quizPassed
             ));
 
             // Update allPreviousUnlocked for next lesson:
             // current lesson counts as "unlocked" for the next one only if:
             // - video completed AND
             // - if it has a quiz, quizPassed must be true
-            boolean thisLessonUnlocksNext = completed && (!hasQuiz || quizPassed);
+            boolean thisLessonUnlocksNext = data.completed && (!data.hasQuiz || data.quizPassed);
             allPreviousUnlocked = allPreviousUnlocked && thisLessonUnlocksNext;
         }
 
@@ -436,75 +506,94 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     /**
-     * Tính tổng tiến độ khóa học dựa trên lesson progress.
+     * ✅ REFACTORED: Async calculation of course progress
+     *
+     * Tính tổng tiến độ khóa học dựa trên lesson progress:
      * - Nếu mọi lesson có totalSecond > 0 => weighted-by-duration
      * - Ngược lại => dùng trung bình completionPercentage
-     *
-     * FIXED: Truyền studentId để lấy đúng progress của current user
      */
     private void updateCourseProgress(List<Lesson> lessons) {
-        runOnUiThread(() -> {
-            if (lessons == null || lessons.isEmpty()) {
+        if (lessons == null || lessons.isEmpty()) {
+            runOnUiThread(() -> {
                 progressCourseBar.setProgress(0);
                 tvCourseProgressPercent.setText("0%");
-                return;
-            }
+            });
+            return;
+        }
 
-            // Lấy current user để query progress per-student
-            User currentUser = SessionManager.getInstance(this).getCurrentUser();
-            String studentId = currentUser != null ? currentUser.getId() : null;
+        // ✅ FIX: Wrap data loading với AsyncApiHelper
+        AsyncApiHelper.execute(
+                () -> {
+                    // ===== BACKGROUND THREAD =====
+                    User currentUser = SessionManager.getInstance(this).getCurrentUser();
+                    String studentId = currentUser != null ? currentUser.getId() : null;
 
-            boolean allHaveDuration = true;
-            for (Lesson l : lessons) {
-                LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
-                if (p == null || p.getTotalSecond() <= 0f) {
-                    allHaveDuration = false;
-                    break;
-                }
-            }
+                    // Load ALL progress cho tất cả lessons
+                    List<LessonProgress> allProgress = new ArrayList<>();
+                    for (Lesson l : lessons) {
+                        LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
+                        allProgress.add(p); // add null if not found
+                    }
 
-            int percent = 0;
+                    // Calculate progress
+                    boolean allHaveDuration = true;
+                    for (LessonProgress p : allProgress) {
+                        if (p == null || p.getTotalSecond() <= 0f) {
+                            allHaveDuration = false;
+                            break;
+                        }
+                    }
 
-            if (allHaveDuration) {
-                // weighted by duration
-                double totalSecondsSum = 0.0;
-                double watchedSecondsSum = 0.0;
-                for (Lesson l : lessons) {
-                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
-                    if (p != null) {
-                        double t = p.getTotalSecond();
-                        double c = Math.min(p.getCurrentSecond(), t);
-                        totalSecondsSum += t;
-                        watchedSecondsSum += c;
+                    int percent = 0;
+
+                    if (allHaveDuration) {
+                        // weighted by duration
+                        double totalSecondsSum = 0.0;
+                        double watchedSecondsSum = 0.0;
+                        for (LessonProgress p : allProgress) {
+                            if (p != null) {
+                                double t = p.getTotalSecond();
+                                double c = Math.min(p.getCurrentSecond(), t);
+                                totalSecondsSum += t;
+                                watchedSecondsSum += c;
+                            }
+                        }
+                        if (totalSecondsSum > 0) {
+                            percent = (int) Math.round((watchedSecondsSum / totalSecondsSum) * 100.0);
+                        }
+                    } else {
+                        // fallback: average of completionPercentage
+                        int sumPerc = 0;
+                        int count = 0;
+                        for (LessonProgress p : allProgress) {
+                            int cp = 0;
+                            if (p != null) cp = p.getCompletionPercentage();
+                            sumPerc += cp;
+                            count++;
+                        }
+                        if (count > 0) {
+                            percent = Math.round((float) sumPerc / (float) count);
+                        }
+                    }
+
+                    return Math.max(0, Math.min(100, percent));
+                },
+                new AsyncApiHelper.ApiCallback<Integer>() {
+                    @Override
+                    public void onSuccess(Integer percent) {
+                        // ===== MAIN THREAD =====
+                        progressCourseBar.setProgress(percent);
+                        tvCourseProgressPercent.setText(percent + "%");
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Fallback: set 0%
+                        progressCourseBar.setProgress(0);
+                        tvCourseProgressPercent.setText("0%");
                     }
                 }
-                if (totalSecondsSum > 0) {
-                    percent = (int) Math.round((watchedSecondsSum / totalSecondsSum) * 100.0);
-                } else {
-                    percent = 0;
-                }
-            } else {
-                // fallback: average of completionPercentage
-                int sumPerc = 0;
-                int count = 0;
-                for (Lesson l : lessons) {
-                    LessonProgress p = lessonProgressApi.getLessonProgress(l.getId(), studentId);
-                    int cp = 0;
-                    if (p != null) cp = p.getCompletionPercentage();
-                    sumPerc += cp;
-                    count++;
-                }
-                if (count > 0) {
-                    percent = Math.round((float) sumPerc / (float) count);
-                } else {
-                    percent = 0;
-                }
-            }
-
-            percent = Math.max(0, Math.min(100, percent));
-            progressCourseBar.setProgress(percent);
-            tvCourseProgressPercent.setText(percent + "%");
-        });
+        );
     }
 
     private void setupActions() {
@@ -538,33 +627,42 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
 
-            // Gọi API để lưu review (không fetch lại thủ công sau khi thành công)
-            CourseReview newReview = reviewApi.addReviewToCourse(
-                    courseId,
-                    studentName,
-                    rating,
-                    comment
+            // ✅ FIX: Wrap với AsyncApiHelper để tránh sync call
+            final String finalStudentName = studentName;
+            final float finalRating = rating;
+
+            AsyncApiHelper.execute(
+                    () -> reviewApi.addReviewToCourse(courseId, finalStudentName, finalRating, comment),
+                    new AsyncApiHelper.ApiCallback<CourseReview>() {
+                        @Override
+                        public void onSuccess(CourseReview newReview) {
+                            if (newReview != null) {
+                                // UX: clear inputs + show toast
+                                ratingBarUserInput.setRating(0);
+                                etCommentInput.setText("");
+
+                                Toast.makeText(StudentCoursePurchasedActivity.this,
+                                        "Đánh giá " + (int) finalRating + " sao đã được gửi thành công!",
+                                        Toast.LENGTH_SHORT).show();
+
+                                // 🔔 TẠO THÔNG BÁO CHO TEACHER khi student review course
+                                createNotificationForTeacher(newReview, finalRating, finalStudentName);
+
+                            } else {
+                                Toast.makeText(StudentCoursePurchasedActivity.this,
+                                        "Lỗi khi gửi đánh giá. Vui lòng thử lại.",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            Toast.makeText(StudentCoursePurchasedActivity.this,
+                                    "Lỗi khi gửi đánh giá. Vui lòng thử lại.",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
             );
-
-            if (newReview != null) {
-                // UX: clear inputs + show toast. Actual list & course rating will be updated
-                // by ReviewApi/ CourseApi listeners when backend/fake notify.
-                ratingBarUserInput.setRating(0);
-                etCommentInput.setText("");
-
-                Toast.makeText(this,
-                        "Đánh giá " + (int) rating + " sao đã được gửi thành công!",
-                        Toast.LENGTH_SHORT).show();
-
-                // OPTIONAL: if you want optimistic update, you could append to adapter here,
-                // but to avoid duplication we rely on the listener notify path.
-
-                // 🔔 TẠO THÔNG BÁO CHO TEACHER khi student review course
-                createNotificationForTeacher(newReview, rating, studentName);
-
-            } else {
-                Toast.makeText(this, "Lỗi khi gửi đánh giá. Vui lòng thử lại.", Toast.LENGTH_SHORT).show();
-            }
         });
     }
 
@@ -580,31 +678,40 @@ public class StudentCoursePurchasedActivity extends AppCompatActivity {
     }
 
     /**
-     * Tạo thông báo cho teacher khi student review course
+     * ✅ REFACTORED: Async notification creation
      */
     private void createNotificationForTeacher(CourseReview newReview, float rating, String studentName) {
-        try {
-            if (currentCourse == null) return;
+        if (currentCourse == null) return;
 
-            // 🔔 Tạo thông báo cho teacher
-            // NOTE: Vì Course model không có teacherId, dùng helper method map tên → userId
-            // Trong RemoteApiService sẽ cần query từ database để lấy đúng teacherId
-            com.example.projectonlinecourseeducation.data.notification.NotificationApi notificationApi =
-                    ApiProvider.getNotificationApi();
-            String teacherId = ((com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService) notificationApi)
-                    .getTeacherIdByName(currentCourse.getTeacher());
+        // ✅ FIX: Wrap với AsyncApiHelper (best-effort notification)
+        AsyncApiHelper.execute(
+                () -> {
+                    com.example.projectonlinecourseeducation.data.notification.NotificationApi notificationApi =
+                            ApiProvider.getNotificationApi();
+                    String teacherId = ((com.example.projectonlinecourseeducation.data.notification.NotificationFakeApiService) notificationApi)
+                            .getTeacherIdByName(currentCourse.getTeacher());
 
-            notificationApi.createStudentCourseReviewNotification(
-                    teacherId,                  // teacherId - map từ teacher name
-                    studentName,                // tên student
-                    courseId,                   // ID khóa học
-                    currentCourse.getTitle(),   // tên khóa học
-                    newReview.getId(),          // ID review
-                    rating                      // rating (1-5 sao)
-            );
-        } catch (Exception e) {
-            // Không crash app nếu tạo notification thất bại
-            e.printStackTrace();
-        }
+                    notificationApi.createStudentCourseReviewNotification(
+                            teacherId,
+                            studentName,
+                            courseId,
+                            currentCourse.getTitle(),
+                            newReview.getId(),
+                            rating
+                    );
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                        // Silent success
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Silent fail - notification is best-effort
+                    }
+                }
+        );
     }
 }

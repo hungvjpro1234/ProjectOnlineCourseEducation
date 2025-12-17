@@ -1471,7 +1471,7 @@ app.get("/course/:id/related", async (req, res) => {
         AND course_id != $1
         AND (
           LOWER(teacher) = LOWER($2)
-          OR category && string_to_array($3, ',')
+          OR string_to_array(category, ',') && string_to_array($3, ',')
         )
       `,
             [courseId, base.teacher, base.category]

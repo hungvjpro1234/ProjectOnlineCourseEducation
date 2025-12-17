@@ -64,12 +64,9 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.CartViewHolder
             }
         });
 
-        // Sự kiện thanh toán từng item
-        holder.btnPayItem.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onPayItemClicked(course);
-            }
-        });
+        // ❌ REMOVED: Individual pay button (was checking out entire cart)
+        // Users should use "Checkout All" button at the bottom instead
+        holder.btnPayItem.setVisibility(View.GONE);
     }
 
     @Override

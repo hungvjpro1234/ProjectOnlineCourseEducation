@@ -27,6 +27,7 @@ import com.example.projectonlinecourseeducation.feature.student.activity.Student
 import com.example.projectonlinecourseeducation.feature.student.adapter.CartAdapter;
 
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -41,44 +42,9 @@ public class StudentCartFragment extends Fragment {
     private Button btnCheckout;
 
     // Listener để đăng ký với CartApi
-    private final CartApi.CartUpdateListener cartUpdateListener = new CartApi.CartUpdateListener() {
-        @Override
-        public void onCartChanged() {
-            // đảm bảo chạy trên main thread
-            if (getActivity() == null) return;
-            requireActivity().runOnUiThread(() -> {
-                // Lấy trạng thái mới
-                List<Course> latest = cartApi.getCartCourses();
-                int latestCount = cartApi.getTotalItems();
-
-                // Nếu fragment hiện đang hiển empty layout (chưa init adapter)
-                if (cartAdapter == null) {
-                    // Nếu giờ đã có item -> recreate fragment view để inflate layout có RecyclerView
-                    if (latestCount > 0) {
-                        // đơn giản: detach/attach để gọi lại onCreateView/onViewCreated
-                        // (an toàn, vì thao tác UI và fragment manager đang trên main thread)
-                        requireActivity().getSupportFragmentManager()
-                                .beginTransaction()
-                                .detach(StudentCartFragment.this)
-                                .attach(StudentCartFragment.this)
-                                .commitAllowingStateLoss();
-                    }
-                    // ngược lại vẫn empty -> không cần làm gì
-                    return;
-                }
-
-                // Nếu có adapter rồi: cập nhật list hiển thị
-                cartList.clear();
-                if (latest != null && !latest.isEmpty()) {
-                    cartList.addAll(latest);
-                }
-                cartAdapter.notifyDataSetChanged();
-                updateSummary();
-
-                // Nếu list vừa trở nên rỗng và bạn muốn hiển empty layout hoàn chỉnh,
-                // có thể detach/attach tương tự như trên. Ở đây ta chỉ cập nhật view hiện tại.
-            });
-        }
+    private final CartApi.CartUpdateListener cartUpdateListener = () -> {
+        if (!isAdded()) return;
+        loadCartAsync();
     };
 
     @Nullable
@@ -90,169 +56,61 @@ public class StudentCartFragment extends Fragment {
     ) {
         cartApi = ApiProvider.getCartApi();
         myCourseApi = ApiProvider.getMyCourseApi();
-        courseApi = ApiProvider.getCourseApi(); // <-- init CourseApi
-        cartList = cartApi.getCartCourses();
+        courseApi = ApiProvider.getCourseApi();
 
-        if (cartList == null || cartList.isEmpty()) {
-            // Giỏ hàng trống -> trả về layout empty
-            // IMPORTANT: vẫn sẽ đăng ký listener ở onStart() để có thể detect khi user add item từ nơi khác
-            return inflater.inflate(R.layout.fragment_student_cart_empty, container, false);
-        } else {
-            // Có dữ liệu -> inflate layout có RecyclerView
-            View view = inflater.inflate(R.layout.fragment_student_cart, container, false);
+        return inflater.inflate(R.layout.fragment_student_cart, container, false);
+    }
 
-            tvSummary = view.findViewById(R.id.tvSummary);
-            tvTotalPrice = view.findViewById(R.id.tvTotalPrice);
-            btnCheckout = view.findViewById(R.id.btnCheckout);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        tvSummary = view.findViewById(R.id.tvSummary);
+        tvTotalPrice = view.findViewById(R.id.tvTotalPrice);
+        btnCheckout = view.findViewById(R.id.btnCheckout);
 
-            RecyclerView recycler = view.findViewById(R.id.rvCartCourses);
-            cartAdapter = new CartAdapter(cartList, new CartAdapter.CartActionListener() {
-                @Override
-                public void onRemoveClicked(Course course, int position) {
-                    if (course == null) return;
+        RecyclerView recycler = view.findViewById(R.id.rvCartCourses);
+        recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-                    // 🛑 Hỏi confirm trước khi xóa
-                    String msg = "Bạn có chắc muốn xóa khóa học \"" + course.getTitle() + "\" khỏi giỏ hàng?";
-                    showRemoveConfirmDialog(msg, () -> {
+        cartList = new ArrayList<>();
+        cartAdapter = new CartAdapter(cartList, cartActionListener);
+        recycler.setAdapter(cartAdapter);
+
+        loadCartAsync();
+
+        btnCheckout.setOnClickListener(v -> {
+            showPaymentConfirmDialog(
+                    "Bạn có chắc muốn thanh toán toàn bộ giỏ hàng?",
+                    () -> {
                         AsyncApiHelper.execute(
-                                () -> cartApi.removeFromCart(course.getId()),
-                                new AsyncApiHelper.ApiCallback<Boolean>() {
+                                () -> cartApi.checkout(),
+                                new AsyncApiHelper.ApiCallback<List<Course>>() {
                                     @Override
-                                    public void onSuccess(Boolean removed) {
-                                        if (removed) {
-                                            cartList.clear();
-                                            cartList.addAll(cartApi.getCartCourses());
-                                            cartAdapter.notifyDataSetChanged();
-                                            updateSummary();
-
-                                            Toast.makeText(requireContext(),
-                                                    "Đã xóa khỏi giỏ hàng",
-                                                    Toast.LENGTH_SHORT).show();
+                                    public void onSuccess(List<Course> purchasedCourses) {
+                                        // ✅ Update MyCourse cache sau khi checkout thành công
+                                        if (myCourseApi != null && purchasedCourses != null && !purchasedCourses.isEmpty()) {
+                                            myCourseApi.addPurchasedCourses(purchasedCourses);
                                         }
+
+                                        loadCartAsync();
+
+                                        Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
+                                        intent.putExtra("open_my_course", true);
+                                        startActivity(intent);
+                                        requireActivity().finish();
                                     }
 
                                     @Override
                                     public void onError(Exception e) {
                                         Toast.makeText(requireContext(),
-                                                "Lỗi xóa giỏ hàng: " + e.getMessage(),
+                                                "Lỗi thanh toán",
                                                 Toast.LENGTH_SHORT).show();
                                     }
                                 }
                         );
-                    });
-                }
-
-                @Override
-                public void onPayItemClicked(Course course) {
-                    if (course == null) return;
-
-                    // 👉 Format giá giống bên Course Detail
-                    NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-                    String priceText = nf.format(course.getPrice());
-
-                    // Thanh toán 1 khóa học trong giỏ: dialog confirm -> dialog thành công
-                    String msg = "Bạn có chắc muốn thanh toán khóa học \"" + course.getTitle() + "\"?\n"
-                            + "Giá: " + priceText;
-
-                    showPaymentConfirmDialog(msg, () -> {
-                        // FIRST: record purchase at CourseApi (backend responsibility). In fake, it will increment students.
-                        if (courseApi != null) {
-                            courseApi.recordPurchase(course.getId());
-                        }
-
-                        showPaymentSuccessDialog(
-                                "Thanh toán khóa \"" + course.getTitle() + "\" thành công",
-                                true,
-                                () -> {
-                                    // Sau khi thanh toán khóa riêng lẻ:
-                                    // 1. Thêm vào My Course
-                                    if (myCourseApi != null) {
-                                        myCourseApi.addPurchasedCourse(course);
-                                    }
-                                    // 2. Xóa khỏi giỏ
-                                    cartApi.removeFromCart(course.getId());
-                                    // 3. Cập nhật lại list giỏ hàng
-                                    cartList.clear();
-                                    cartList.addAll(cartApi.getCartCourses());
-                                    cartAdapter.notifyDataSetChanged();
-                                    updateSummary();
-                                    // 4. Quay về My Course tab
-                                    Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
-                                    intent.putExtra("open_my_course", true);
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                    startActivity(intent);
-                                    // 5. Đóng Activity chứa fragment (thường là StudentHomeActivity)
-                                    requireActivity().finish();
-                                }
-                        );
-                    });
-                }
-            });
-
-            recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
-            recycler.setAdapter(cartAdapter);
-
-            updateSummary();
-
-            btnCheckout.setOnClickListener(v -> {
-                int count = cartApi.getTotalItems();
-                double totalPrice = cartApi.getTotalPrice();
-
-                if (count == 0) {
-                    Toast.makeText(requireContext(),
-                            "Giỏ hàng trống, không thể thanh toán",
-                            Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                NumberFormat nf = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
-                String msg = "Bạn có chắc muốn thanh toán " + count + " khóa học\n"
-                        + "Tổng tiền: " + nf.format(totalPrice) + " ?";
-
-                showPaymentConfirmDialog(msg, () -> {
-                    AsyncApiHelper.execute(
-                            () -> cartApi.checkout(),
-                            new AsyncApiHelper.ApiCallback<List<Course>>() {
-                                @Override
-                                public void onSuccess(List<Course> purchasedCourses) {
-                                    if (purchasedCourses == null || purchasedCourses.isEmpty()) {
-                                        Toast.makeText(requireContext(),
-                                                "Thanh toán thất bại, vui lòng thử lại",
-                                                Toast.LENGTH_SHORT).show();
-                                        return;
-                                    }
-
-                                    showPaymentSuccessDialog(
-                                            "Thanh toán toàn bộ giỏ hàng thành công",
-                                            true,
-                                            () -> {
-                                                cartList.clear();
-                                                cartAdapter.notifyDataSetChanged();
-                                                updateSummary();
-
-                                                Intent intent = new Intent(requireContext(), StudentHomeActivity.class);
-                                                intent.putExtra("open_my_course", true);
-                                                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                                startActivity(intent);
-                                                requireActivity().finish();
-                                            }
-                                    );
-                                }
-
-                                @Override
-                                public void onError(Exception e) {
-                                    Toast.makeText(requireContext(),
-                                            "Lỗi thanh toán: " + e.getMessage(),
-                                            Toast.LENGTH_SHORT).show();
-                                }
-                            }
-                    );
-                });
-            });
-
-            return view;
-        }
+                    }
+            );
+        });
     }
+
 
     @Override
     public void onStart() {
@@ -367,4 +225,66 @@ public class StudentCartFragment extends Fragment {
                 () -> { if (onConfirmed != null) onConfirmed.run(); }
         );
     }
+
+    private void loadCartAsync() {
+        AsyncApiHelper.execute(
+                () -> cartApi.getCartCourses(),
+                new AsyncApiHelper.ApiCallback<List<Course>>() {
+                    @Override
+                    public void onSuccess(List<Course> result) {
+                        if (!isAdded()) return;
+
+                        cartList.clear();
+                        if (result != null) {
+                            cartList.addAll(result);
+                        }
+                        cartAdapter.notifyDataSetChanged();
+                        updateSummary();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        cartList.clear();
+                        cartAdapter.notifyDataSetChanged();
+                        updateSummary();
+                    }
+                }
+        );
+    }
+
+    private final CartAdapter.CartActionListener cartActionListener =
+            new CartAdapter.CartActionListener() {
+
+                @Override
+                public void onRemoveClicked(Course course, int position) {
+                    if (course == null) return;
+
+                    String msg = "Bạn có chắc muốn xóa khóa học \"" + course.getTitle() + "\" khỏi giỏ hàng?";
+                    showRemoveConfirmDialog(msg, () -> {
+                        AsyncApiHelper.execute(
+                                () -> cartApi.removeFromCart(course.getId()),
+                                new AsyncApiHelper.ApiCallback<Boolean>() {
+                                    @Override
+                                    public void onSuccess(Boolean removed) {
+                                        loadCartAsync();
+                                    }
+
+                                    @Override
+                                    public void onError(Exception e) {
+                                        Toast.makeText(requireContext(),
+                                                "Lỗi xóa giỏ hàng",
+                                                Toast.LENGTH_SHORT).show();
+                                    }
+                                }
+                        );
+                    });
+                }
+
+                @Override
+                public void onPayItemClicked(Course course) {
+                    // ❌ REMOVED: Individual pay functionality (was checking out entire cart)
+                    // This method is no longer called as the button is hidden in CartAdapter
+                    // Users should use the "Checkout All" button at the bottom instead
+                }
+            };
 }

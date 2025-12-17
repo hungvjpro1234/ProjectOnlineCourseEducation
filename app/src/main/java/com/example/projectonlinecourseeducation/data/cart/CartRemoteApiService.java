@@ -4,16 +4,15 @@ import android.util.Log;
 
 import com.example.projectonlinecourseeducation.core.model.course.Course;
 import com.example.projectonlinecourseeducation.core.model.user.User;
-import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.cart.remote.AddToCartRequest;
 import com.example.projectonlinecourseeducation.data.cart.remote.CartApiResponse;
-import com.example.projectonlinecourseeducation.data.cart.remote.CartItemDto;
+import com.example.projectonlinecourseeducation.data.cart.remote.CartDtoMapper;
 import com.example.projectonlinecourseeducation.data.cart.remote.CartRetrofitService;
 import com.example.projectonlinecourseeducation.data.cart.remote.CheckoutRequest;
-import com.example.projectonlinecourseeducation.data.cart.remote.CourseStatusDto;
 import com.example.projectonlinecourseeducation.data.cart.remote.RemoveFromCartRequest;
 import com.example.projectonlinecourseeducation.data.network.RetrofitClient;
 import com.example.projectonlinecourseeducation.data.network.SessionManager;
+import com.example.projectonlinecourseeducation.data.cart.remote.CartCourseDto;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,6 +45,10 @@ public class CartRemoteApiService implements CartApi {
     // Observers for cart changes
     private final List<CartUpdateListener> listeners = new ArrayList<>();
 
+    // ===== LOCAL CART CACHE (for UI state) =====
+    private final List<String> localCartIds = new ArrayList<>();
+
+
     public CartRemoteApiService() {
         this.retrofitService = RetrofitClient.getCartService();
         this.sessionManager = RetrofitClient.getSessionManager();
@@ -71,52 +74,21 @@ public class CartRemoteApiService implements CartApi {
     }
 
     /**
-     * Convert CartItemDto to Course object
-     * NOTE: Backend MUST return full course data (JOIN with course table)
-     */
-    private Course convertDtoToCourse(CartItemDto dto) {
-        Course course = new Course();
-
-        // Course ID
-        if (dto.getCourseId() != null) {
-            course.setId(String.valueOf(dto.getCourseId()));
-        }
-
-        // If backend joined with course table, these fields will be populated
-        course.setTitle(dto.getTitle() != null ? dto.getTitle() : dto.getCourseName());
-        course.setDescription(dto.getDescription());
-        course.setImageUrl(dto.getImageUrl());
-        course.setCategory(dto.getCategory());
-        course.setTeacher(dto.getTeacher());
-
-        // Price - use price_snapshot from cart, fallback to course price
-        if (dto.getPriceSnapshot() != null) {
-            course.setPrice(dto.getPriceSnapshot());
-        } else if (dto.getPrice() != null) {
-            course.setPrice(dto.getPrice());
-        }
-
-        // Stats
-        if (dto.getRating() != null) {
-            course.setRating(dto.getRating());
-        }
-        if (dto.getStudents() != null) {
-            course.setStudents(dto.getStudents());
-        }
-        if (dto.getTotalDurationMinutes() != null) {
-            course.setTotalDurationMinutes(dto.getTotalDurationMinutes());
-        }
-
-        return course;
-    }
-
-    /**
      * Notify all listeners that cart changed
      */
     private void notifyListeners() {
-        for (CartUpdateListener listener : listeners) {
-            listener.onCartChanged();
-        }
+        android.os.Handler mainHandler =
+                new android.os.Handler(android.os.Looper.getMainLooper());
+
+        mainHandler.post(() -> {
+            for (CartUpdateListener listener : listeners) {
+                try {
+                    listener.onCartChanged();
+                } catch (Exception e) {
+                    Log.e(TAG, "CartUpdateListener error", e);
+                }
+            }
+        });
     }
 
     // ============ CART OPERATIONS (CURRENT USER) ============
@@ -124,49 +96,45 @@ public class CartRemoteApiService implements CartApi {
     @Override
     public List<Course> getCartCourses() {
         Integer userId = getCurrentUserId();
-        if (userId == null) {
-            return new ArrayList<>();
-        }
+        if (userId == null) return new ArrayList<>();
 
         try {
-            Response<CartApiResponse<List<CartItemDto>>> response =
+            Response<CartApiResponse<List<CartCourseDto>>> response =
                     retrofitService.getCartItems(userId).execute();
 
             if (response.isSuccessful() && response.body() != null) {
-                CartApiResponse<List<CartItemDto>> apiResponse = response.body();
+                CartApiResponse<List<CartCourseDto>> apiResponse = response.body();
 
                 if (apiResponse.isSuccess() && apiResponse.getData() != null) {
                     List<Course> courses = new ArrayList<>();
-                    for (CartItemDto dto : apiResponse.getData()) {
-                        courses.add(convertDtoToCourse(dto));
+
+                    // ⭐ SYNC LOCAL CACHE
+                    localCartIds.clear();
+
+                    for (CartCourseDto dto : apiResponse.getData()) {
+                        Course c = CartDtoMapper.toCourse(dto);
+                        courses.add(c);
+                        localCartIds.add(c.getId());
                     }
                     return courses;
-                } else {
-                    Log.w(TAG, "getCartCourses failed: " + apiResponse.getMessage());
-                    return new ArrayList<>();
                 }
-            } else {
-                Log.e(TAG, "getCartCourses HTTP error: " + response.code());
-                return new ArrayList<>();
             }
-        } catch (IOException e) {
-            Log.e(TAG, "Network error in getCartCourses", e);
-            return new ArrayList<>();
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in getCartCourses", e);
-            return new ArrayList<>();
+            Log.e(TAG, "getCartCourses error", e);
         }
+
+        return new ArrayList<>();
     }
 
     @Override
     public boolean addToCart(Course course) {
         Integer userId = getCurrentUserId();
-        if (userId == null || course == null) {
-            return false;
-        }
+        if (userId == null || course == null) return false;
+
+        Integer courseId = CartDtoMapper.parseCourseId(course.getId());
+        if (courseId == null) return false;
 
         try {
-            Integer courseId = Integer.parseInt(course.getId());
             AddToCartRequest request = new AddToCartRequest(
                     userId,
                     courseId,
@@ -177,88 +145,87 @@ public class CartRemoteApiService implements CartApi {
             Response<CartApiResponse<Void>> response =
                     retrofitService.addToCart(request).execute();
 
-            if (response.isSuccessful() && response.body() != null) {
-                CartApiResponse<Void> apiResponse = response.body();
-                boolean success = apiResponse.isSuccess();
-
-                if (success) {
-                    notifyListeners();
-                } else {
-                    Log.w(TAG, "addToCart failed: " + apiResponse.getMessage());
-                }
-
-                return success;
-            } else {
-                Log.e(TAG, "addToCart HTTP error: " + response.code());
+            if (!response.isSuccessful() || response.body() == null) {
                 return false;
             }
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Invalid course ID: " + course.getId(), e);
+
+            CartApiResponse<Void> body = response.body();
+
+            if (body.isSuccess() && body.isAdded()) {
+                // ✅ update local cache FIRST
+                localCartIds.add(course.getId());
+
+                // ✅ notify UI
+                notifyListeners();
+                return true;
+            }
+
+            // added=false → đã trong cart hoặc đã mua
             return false;
-        } catch (IOException e) {
-            Log.e(TAG, "Network error in addToCart", e);
-            return false;
+
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in addToCart", e);
+            Log.e(TAG, "addToCart error", e);
             return false;
         }
     }
 
     @Override
     public boolean removeFromCart(String courseId) {
-        boolean success = removeFromCartInternal(courseId);
-        if (success) {
+        boolean removed = removeFromCartInternal(courseId);
+        if (removed) {
             notifyListeners();
         }
-        return success;
+        return removed;
     }
 
 
     @Override
     public void clearCart() {
-
         List<Course> cartCourses = getCartCourses();
-        if (cartCourses.isEmpty()) {
-            return;
-        }
+        if (cartCourses.isEmpty()) return;
 
-        boolean anyRemoved = false;
+        boolean changed = false;
 
-        for (Course course : cartCourses) {
-            boolean removed = removeFromCartInternal(course.getId());
-            if (removed) {
-                anyRemoved = true;
+        for (Course c : cartCourses) {
+            if (removeFromCartInternal(c.getId())) {
+                changed = true;
             }
         }
 
-        if (anyRemoved) {
+        if (changed) {
             notifyListeners();
         }
     }
 
+    /**
+     * ✅ FIX: CHECK LOCAL CACHE ONLY
+     *
+     * Cache được sync khi:
+     * - getCartCourses() được gọi (StudentCartFragment loads data)
+     * - addToCart() thành công
+     * - removeFromCart() thành công
+     *
+     * KHÔNG GỌI backend để tránh Binder transaction overflow
+     */
     @Override
     public boolean isInCart(String courseId) {
-        List<Course> cartCourses = getCartCourses();
-        for (Course c : cartCourses) {
-            if (c.getId().equals(courseId)) {
-                return true;
-            }
-        }
-        return false;
+        if (courseId == null) return false;
+
+        // ✅ CHECK CACHE ONLY
+        boolean inCache = localCartIds.contains(courseId);
+        Log.d(TAG, "isInCart(" + courseId + "): cache result = " + inCache);
+        return inCache;
     }
 
     @Override
     public int getTotalItems() {
-        return getCartCourses().size();
+        return localCartIds.size();
     }
 
     @Override
     public double getTotalPrice() {
-        double total = 0;
-        for (Course c : getCartCourses()) {
-            total += c.getPrice();
-        }
-        return total;
+        // UI badge only — backend sẽ tính khi checkout
+        return 0;
     }
 
     // ============ OBSERVERS ============
@@ -279,43 +246,34 @@ public class CartRemoteApiService implements CartApi {
 
     @Override
     public List<Course> getCartCoursesForUser(String userId) {
-        if (userId == null) {
-            return new ArrayList<>();
-        }
-
         try {
-            Integer userIdInt = Integer.parseInt(userId);
+            Integer uid = Integer.parseInt(userId);
 
-            Response<CartApiResponse<List<CartItemDto>>> response =
-                    retrofitService.getCartItems(userIdInt).execute();
+            Response<CartApiResponse<List<CartCourseDto>>> response =
+                    retrofitService.getCartItems(uid).execute();
 
             if (response.isSuccessful() && response.body() != null) {
-                CartApiResponse<List<CartItemDto>> apiResponse = response.body();
+                CartApiResponse<List<CartCourseDto>> apiResponse = response.body();
 
                 if (apiResponse.isSuccess() && apiResponse.getData() != null) {
                     List<Course> courses = new ArrayList<>();
-                    for (CartItemDto dto : apiResponse.getData()) {
-                        courses.add(convertDtoToCourse(dto));
+
+                    // ⭐ SYNC LOCAL CACHE
+                    localCartIds.clear();
+
+                    for (CartCourseDto dto : apiResponse.getData()) {
+                        Course c = CartDtoMapper.toCourse(dto);
+                        courses.add(c);
+                        localCartIds.add(c.getId());
                     }
                     return courses;
-                } else {
-                    Log.w(TAG, "getCartCoursesForUser failed: " + apiResponse.getMessage());
-                    return new ArrayList<>();
                 }
-            } else {
-                Log.e(TAG, "getCartCoursesForUser HTTP error: " + response.code());
-                return new ArrayList<>();
             }
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Invalid user ID: " + userId, e);
-            return new ArrayList<>();
-        } catch (IOException e) {
-            Log.e(TAG, "Network error in getCartCoursesForUser", e);
-            return new ArrayList<>();
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in getCartCoursesForUser", e);
-            return new ArrayList<>();
+            Log.e(TAG, "getCartCoursesForUser error", e);
         }
+
+        return new ArrayList<>();
     }
 
     @Override
@@ -332,67 +290,51 @@ public class CartRemoteApiService implements CartApi {
     @Override
     public List<Course> checkout() {
         Integer userId = getCurrentUserId();
-        if (userId == null) {
-            return new ArrayList<>();
-        }
+        if (userId == null) return new ArrayList<>();
 
-        // 1. Get cart courses
         List<Course> cartCourses = getCartCourses();
-        if (cartCourses.isEmpty()) {
-            return new ArrayList<>();
-        }
+        if (cartCourses.isEmpty()) return new ArrayList<>();
 
-        // 2. Convert course IDs to List<Integer>
-        List<Integer> courseIds = new ArrayList<>();
-        for (Course c : cartCourses) {
-            try {
-                courseIds.add(Integer.parseInt(c.getId()));
-            } catch (NumberFormatException e) {
-                Log.e(TAG, "Invalid course ID in cart: " + c.getId(), e);
-            }
-        }
-
-        if (courseIds.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        // 3. Call backend checkout endpoint
         try {
-            CheckoutRequest request = new CheckoutRequest(userId, courseIds);
+            CheckoutRequest request = new CheckoutRequest(userId);
 
-            Response<CartApiResponse<Void>> response =
+            Response<CartApiResponse<List<CartCourseDto>>> response =
                     retrofitService.checkout(request).execute();
 
-            if (response.isSuccessful() && response.body() != null) {
-                CartApiResponse<Void> apiResponse = response.body();
+            if (response.isSuccessful()
+                    && response.body() != null
+                    && response.body().isSuccess()
+                    && response.body().getData() != null) {
 
-                if (apiResponse.isSuccess()) {
-                    Log.i(TAG, "Checkout successful: " + apiResponse.getMessage());
-
-                    // 4. Update MyCourseApi (backend already updated database, but sync FakeApi if needed)
-                    // NOTE: If using MyCourseFakeApiService, we should update it here
-                    // If using MyCourseRemoteApiService, it will fetch from backend automatically
-
-                    // 5. Notify listeners
-                    notifyListeners();
-
-                    // 6. Return purchased courses
-                    return cartCourses;
-                } else {
-                    Log.w(TAG, "Checkout failed: " + apiResponse.getMessage());
-                    return new ArrayList<>();
+                List<Course> purchased = new ArrayList<>();
+                for (CartCourseDto dto : response.body().getData()) {
+                    purchased.add(CartDtoMapper.toCourse(dto));
                 }
-            } else {
-                Log.e(TAG, "Checkout HTTP error: " + response.code());
-                return new ArrayList<>();
+
+                localCartIds.clear(); // ⭐ CLEAR CART CACHE
+
+                // ⭐⭐⭐ CRITICAL FIX: UPDATE MYCOURSE CACHE ⭐⭐⭐
+                // Giống logic CartFakeApiService.checkout()
+                // Cập nhật MyCourse cache ngay sau checkout thành công
+                // để isPurchased() trả về true và button state đúng
+                com.example.projectonlinecourseeducation.data.mycourse.MyCourseApi myCourseApi =
+                        com.example.projectonlinecourseeducation.data.ApiProvider.getMyCourseApi();
+                if (myCourseApi != null) {
+                    myCourseApi.addPurchasedCourses(purchased); // ✅ Sync MyCourse cache
+                    Log.d(TAG, "✅ Synced " + purchased.size() + " courses to MyCourse cache after checkout");
+                } else {
+                    Log.w(TAG, "⚠️ MyCourseApi is null, cannot sync cache");
+                }
+
+                notifyListeners();
+                return purchased;
             }
-        } catch (IOException e) {
-            Log.e(TAG, "Network error in checkout", e);
-            return new ArrayList<>();
+
         } catch (Exception e) {
-            Log.e(TAG, "Unexpected error in checkout", e);
-            return new ArrayList<>();
+            Log.e(TAG, "checkout error", e);
         }
+
+        return new ArrayList<>();
     }
 
     /**
@@ -401,21 +343,28 @@ public class CartRemoteApiService implements CartApi {
      */
     private boolean removeFromCartInternal(String courseId) {
         Integer userId = getCurrentUserId();
-        if (userId == null || courseId == null) {
-            return false;
-        }
+        if (userId == null || courseId == null) return false;
+
+        Integer parsedCourseId = CartDtoMapper.parseCourseId(courseId);
+        if (parsedCourseId == null) return false;
 
         try {
-            Integer courseIdInt = Integer.parseInt(courseId);
             RemoveFromCartRequest request =
-                    new RemoveFromCartRequest(userId, courseIdInt);
+                    new RemoveFromCartRequest(userId, parsedCourseId);
 
             Response<CartApiResponse<Void>> response =
                     retrofitService.removeFromCart(request).execute();
 
-            return response.isSuccessful()
-                    && response.body() != null
-                    && response.body().isSuccess();
+            if (!response.isSuccessful() || response.body() == null) {
+                return false;
+            }
+
+            CartApiResponse<Void> body = response.body();
+            if (body.isSuccess() && body.isRemoved()) {
+                localCartIds.remove(courseId); // ✅ sync local
+                return true;
+            }
+            return false;
 
         } catch (Exception e) {
             Log.e(TAG, "removeFromCartInternal error", e);

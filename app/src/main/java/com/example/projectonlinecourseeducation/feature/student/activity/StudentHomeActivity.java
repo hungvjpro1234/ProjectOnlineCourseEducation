@@ -92,6 +92,10 @@ public class StudentHomeActivity extends AppCompatActivity {
             return true;
         });
 
+        // ✅ FIX: Force sync MyCourse và Cart cache khi app start để đồng bộ với backend
+        preloadMyCourseCache();
+        preloadCartCache();
+
         // mặc định mở Home
         // Nếu được truyền flag open_cart từ StudentCourseDetailActivity thì mở tab Giỏ hàng
         // Nếu được truyền flag open_my_course từ thanh toán thì mở tab My Course
@@ -230,5 +234,67 @@ public class StudentHomeActivity extends AppCompatActivity {
             badge.clearNumber();
             badge.setVisible(false);
         }
+    }
+
+    /**
+     * ✅ FIX CRITICAL: Preload MyCourse cache để sync với backend
+     *
+     * VẤN ĐỀ: MyCourse cache chỉ init khi user mở tab MyCourse
+     * → isPurchased() check cache rỗng → trả về false → hiển thị sai
+     *
+     * GIẢI PHÁP: Gọi getMyCourses() ngay khi app start để sync cache
+     */
+    private void preloadMyCourseCache() {
+        AsyncApiHelper.execute(
+                () -> {
+                    // Gọi getMyCourses() để sync cache với backend
+                    ApiProvider.getMyCourseApi().getMyCourses();
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                        // Cache đã sync - CourseStatusResolver.isPurchased() giờ sẽ đúng
+                        android.util.Log.d("StudentHomeActivity", "✅ MyCourse cache preloaded successfully");
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Log lỗi nhưng không crash app
+                        android.util.Log.e("StudentHomeActivity", "❌ Failed to preload MyCourse cache", e);
+                    }
+                }
+        );
+    }
+
+    /**
+     * ✅ FIX CRITICAL: Preload Cart cache để sync với backend
+     *
+     * VẤN ĐỀ: Cart cache chỉ init khi user mở tab Cart
+     * → isInCart() check cache rỗng → trả về false → hiển thị sai trạng thái nút
+     *
+     * GIẢI PHÁP: Gọi getCartCourses() ngay khi app start để sync cache
+     */
+    private void preloadCartCache() {
+        AsyncApiHelper.execute(
+                () -> {
+                    // Gọi getCartCourses() để sync cache với backend
+                    ApiProvider.getCartApi().getCartCourses();
+                    return null;
+                },
+                new AsyncApiHelper.ApiCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                        // Cache đã sync - CourseStatusResolver.isInCart() giờ sẽ đúng
+                        android.util.Log.d("StudentHomeActivity", "✅ Cart cache preloaded successfully");
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        // Log lỗi nhưng không crash app
+                        android.util.Log.e("StudentHomeActivity", "❌ Failed to preload Cart cache", e);
+                    }
+                }
+        );
     }
 }

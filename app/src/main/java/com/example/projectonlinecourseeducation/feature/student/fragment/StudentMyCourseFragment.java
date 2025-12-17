@@ -107,6 +107,16 @@ public class StudentMyCourseFragment extends Fragment {
         }
     }
 
+    // ✅ FIX: Reload data mỗi khi fragment visible (sau khi mua course)
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Reload để có course mới mua
+        if (myCourseApi != null) {
+            loadMyCourses();
+        }
+    }
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
