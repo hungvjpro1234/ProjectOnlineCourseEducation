@@ -1,9 +1,9 @@
 // core/utils/OnlyFakeApiService/ReviewSeedData.java
-package com.example.projectonlinecourseeducation.core.utils.finalclass;
+package com.example.projectonlinecourseeducation.core.utils.datahelper;
 
-public final class ReviewSeedData {
+public final class ReviewHelper {
 
-    private ReviewSeedData() {}
+    private ReviewHelper() {}
 
     public static final String REVIEWS_JSON = "[\n" +
             "  {\"id\":\"r1\",\"courseId\":\"c1\",\"userName\":\"Student One\",\"rating\":4.5,\n" +

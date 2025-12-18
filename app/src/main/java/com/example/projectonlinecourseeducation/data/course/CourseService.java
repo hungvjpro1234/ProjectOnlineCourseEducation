@@ -7,7 +7,7 @@ import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.coursereview.ReviewApi; // NEW
-import static com.example.projectonlinecourseeducation.core.utils.finalclass.CourseSeedData.COURSES_JSON;
+import static com.example.projectonlinecourseeducation.core.utils.datahelper.CourseHelper.COURSES_JSON;
 
 import org.json.JSONArray;
 import org.json.JSONException;

@@ -1,9 +1,9 @@
 // core/utils/OnlyFakeApiService/LessonSeedData.java
-package com.example.projectonlinecourseeducation.core.utils.finalclass;
+package com.example.projectonlinecourseeducation.core.utils.datahelper;
 
-public final class LessonSeedData {
+public final class LessonHelper {
 
-    private LessonSeedData() {}
+    private LessonHelper() {}
 
     public static final String LESSONS_JSON = "[\n" +
 

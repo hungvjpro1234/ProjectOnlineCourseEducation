@@ -41,6 +41,8 @@ import java.util.Map;
  *
  * Đăng ký:
  * - QuizUpdateListener: reload quiz nếu quiz bị create/update/delete.
+ *
+ * FIX: Truyền courseId khi navigate back để về đúng course
  */
 public class StudentLessonQuizActivity extends AppCompatActivity {
 
@@ -52,7 +54,7 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
 
     private String lessonId;
     private String nextLessonId; // optional
-    private String courseId; // for fallback lookup
+    private String courseId; // ✅ FIX: Lưu courseId để truyền khi navigate back
 
     private LessonQuizApi lessonQuizApi;
     private Quiz quiz;
@@ -89,17 +91,18 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
 
         lessonId = getIntent().getStringExtra("lesson_id");
         nextLessonId = getIntent().getStringExtra("next_lesson_id");
-        courseId = getIntent().getStringExtra("course_id");
+        courseId = getIntent().getStringExtra("course_id"); // ✅ FIX: Nhận courseId từ Intent
 
         // LẤY API QUIZ từ ApiProvider (đảm bảo ApiProvider có getLessonQuizApi())
         lessonQuizApi = ApiProvider.getLessonQuizApi();
 
         // Handle system back (gesture / hardware) using AndroidX OnBackPressedDispatcher
+        // FIX: Truyền courseId để về đúng course
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                // Navigate to StudentCoursePurchasedActivity (keeps logic consistent)
                 Intent intent = new Intent(StudentLessonQuizActivity.this, StudentCoursePurchasedActivity.class);
+                intent.putExtra("course_id", courseId); // ✅ FIX: Thêm courseId
                 startActivity(intent);
                 finish();
             }
@@ -127,8 +130,10 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
         });
 
         // Back ImageButton should go to StudentCoursePurchasedActivity
+        // FIX: Truyền courseId để về đúng course
         btnBack.setOnClickListener(v -> {
             Intent intent = new Intent(this, StudentCoursePurchasedActivity.class);
+            intent.putExtra("course_id", courseId); // ✅ FIX: Thêm courseId
             startActivity(intent);
             finish();
         });
@@ -230,6 +235,19 @@ public class StudentLessonQuizActivity extends AppCompatActivity {
 
         // Ensure submit button is default
         restoreSubmitButtonToDefault();
+
+        // ✅ FIX: Nếu courseId chưa có từ Intent, resolve từ lesson
+        if (courseId == null) {
+            try {
+                LessonApi lessonApi = ApiProvider.getLessonApi();
+                if (lessonApi != null) {
+                    Lesson lesson = lessonApi.getLessonDetail(lessonId);
+                    if (lesson != null) {
+                        courseId = lesson.getCourseId();
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
 
         // If nextLessonId not provided via intent, attempt to resolve now (best-effort)
         if (nextLessonId == null) {

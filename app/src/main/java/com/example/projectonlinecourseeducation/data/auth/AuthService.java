@@ -7,7 +7,7 @@ import org.json.JSONObject;
 
 import com.example.projectonlinecourseeducation.core.model.user.User;
 import com.example.projectonlinecourseeducation.core.model.user.User.Role;
-import static com.example.projectonlinecourseeducation.core.utils.finalclass.AuthSeedData.SEED_JSON;
+import static com.example.projectonlinecourseeducation.core.utils.datahelper.AuthHelper.SEED_JSON;
 
 import java.util.ArrayList;
 import java.util.List;

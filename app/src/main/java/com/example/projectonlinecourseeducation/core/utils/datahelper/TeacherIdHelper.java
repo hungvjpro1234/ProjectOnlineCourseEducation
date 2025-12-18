@@ -1,10 +1,10 @@
-package com.example.projectonlinecourseeducation.core.utils.finalclass;
+package com.example.projectonlinecourseeducation.core.utils.datahelper;
 
 import java.util.Map;
 
-public final class TeacherIdConstants {
+public final class TeacherIdHelper {
 
-    private TeacherIdConstants() {
+    private TeacherIdHelper() {
         // prevent instantiation
     }
 

@@ -1,7 +1,7 @@
 package com.example.projectonlinecourseeducation.data.lessoncomment;
 
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonComment;
-import static com.example.projectonlinecourseeducation.core.utils.finalclass.LessonCommentSeedData.COMMENTS_JSON;
+import static com.example.projectonlinecourseeducation.core.utils.datahelper.LessonCommentHelper.COMMENTS_JSON;
 
 import org.json.JSONArray;
 import org.json.JSONException;

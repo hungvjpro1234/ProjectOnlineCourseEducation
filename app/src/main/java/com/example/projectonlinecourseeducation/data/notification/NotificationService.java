@@ -3,7 +3,7 @@ package com.example.projectonlinecourseeducation.data.notification;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification.NotificationType;
 import com.example.projectonlinecourseeducation.core.model.notification.Notification.NotificationStatus;
-import com.example.projectonlinecourseeducation.core.utils.finalclass.TeacherIdConstants;
+import com.example.projectonlinecourseeducation.core.utils.datahelper.TeacherIdHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -335,7 +335,7 @@ public class NotificationService implements NotificationApi {
      * Helper method: Map tên teacher → userId
      */
     public String getTeacherIdByName(String teacherName) {
-        return TeacherIdConstants.TEACHER_NAME_TO_ID.getOrDefault(
+        return TeacherIdHelper.TEACHER_NAME_TO_ID.getOrDefault(
                 teacherName == null ? "" : teacherName.trim(),
                 "u2"
         );

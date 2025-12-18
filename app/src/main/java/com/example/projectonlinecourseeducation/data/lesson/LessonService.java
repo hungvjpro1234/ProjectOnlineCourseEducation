@@ -7,9 +7,9 @@ import androidx.annotation.NonNull;
 import com.example.projectonlinecourseeducation.core.model.lesson.Lesson;
 import com.example.projectonlinecourseeducation.core.model.course.Course; // ✅ THÊM IMPORT NÀY
 import com.example.projectonlinecourseeducation.core.model.user.User;
-import static com.example.projectonlinecourseeducation.core.utils.finalclass.LessonSeedData.LESSONS_JSON;
-import com.example.projectonlinecourseeducation.core.utils.finalclass.ActivityProvider;
-import com.example.projectonlinecourseeducation.core.utils.finalclass.VideoDurationHelper;
+import static com.example.projectonlinecourseeducation.core.utils.datahelper.LessonHelper.LESSONS_JSON;
+import com.example.projectonlinecourseeducation.core.utils.datahelper.ActivityProvider;
+import com.example.projectonlinecourseeducation.core.utils.datahelper.VideoDurationHelper;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.course.CourseService;
 

@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.utils.finalclass;
+package com.example.projectonlinecourseeducation.core.utils.datahelper;
 
 import android.app.Activity;
 import android.app.Dialog;

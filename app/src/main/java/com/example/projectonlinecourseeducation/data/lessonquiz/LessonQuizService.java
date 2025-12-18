@@ -3,7 +3,7 @@ package com.example.projectonlinecourseeducation.data.lessonquiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.Quiz;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizAttempt;
 import com.example.projectonlinecourseeducation.core.model.lesson.quiz.QuizQuestion;
-import static com.example.projectonlinecourseeducation.core.utils.finalclass.LessonQuizSeedData.QUIZZES_JSON;
+import static com.example.projectonlinecourseeducation.core.utils.datahelper.LessonQuizHelper.QUIZZES_JSON;
 import com.example.projectonlinecourseeducation.data.ApiProvider;
 import com.example.projectonlinecourseeducation.data.lessonprogress.LessonProgressApi;
 import com.example.projectonlinecourseeducation.core.model.lesson.LessonProgress;

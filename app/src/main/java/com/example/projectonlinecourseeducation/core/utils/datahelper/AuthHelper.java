@@ -1,9 +1,9 @@
 // core/utils/OnlyFakeApiService/AuthSeedData.java
-package com.example.projectonlinecourseeducation.core.utils.finalclass;
+package com.example.projectonlinecourseeducation.core.utils.datahelper;
 
-public final class AuthSeedData {
+public final class AuthHelper {
 
-    private AuthSeedData() {
+    private AuthHelper() {
         // prevent instantiate
     }
 

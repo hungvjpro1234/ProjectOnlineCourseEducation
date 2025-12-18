@@ -1,9 +1,9 @@
 // core/utils/OnlyFakeApiService/LessonCommentSeedData.java
-package com.example.projectonlinecourseeducation.core.utils.finalclass;
+package com.example.projectonlinecourseeducation.core.utils.datahelper;
 
-public final class LessonCommentSeedData {
+public final class LessonCommentHelper {
 
-    private LessonCommentSeedData() {}
+    private LessonCommentHelper() {}
 
     public static final String COMMENTS_JSON = "[\n" +
 

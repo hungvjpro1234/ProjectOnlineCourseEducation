@@ -1,4 +1,4 @@
-package com.example.projectonlinecourseeducation.core.apiservice;
+package com.example.projectonlinecourseeducation.core.utils.datahelper.apihelper;
 
 import com.example.projectonlinecourseeducation.core.model.course.CourseStudent;
 import com.example.projectonlinecourseeducation.data.course.CourseStudentApi;

@@ -56,6 +56,8 @@ import java.util.List;
  *   và chỉ cho phép làm quiz khi lesson đã completed (theo business rule).
  *
  * - Thêm QuizUpdateListener để tự cập nhật khi Quiz được create/update/delete.
+ *
+ * FIX: Truyền courseId khi navigate back để về đúng course
  */
 public class StudentLessonVideoActivity extends AppCompatActivity {
 
@@ -122,10 +124,12 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         lessonQuizApi = ApiProvider.getLessonQuizApi(); // NEW
 
         // Handle system back (gesture / hardware) using AndroidX OnBackPressedDispatcher
+        // FIX: Truyền courseId để về đúng course
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 Intent intent = new Intent(StudentLessonVideoActivity.this, StudentCoursePurchasedActivity.class);
+                intent.putExtra("course_id", courseId); // ✅ FIX: Thêm courseId
                 startActivity(intent);
                 finish();
             }
@@ -273,8 +277,10 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
         btnSendComment.setOnClickListener(v -> sendComment());
 
         // Back button -> navigate to StudentCoursePurchasedActivity (consistent behavior)
+        // FIX: Truyền courseId để về đúng course
         btnBack.setOnClickListener(v -> {
             Intent intent = new Intent(StudentLessonVideoActivity.this, StudentCoursePurchasedActivity.class);
+            intent.putExtra("course_id", courseId); // ✅ FIX: Thêm courseId
             startActivity(intent);
             finish();
         });
@@ -550,6 +556,7 @@ public class StudentLessonVideoActivity extends AppCompatActivity {
                 // Start Quiz Activity
                 Intent intent = new Intent(this, StudentLessonQuizActivity.class);
                 intent.putExtra("lesson_id", lessonId);
+                intent.putExtra("course_id", courseId); // ✅ FIX: Thêm courseId
                 if (nextLesson != null) intent.putExtra("next_lesson_id", nextLesson.getId());
                 startActivity(intent);
                 // don't finish() — user may return to replay video
