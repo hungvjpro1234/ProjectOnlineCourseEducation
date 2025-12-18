@@ -501,13 +501,11 @@ app.delete("/notifications/read/all", authMiddleware, async (req, res) => {
 });
 
 app.delete("/notifications/all", authMiddleware, async (req, res) => {
-    await db.none(
-        "DELETE FROM notification WHERE user_id = $1",
-        [req.user.userId]
-    );
+    await db.none("DELETE FROM notification WHERE user_id = $1", [
+        req.user.userId,
+    ]);
     res.send({ success: true });
 });
-
 
 // ================= COURSE REVIEWS =================
 
@@ -2466,6 +2464,24 @@ function transformLessonRow(row) {
     };
 }
 
+function validateQuizStructure(questions) {
+    if (!Array.isArray(questions)) return false;
+    if (questions.length !== 10) return false;
+
+    for (const q of questions) {
+        if (!Array.isArray(q.options)) return false;
+        if (q.options.length !== 4) return false;
+        if (
+            typeof q.correctOptionIndex !== "number" ||
+            q.correctOptionIndex < 0 ||
+            q.correctOptionIndex > 3
+        ) {
+            return false;
+        }
+    }
+    return true;
+}
+
 app.get("/lesson/course/:courseId", authMiddleware, async (req, res) => {
     try {
         const courseId = parseInt(req.params.courseId, 10);
@@ -2498,6 +2514,170 @@ app.get("/lesson/course/:courseId", authMiddleware, async (req, res) => {
         console.error(err);
         res.status(500).send({ success: false });
     }
+});
+
+app.get("/lesson/:lessonId/quiz", authMiddleware, async (req, res) => {
+    const lessonId = parseInt(req.params.lessonId, 10);
+
+    const quiz = await db.oneOrNone(
+        `SELECT * FROM lesson_quiz WHERE lesson_id = $1`,
+        [lessonId]
+    );
+
+    if (!quiz) {
+        return res.send({ success: true, data: null });
+    }
+
+    const questions = await db.any(
+        `SELECT question_id AS id, text, options, correct_index
+     FROM lesson_quiz_question
+     WHERE quiz_id = $1`,
+        [quiz.quiz_id]
+    );
+
+    res.send({
+        success: true,
+        data: {
+            id: quiz.quiz_id,
+            lessonId: String(lessonId),
+            title: quiz.title,
+            questions: questions.map((q) => ({
+                id: q.id,
+                text: q.text,
+                options: q.options,
+                correctOptionIndex: q.correct_index,
+            })),
+        },
+    });
+});
+
+app.post("/lesson/:lessonId/quiz/attempt", authMiddleware, async (req, res) => {
+    const lessonId = parseInt(req.params.lessonId, 10);
+    const studentId = req.user.userId;
+    const answers = req.body.answers || {};
+
+    // 1️⃣ check lesson completed
+    const progress = await db.oneOrNone(
+        `SELECT is_completed FROM lesson_progress
+     WHERE lesson_id=$1 AND user_id=$2`,
+        [lessonId, studentId]
+    );
+
+    if (!progress || !progress.is_completed) {
+        return res.status(403).send({
+            success: false,
+            message: "Lesson chưa hoàn thành",
+        });
+    }
+
+    // 2️⃣ get quiz + questions
+    const quiz = await db.one(`SELECT * FROM lesson_quiz WHERE lesson_id=$1`, [
+        lessonId,
+    ]);
+
+    const questions = await db.any(
+        `SELECT question_id, correct_index
+     FROM lesson_quiz_question
+     WHERE quiz_id=$1`,
+        [quiz.quiz_id]
+    );
+
+    let correct = 0;
+    questions.forEach((q) => {
+        if (answers[q.question_id] === q.correct_index) {
+            correct++;
+        }
+    });
+
+    const scorePercent = Math.round((correct / questions.length) * 100);
+    const passed = correct >= 8;
+
+    const attempt = await db.one(
+        `
+    INSERT INTO lesson_quiz_attempt
+    (quiz_id, lesson_id, student_id, answers, correct_count, score_percent, passed)
+    VALUES($1,$2,$3,$4,$5,$6,$7)
+    RETURNING *
+    `,
+        [
+            quiz.quiz_id,
+            lessonId,
+            studentId,
+            answers,
+            correct,
+            scorePercent,
+            passed,
+        ]
+    );
+
+    res.send({
+        success: true,
+        data: {
+            id: attempt.attempt_id,
+            quizId: attempt.quiz_id,
+            lessonId: attempt.lesson_id,
+            studentId: attempt.student_id,
+            answers: attempt.answers,
+            correctCount: attempt.correct_count,
+            scorePercent: attempt.score_percent,
+            passed: attempt.passed,
+            createdAt: new Date(attempt.created_at).getTime(),
+        },
+    });
+});
+
+app.get("/lesson/:lessonId/quiz/attempts", authMiddleware, async (req, res) => {
+    const lessonId = parseInt(req.params.lessonId, 10);
+    const studentId = req.user.userId;
+
+    const rows = await db.any(
+        `SELECT *
+         FROM lesson_quiz_attempt
+         WHERE lesson_id=$1 AND student_id=$2
+         ORDER BY created_at DESC`,
+        [lessonId, studentId]
+    );
+
+    res.send({
+        success: true,
+        data: rows.map(a => ({
+            id: a.attempt_id,
+            quizId: a.quiz_id,
+            lessonId: a.lesson_id,
+            studentId: a.student_id,
+            answers: a.answers,
+            correctCount: a.correct_count,
+            scorePercent: a.score_percent,
+            passed: a.passed,
+            createdAt: new Date(a.created_at).getTime(),
+        })),
+    });
+});
+
+
+app.get("/quiz/attempt/:attemptId", authMiddleware, async (req, res) => {
+    const attempt = await db.oneOrNone(
+        `SELECT * FROM lesson_quiz_attempt WHERE attempt_id=$1`,
+        [req.params.attemptId]
+    );
+    if (!attempt) {
+        return res.send({ success: true, data: null });
+    }
+
+    res.send({
+        success: true,
+        data: {
+            id: attempt.attempt_id,
+            quizId: attempt.quiz_id,
+            lessonId: attempt.lesson_id,
+            studentId: attempt.student_id,
+            answers: attempt.answers,
+            correctCount: attempt.correct_count,
+            scorePercent: attempt.score_percent,
+            passed: attempt.passed,
+            createdAt: new Date(attempt.created_at).getTime(),
+        },
+    });
 });
 
 app.post("/lesson", authMiddleware, async (req, res) => {
@@ -2935,10 +3115,7 @@ app.post(
 
             res.send({ success: true });
         } catch (err) {
-            console.error(
-                "POST /lesson/comment/:commentId/reply error",
-                err
-            );
+            console.error("POST /lesson/comment/:commentId/reply error", err);
             res.status(500).send({
                 success: false,
                 message: "Lỗi reply comment",
@@ -2946,6 +3123,5 @@ app.post(
         }
     }
 );
-
 
 app.listen(port, () => console.log(`Server listening on ${port}`));
