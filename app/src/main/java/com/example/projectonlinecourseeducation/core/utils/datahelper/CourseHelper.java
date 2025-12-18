@@ -10,7 +10,7 @@ public final class CourseHelper {
             "    \"id\":\"c1\",\n" +
             "    \"title\":\"Java Cơ Bản\",\n" +
             "    \"teacher\":\"Nguyễn A\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/j1/640/360\",\n" +
+            "    \"imageUrl\":\"https://s3-hfx03.fptcloud.com/codelearnstorage/files/thumbnails/java-co-ban_18f86065cf1d4640ae1ee476da5acf49.png\",\n" +
             "    \"category\":\"Java, Backend\",\n" +
             "    \"lectures\":5,\n" +
             "    \"students\":1200,\n" +
@@ -30,7 +30,7 @@ public final class CourseHelper {
             "    \"id\":\"c2\",\n" +
             "    \"title\":\"Java Web với Spring Boot\",\n" +
             "    \"teacher\":\"Nguyễn A\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/j3/640/360\",\n" +
+            "    \"imageUrl\":\"https://static.unica.vn/upload/images/2019/04/hoc-fullstack-java-web-voi-spring-boot_1555642764.jpg\",\n" +
             "    \"category\":\"Java, Backend\",\n" +
             "    \"lectures\":5,\n" +
             "    \"students\":1500,\n" +
@@ -50,7 +50,7 @@ public final class CourseHelper {
             "    \"id\":\"c3\",\n" +
             "    \"title\":\"JavaScript Cơ Bản Đến Nâng Cao\",\n" +
             "    \"teacher\":\"Teacher Assistant\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/js1/640/360\",\n" +
+            "    \"imageUrl\":\"https://online.unicode.vn/storage/images/kh%C3%B3a%20h%E1%BB%8Dc%20javascript.png\",\n" +
             "    \"category\":\"JavaScript, Frontend\",\n" +
             "    \"lectures\":5,\n" +
             "    \"students\":2000,\n" +
@@ -70,7 +70,7 @@ public final class CourseHelper {
             "    \"id\":\"c4\",\n" +
             "    \"title\":\"Python cho Phân Tích Dữ Liệu\",\n" +
             "    \"teacher\":\"Teacher Three\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/py1/640/360\",\n" +
+            "    \"imageUrl\":\"https://zendvn.com/images/coursesOffline/V6Lh4RvG1u.png\",\n" +
             "    \"category\":\"Python, Data / AI\",\n" +
             "    \"lectures\":6,\n" +
             "    \"students\":900,\n" +
@@ -90,7 +90,7 @@ public final class CourseHelper {
             "    \"id\":\"c5\",\n" +
             "    \"title\":\"HTML & CSS Cho Người Mới\",\n" +
             "    \"teacher\":\"Teacher Four\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/html1/640/360\",\n" +
+            "    \"imageUrl\":\"https://s3-hfx03.fptcloud.com/codelearnstorage/files/thumbnails/html-css-cho-nguoi-moi-bat-dau_3867537473444f328a4de0fa0231a6ea.jpg\",\n" +
             "    \"category\":\"HTML, CSS, Frontend\",\n" +
             "    \"lectures\":4,\n" +
             "    \"students\":1800,\n" +
@@ -110,7 +110,7 @@ public final class CourseHelper {
             "    \"id\":\"c6\",\n" +
             "    \"title\":\"SQL Cơ Bản Cho Backend\",\n" +
             "    \"teacher\":\"Teacher Five\",\n" +
-            "    \"imageUrl\":\"https://picsum.photos/seed/sql1/640/360\",\n" +
+            "    \"imageUrl\":\"https://cdn-main.28tech.com.vn/media/anh-khoa-hoc/anh_dai_dien_khoa_hoc/new/c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u%20v%C3%A0%20sql.png\",\n" +
             "    \"category\":\"SQL, Backend\",\n" +
             "    \"lectures\":5,\n" +
             "    \"students\":1100,\n" +
